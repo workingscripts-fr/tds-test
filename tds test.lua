@@ -2,6 +2,16 @@
 -- TDS TEST - AAA COSMIC UNIVERSE UI
 -- ==========================================
 
+print("script started")
+warn("script started")
+pcall(function() game:GetService("TestService"):Message("script started") end)
+pcall(function() if type(rconsoleprint) == "function" then rconsoleprint("script started
+") end end)
+pcall(function() if type(rconsoleinfo) == "function" then rconsoleinfo("script started
+") end end)
+pcall(function() if type(printconsole) == "function" then printconsole("script started
+") end end)
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -15,11 +25,8 @@ local GuiService = game:GetService("GuiService")
 local LocalPlayer = Players.LocalPlayer
 if not LocalPlayer then
     pcall(function()
-        LocalPlayer = Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+        LocalPlayer = Players:FindFirstChildOfClass("Player")
     end)
-    if not LocalPlayer then
-        LocalPlayer = Players.LocalPlayer
-    end
 end
 
 -- Safe, non-blocking PlayerGui / CoreGui resolution
