@@ -102,7 +102,6 @@ local selectedDifficulty = "Not Chosen"
 local selectedSquadSize = "Not Chosen"
 
 local difficultyOptions = {
-    { name = "Not Chosen", req = "" },
     { name = "Easy", req = "Level 0" },
     { name = "Casual", req = "Level 0" },
     { name = "Intermediate", req = "Level 5" },
@@ -111,7 +110,6 @@ local difficultyOptions = {
 }
 
 local squadSizeOptions = {
-    "Not Chosen",
     "Solo",
     "Duo",
     "Trio",
@@ -1684,6 +1682,13 @@ function executeAutoQueueStepByStep()
     isQueueRunning = true
     
     pcall(function()
+        if not autoQueueEnabled then
+            isQueueRunning = false
+            tStatus.Text = "Status: Disabled"
+            tStatus.TextColor3 = Color3.fromRGB(160, 170, 184)
+            return
+        end
+        
         -- Validation Check 1: Difficulty or Squad Size not chosen
         if selectedDifficulty == "Not Chosen" and selectedSquadSize == "Not Chosen" then
             tStatus.Text = "Status: Difficulty & Squad Size Not Chosen"
@@ -1702,7 +1707,7 @@ function executeAutoQueueStepByStep()
             return
         end
         
-        -- Queue Check 2: Stop clicking if player is already queued or cancel queue button is visible
+        -- Queue Check 2: Check if already queued or cancel queue button visible
         local cancelBtn = findTargetButton("cancel")
         if cancelBtn or isPlayerQueuedState then
             tStatus.Text = "Status: Successfully Queued!"
@@ -1711,42 +1716,10 @@ function executeAutoQueueStepByStep()
             return
         end
         
-        -- Priority 1: Click lobby PLAY button (opens Gamemode menu)
-        local playObj = findTargetButton("play")
-        if playObj then
-            tStatus.Text = "Status: Opening Play Menu..."
-            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
-            triggerAllSignals(playObj)
-            task.wait(1.2)
-            isQueueRunning = false
-            return
-        end
-        
-        -- Priority 2: Click Survival card (opens Difficulty menu)
-        local survivalObj = findTargetButton("survival")
-        if survivalObj then
-            tStatus.Text = "Status: Selecting Survival..."
-            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
-            triggerAllSignals(survivalObj)
-            task.wait(1.2)
-            isQueueRunning = false
-            return
-        end
-        
-        -- Priority 3: Click selected Difficulty (opens Squad Size menu)
-        local diffObj = findTargetButton(selectedDifficulty)
-        if diffObj then
-            tStatus.Text = string.format("Status: Selecting %s...", selectedDifficulty)
-            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
-            triggerAllSignals(diffObj)
-            task.wait(1.2)
-            isQueueRunning = false
-            return
-        end
-        
-        -- Priority 4: Click selected Squad Size (queues player)
+        -- Priority 1: Check if Squad Size submenu option is visible on screen (e.g. Solo/Duo/Trio/Quad)
         local squadObj = findTargetButton(selectedSquadSize)
         if squadObj then
+            print("[TDS AutoQueue] Step 4/4: Selected Squad Size -> " .. tostring(selectedSquadSize))
             tStatus.Text = string.format("Status: Selecting %s...", selectedSquadSize)
             tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
             triggerAllSignals(squadObj)
@@ -1755,6 +1728,43 @@ function executeAutoQueueStepByStep()
             isPlayerQueuedState = true
             tStatus.Text = "Status: Successfully Queued!"
             tStatus.TextColor3 = Color3.fromRGB(14, 255, 0)
+            print("[TDS AutoQueue] Queued Successfully!")
+            isQueueRunning = false
+            return
+        end
+        
+        -- Priority 2: Check if Difficulty submenu option is visible on screen (e.g. Easy/Casual/Intermediate/Molten/Fallen)
+        local diffObj = findTargetButton(selectedDifficulty)
+        if diffObj then
+            print("[TDS AutoQueue] Step 3/4: Selected Difficulty -> " .. tostring(selectedDifficulty))
+            tStatus.Text = string.format("Status: Selecting %s...", selectedDifficulty)
+            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
+            triggerAllSignals(diffObj)
+            task.wait(1.2)
+            isQueueRunning = false
+            return
+        end
+        
+        -- Priority 3: Check if Survival gamemode card is visible on screen
+        local survivalObj = findTargetButton("survival")
+        if survivalObj then
+            print("[TDS AutoQueue] Step 2/4: Selected Survival Mode")
+            tStatus.Text = "Status: Selecting Survival..."
+            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
+            triggerAllSignals(survivalObj)
+            task.wait(1.2)
+            isQueueRunning = false
+            return
+        end
+        
+        -- Priority 4: Check if Lobby PLAY button is visible on screen
+        local playObj = findTargetButton("play")
+        if playObj then
+            print("[TDS AutoQueue] Step 1/4: Clicked Play Button")
+            tStatus.Text = "Status: Opening Play Menu..."
+            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+            triggerAllSignals(playObj)
+            task.wait(1.2)
             isQueueRunning = false
             return
         end
