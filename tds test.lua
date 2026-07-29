@@ -802,6 +802,14 @@ createSidebarTabButton("Menu Settings")
 
 -- Forward declarations for cross-section variables
 local tStatus
+autoQueueEnabled = false
+isPlayerQueuedState = false
+local switchBtn, swKnob
+local isGuiObjectTrulyVisible, sendHardwareClick, triggerAllSignals, findTargetButton, executeAutoQueueStepByStep, isQueueRunning
+autoQueueEnabled = false
+isPlayerQueuedState = false
+local switchBtn, swKnob
+local isGuiObjectTrulyVisible, sendHardwareClick, triggerAllSignals, findTargetButton, executeAutoQueueStepByStep, isQueueRunning
 
 do -- Page 1: Auto Matchmaking scope
 -- ==========================================================
@@ -882,8 +890,8 @@ amPadding.Parent = amScroll
 tabPagesList["Auto Matchmaking"] = autoMatchPage
 
 -- TOGGLE CONTROL: AUTO QUEUE WITH CLEAN STATUS LABEL
-local autoQueueEnabled = false
-local isPlayerQueuedState = false
+autoQueueEnabled = false
+isPlayerQueuedState = false
 
 local toggleCard = Instance.new("Frame")
 toggleCard.Name = "ToggleCard_AutoQueue"
@@ -939,7 +947,7 @@ tStatus.TextXAlignment = Enum.TextXAlignment.Left
 tStatus.Parent = toggleCard
 
 -- Toggle Switch Control (Right Side)
-local switchBtn = Instance.new("TextButton")
+switchBtn = Instance.new("TextButton")
 switchBtn.Name = "SwitchBtn"
 switchBtn.AnchorPoint = Vector2.new(1, 0.5)
 switchBtn.Position = UDim2.new(1, -16, 0.4, 0)
@@ -961,7 +969,7 @@ swStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 swStroke.Parent = switchBtn
 attachRotatingOutline(swStroke, 24, 135)
 
-local swKnob = Instance.new("Frame")
+swKnob = Instance.new("Frame")
 swKnob.Name = "Knob"
 swKnob.Size = UDim2.fromOffset(20, 20)
 swKnob.Position = UDim2.fromOffset(3, 3)
@@ -1473,7 +1481,7 @@ do -- Click Engine scope
 -- ==========================================================
 
 -- Check if a GUI element is TRULY visible to the user on screen
-local function isGuiObjectTrulyVisible(gui)
+function isGuiObjectTrulyVisible(gui)
     if not gui or not gui:IsA("GuiObject") then return false end
     if gui.AbsoluteSize.X <= 2 or gui.AbsoluteSize.Y <= 2 then return false end
     
@@ -1504,7 +1512,7 @@ local function isGuiObjectTrulyVisible(gui)
     return true
 end
 
-local function sendHardwareClick(gui)
+function sendHardwareClick(gui)
     if not gui or not isGuiObjectTrulyVisible(gui) then return false end
     local absPos = gui.AbsolutePosition
     local absSize = gui.AbsoluteSize
@@ -1544,7 +1552,7 @@ local function sendHardwareClick(gui)
     return true
 end
 
-local function triggerAllSignals(gui)
+function triggerAllSignals(gui)
     if not gui or not isGuiObjectTrulyVisible(gui) then return false end
     local success = false
     
@@ -1606,7 +1614,7 @@ local function triggerAllSignals(gui)
 end
 
 -- Precise Target Element Finder (Strictly checks entire parent tree visibility)
-local function findTargetButton(targetKeyword)
+function findTargetButton(targetKeyword)
     local pg = getPlayerGui()
     if not pg then return nil end
     local lowerKw = string.lower(targetKeyword)
@@ -1669,9 +1677,9 @@ local function findTargetButton(targetKeyword)
 end
 
 -- Intelligent Multi-State Auto Queue Logic
-local isQueueRunning = false
+isQueueRunning = false
 
-local function executeAutoQueueStepByStep()
+function executeAutoQueueStepByStep()
     if isQueueRunning or not autoQueueEnabled then return end
     isQueueRunning = true
     
