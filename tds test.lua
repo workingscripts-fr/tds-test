@@ -2,15 +2,13 @@
 -- TDS TEST - AAA COSMIC UNIVERSE UI
 -- ==========================================
 
-print("script started")
-warn("script started")
-pcall(function() game:GetService("TestService"):Message("script started") end)
-pcall(function() if type(rconsoleprint) == "function" then rconsoleprint("script started
-") end end)
-pcall(function() if type(rconsoleinfo) == "function" then rconsoleinfo("script started
-") end end)
-pcall(function() if type(printconsole) == "function" then printconsole("script started
-") end end)
+pcall(function()
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Test",
+        Text = "Script executed!",
+        Duration = 5
+    })
+end)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
