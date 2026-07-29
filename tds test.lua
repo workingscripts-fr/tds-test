@@ -35,11 +35,8 @@ end
 
 local parentContainer = nil
 pcall(function()
-    if type(gethui) == "function" then parentContainer = gethui() end
+    parentContainer = game:GetService("CoreGui")
 end)
-if not parentContainer then
-    pcall(function() parentContainer = game:GetService("CoreGui") end)
-end
 if not parentContainer then
     parentContainer = PlayerGui
 end
@@ -2540,6 +2537,7 @@ do
     
     -- ========= RUN TRANSITION =========
     task.spawn(function()
+        local success, err = pcall(function()
         local function typeText(lbl, text, speed)
             local sc = {"#", "%", "X", "0", "1"}
             for i = 1, #text do
@@ -2678,6 +2676,15 @@ do
         bounceTween:Play()
         
         task.wait(0.1)
-        loaderGui:Destroy()
+        end) -- end pcall
+        
+        -- Fail-safe guarantee: reveal root menu & cleanup loader
+        menuRoot.Visible = true
+        menuRoot.Size = origSize
+        pcall(function()
+            if loaderGui and loaderGui.Parent then
+                loaderGui:Destroy()
+            end
+        end)
     end)
 end
