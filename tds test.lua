@@ -1611,65 +1611,94 @@ function triggerAllSignals(gui)
     return success
 end
 
--- Precise Target Element Finder (Strictly checks entire parent tree visibility)
+-- Precise Target Element Finder (with scoring, screen bounds, ImageButton support, and own-menu exclusion)
 function findTargetButton(targetKeyword)
     local pg = getPlayerGui()
     if not pg then return nil end
-    local lowerKw = string.lower(targetKeyword)
+    local lowerKw = string.lower(targetKeyword or "")
+    if lowerKw == "not chosen" or lowerKw == "" then return nil end
+    
+    local candidates = {}
+    local viewportY = 1000
+    pcall(function()
+        if workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize then
+            viewportY = workspace.CurrentCamera.ViewportSize.Y
+        end
+    end)
     
     for _, desc in ipairs(pg:GetDescendants()) do
-        -- CRITICAL: Skip our own custom GUI menu!
+        -- CRITICAL: Skip any elements inside our own custom GUI menu!
         if not (screenGui and desc:IsDescendantOf(screenGui)) then
-        if (desc:IsA("TextLabel") or desc:IsA("TextButton")) and isGuiObjectTrulyVisible(desc) then
-            local txt = string.lower(desc.Text or "")
-            txt = string.gsub(txt, "^%s*(.-)%s*$", "%1")
-            
-            local isMatch = false
-            if lowerKw == "play" then
-                if txt == "play" then isMatch = true end
-            elseif lowerKw == "survival" then
-                if (txt == "survival" or string.find(txt, "classic tower defense", 1, true)) and not string.find(txt, "pvp", 1, true) and not string.find(txt, "hardcore", 1, true) then
-                    isMatch = true
+            if (desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("ImageLabel") or desc:IsA("ImageButton")) and isGuiObjectTrulyVisible(desc) then
+                local txt = ""
+                if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+                    txt = string.lower(string.gsub(desc.Text or "", "^%s*(.-)%s*$", "%1"))
                 end
-            elseif lowerKw == "easy" then
-                if txt == "easy" or string.find(txt, "for new users", 1, true) then isMatch = true end
-            elseif lowerKw == "casual" then
-                if txt == "casual" or string.find(txt, "for the casual user", 1, true) then isMatch = true end
-            elseif lowerKw == "intermediate" then
-                if txt == "intermediate" or string.find(txt, "a balanced experience", 1, true) then isMatch = true end
-            elseif lowerKw == "molten" then
-                if txt == "molten" or string.find(txt, "for a molten experience", 1, true) then isMatch = true end
-            elseif lowerKw == "fallen" then
-                if txt == "fallen" or string.find(txt, "for the experienced user", 1, true) then isMatch = true end
-            elseif lowerKw == "solo" then
-                if txt == "solo" then isMatch = true end
-            elseif lowerKw == "duo" then
-                if txt == "duo" then isMatch = true end
-            elseif lowerKw == "trio" then
-                if txt == "trio" then isMatch = true end
-            elseif lowerKw == "quad" then
-                if txt == "quad" then isMatch = true end
-            elseif lowerKw == "cancel" then
-                if txt == "cancel" or txt == "cancel queue" or txt == "leave queue" or string.find(txt, "cancel", 1, true) then
-                    isMatch = true
-                end
-            end
-            
-            if isMatch then
-                local current = desc
-                for depth = 1, 4 do
-                    if not current or current:IsA("ScreenGui") then break end
-                    if current:IsA("GuiButton") or current:IsA("TextButton") or current:IsA("ImageButton") then
-                        if isGuiObjectTrulyVisible(current) then
-                            return current
+                local descName = string.lower(desc.Name or "")
+                
+                local isQuestOrInfo = (string.find(txt, "win", 1, true) or string.find(txt, "quest", 1, true) or string.find(txt, "reward", 1, true) or string.find(txt, "badge", 1, true) or string.find(txt, "triumph", 1, true) or string.find(txt, "kill", 1, true) or string.find(txt, "level", 1, true) or string.find(txt, "stat", 1, true))
+                
+                local isMatch = false
+                local score = 0
+                
+                if lowerKw == "play" then
+                    if not isQuestOrInfo then
+                        if txt == "play" then isMatch = true; score = 100
+                        elseif descName == "play" or descName == "playbutton" or descName == "play_button" then isMatch = true; score = 90
+                        elseif string.find(txt, "play", 1, true) and not string.find(txt, "replay", 1, true) and not string.find(txt, "display", 1, true) and not string.find(txt, "player", 1, true) then
+                            isMatch = true; score = 70
                         end
+                        if isMatch and desc.AbsolutePosition.Y > (viewportY * 0.4) then score = score + 50 end
                     end
-                    current = current.Parent
+                elseif lowerKw == "survival" then
+                    if not isQuestOrInfo then
+                        if txt == "survival" or descName == "survival" then isMatch = true; score = 100
+                        elseif string.find(txt, "classic tower defense", 1, true) or string.find(descName, "survival", 1, true) then isMatch = true; score = 80
+                        end
+                        if string.find(txt, "pvp", 1, true) or string.find(txt, "hardcore", 1, true) or string.find(txt, "sandbox", 1, true) then isMatch = false end
+                    end
+                elseif lowerKw == "easy" then
+                    if not isQuestOrInfo and (txt == "easy" or descName == "easy" or string.find(txt, "for new users", 1, true)) then isMatch = true; score = 100 end
+                elseif lowerKw == "casual" then
+                    if not isQuestOrInfo and (txt == "casual" or descName == "casual" or string.find(txt, "for the casual user", 1, true)) then isMatch = true; score = 100 end
+                elseif lowerKw == "intermediate" then
+                    if not isQuestOrInfo and (txt == "intermediate" or descName == "intermediate" or string.find(txt, "a balanced experience", 1, true)) then isMatch = true; score = 100 end
+                elseif lowerKw == "molten" then
+                    if not isQuestOrInfo and (txt == "molten" or descName == "molten" or string.find(txt, "for a molten experience", 1, true)) then isMatch = true; score = 100 end
+                elseif lowerKw == "fallen" then
+                    if not isQuestOrInfo and (txt == "fallen" or descName == "fallen" or string.find(txt, "for the experienced user", 1, true)) then isMatch = true; score = 100 end
+                elseif lowerKw == "solo" then
+                    if not isQuestOrInfo and (txt == "solo" or descName == "solo") then isMatch = true; score = 100 end
+                elseif lowerKw == "duo" then
+                    if not isQuestOrInfo and (txt == "duo" or descName == "duo") then isMatch = true; score = 100 end
+                elseif lowerKw == "trio" then
+                    if not isQuestOrInfo and (txt == "trio" or descName == "trio") then isMatch = true; score = 100 end
+                elseif lowerKw == "quad" then
+                    if not isQuestOrInfo and (txt == "quad" or descName == "quad") then isMatch = true; score = 100 end
+                elseif lowerKw == "cancel" then
+                    if txt == "cancel" or descName == "cancel" or string.find(txt, "cancel queue", 1, true) or string.find(txt, "leave queue", 1, true) then isMatch = true; score = 100 end
                 end
-                return desc
+                
+                if isMatch then
+                    local btnObj = desc
+                    local cur = desc
+                    for depth = 1, 5 do
+                        if not cur or cur:IsA("ScreenGui") then break end
+                        if (cur:IsA("GuiButton") or cur:IsA("TextButton") or cur:IsA("ImageButton")) and isGuiObjectTrulyVisible(cur) then
+                            btnObj = cur
+                            break
+                        end
+                        cur = cur.Parent
+                    end
+                    table.insert(candidates, { element = btnObj, score = score })
+                end
             end
         end
     end
+    
+    if #candidates > 0 then
+        table.sort(candidates, function(a, b) return a.score > b.score end)
+        return candidates[1].element
     end
     return nil
 end
