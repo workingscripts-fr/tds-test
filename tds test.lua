@@ -1706,6 +1706,18 @@ end
 -- Intelligent Multi-State Auto Queue Logic
 isQueueRunning = false
 
+local function waitForCondition(conditionFunc, timeout, retryInterval)
+    timeout = timeout or 1.5
+    retryInterval = retryInterval or 0.1
+    local startTime = os.clock()
+    while os.clock() - startTime < timeout do
+        local result = conditionFunc()
+        if result then return result end
+        task.wait(retryInterval)
+    end
+    return nil
+end
+
 function executeAutoQueueStepByStep()
     if isQueueRunning or not autoQueueEnabled then return end
     isQueueRunning = true
@@ -1718,7 +1730,7 @@ function executeAutoQueueStepByStep()
             return
         end
         
-        -- Validation Check 1: Difficulty or Squad Size not chosen
+        -- Validation Check: Difficulty & Squad Size selected
         if selectedDifficulty == "Not Chosen" and selectedSquadSize == "Not Chosen" then
             tStatus.Text = "Status: Difficulty & Squad Size Not Chosen"
             tStatus.TextColor3 = Color3.fromRGB(255, 120, 0)
@@ -1736,70 +1748,175 @@ function executeAutoQueueStepByStep()
             return
         end
         
-        -- Queue Check 2: Check if already queued or cancel queue button visible
+        -- Check if already queued
         local cancelBtn = findTargetButton("cancel")
         if cancelBtn or isPlayerQueuedState then
+            print("[AutoQueue] Queue Confirmation Detected - Already Queued")
             tStatus.Text = "Status: Successfully Queued!"
             tStatus.TextColor3 = Color3.fromRGB(14, 255, 0)
             isQueueRunning = false
             return
         end
         
-        -- Priority 1: Check if Squad Size submenu option is visible on screen (e.g. Solo/Duo/Trio/Quad)
-        local squadObj = findTargetButton(selectedSquadSize)
-        if squadObj then
-            print("[TDS AutoQueue] Step 4/4: Selected Squad Size -> " .. tostring(selectedSquadSize))
-            tStatus.Text = string.format("Status: Selecting %s...", selectedSquadSize)
-            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
-            triggerAllSignals(squadObj)
-            task.wait(1.2)
+        ----------------------------------------------------
+        -- STEP 1: Verify Play button exists
+        ----------------------------------------------------
+        local playBtn = findTargetButton("play")
+        local retries = 0
+        while not playBtn and retries < 5 and autoQueueEnabled do
+            retries = retries + 1
+            print(string.format("[AutoQueue] Waiting for Play button (Retry %d/5)...", retries))
+            tStatus.Text = string.format("Status: Waiting for Play (%d/5)...", retries)
+            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+            task.wait(0.5)
+            playBtn = findTargetButton("play")
+        end
+        
+        if not playBtn then
+            print("[AutoQueue] Fail-Safe: Play button could not be found after 5 retries. Restarting sequence...")
+            tStatus.Text = "Status: Play Button Not Found - Retrying..."
+            tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
+            isQueueRunning = false
+            return
+        end
+        
+        print("[AutoQueue] Found Play")
+        
+        ----------------------------------------------------
+        -- STEP 2: Click Play & Verify Survival menu appears
+        ----------------------------------------------------
+        local survivalBtn = findTargetButton("survival")
+        retries = 0
+        while not survivalBtn and retries < 5 and autoQueueEnabled do
+            retries = retries + 1
+            print(string.format("[AutoQueue] Clicking Play (Attempt %d/5)", retries))
+            tStatus.Text = "Status: Clicking Play..."
+            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
             
+            triggerAllSignals(playBtn)
+            
+            print("[AutoQueue] Waiting for Survival")
+            survivalBtn = waitForCondition(function()
+                return findTargetButton("survival")
+            end, 1.2, 0.15)
+            
+            if not survivalBtn then
+                playBtn = findTargetButton("play") or playBtn
+            end
+        end
+        
+        if not survivalBtn then
+            print("[AutoQueue] Fail-Safe: Survival menu failed to appear after 5 retries. Restarting from Play...")
+            tStatus.Text = "Status: Survival Menu Not Found - Restarting..."
+            tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
+            isQueueRunning = false
+            return
+        end
+        
+        print("[AutoQueue] Survival Found")
+        
+        ----------------------------------------------------
+        -- STEP 3: Click Survival & Verify Difficulty menu appears
+        ----------------------------------------------------
+        local diffBtn = findTargetButton(selectedDifficulty)
+        retries = 0
+        while not diffBtn and retries < 5 and autoQueueEnabled do
+            retries = retries + 1
+            print(string.format("[AutoQueue] Clicking Survival (Attempt %d/5)", retries))
+            tStatus.Text = "Status: Selecting Survival..."
+            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
+            
+            triggerAllSignals(survivalBtn)
+            
+            print("[AutoQueue] Waiting for Difficulty")
+            diffBtn = waitForCondition(function()
+                return findTargetButton(selectedDifficulty)
+            end, 1.2, 0.15)
+            
+            if not diffBtn then
+                survivalBtn = findTargetButton("survival") or survivalBtn
+            end
+        end
+        
+        if not diffBtn then
+            print(string.format("[AutoQueue] Fail-Safe: Difficulty '%s' not found after 5 retries. Restarting from Play...", selectedDifficulty))
+            tStatus.Text = string.format("Status: Difficulty %s Not Found - Restarting...", selectedDifficulty)
+            tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
+            isQueueRunning = false
+            return
+        end
+        
+        print(string.format("[AutoQueue] Difficulty Found: %s", selectedDifficulty))
+        
+        ----------------------------------------------------
+        -- STEP 4: Click Selected Difficulty & Verify Squad menu appears
+        ----------------------------------------------------
+        local squadBtn = findTargetButton(selectedSquadSize)
+        retries = 0
+        while not squadBtn and retries < 5 and autoQueueEnabled do
+            retries = retries + 1
+            print(string.format("[AutoQueue] Clicking %s (Attempt %d/5)", selectedDifficulty, retries))
+            tStatus.Text = string.format("Status: Clicking %s...", selectedDifficulty)
+            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
+            
+            triggerAllSignals(diffBtn)
+            
+            print("[AutoQueue] Waiting for Squad")
+            squadBtn = waitForCondition(function()
+                return findTargetButton(selectedSquadSize)
+            end, 1.2, 0.15)
+            
+            if not squadBtn then
+                diffBtn = findTargetButton(selectedDifficulty) or diffBtn
+            end
+        end
+        
+        if not squadBtn then
+            print(string.format("[AutoQueue] Fail-Safe: Squad option '%s' not found after 5 retries. Restarting from Play...", selectedSquadSize))
+            tStatus.Text = string.format("Status: Squad %s Not Found - Restarting...", selectedSquadSize)
+            tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
+            isQueueRunning = false
+            return
+        end
+        
+        print(string.format("[AutoQueue] Squad Found: %s", selectedSquadSize))
+        
+        ----------------------------------------------------
+        -- STEP 5: Click Selected Squad Size & Verify Queue Confirmation
+        ----------------------------------------------------
+        retries = 0
+        local isConfirmed = false
+        while not isConfirmed and retries < 5 and autoQueueEnabled do
+            retries = retries + 1
+            print(string.format("[AutoQueue] Clicking %s (Attempt %d/5)", selectedSquadSize, retries))
+            tStatus.Text = string.format("Status: Clicking %s...", selectedSquadSize)
+            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
+            
+            triggerAllSignals(squadBtn)
+            
+            print("[AutoQueue] Waiting for Queue Confirmation")
+            local confirm = waitForCondition(function()
+                local cBtn = findTargetButton("cancel")
+                return cBtn or isPlayerQueuedState
+            end, 1.5, 0.15)
+            
+            if confirm then
+                isConfirmed = true
+            else
+                squadBtn = findTargetButton(selectedSquadSize) or squadBtn
+            end
+        end
+        
+        if isConfirmed then
             isPlayerQueuedState = true
             tStatus.Text = "Status: Successfully Queued!"
             tStatus.TextColor3 = Color3.fromRGB(14, 255, 0)
-            print("[TDS AutoQueue] Queued Successfully!")
-            isQueueRunning = false
-            return
+            print("[AutoQueue] Successfully Queued")
+        else
+            print("[AutoQueue] Fail-Safe: Queue confirmation failed after 5 retries. Restarting sequence...")
+            tStatus.Text = "Status: Queue Failed - Restarting..."
+            tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
         end
-        
-        -- Priority 2: Check if Difficulty submenu option is visible on screen (e.g. Easy/Casual/Intermediate/Molten/Fallen)
-        local diffObj = findTargetButton(selectedDifficulty)
-        if diffObj then
-            print("[TDS AutoQueue] Step 3/4: Selected Difficulty -> " .. tostring(selectedDifficulty))
-            tStatus.Text = string.format("Status: Selecting %s...", selectedDifficulty)
-            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
-            triggerAllSignals(diffObj)
-            task.wait(1.2)
-            isQueueRunning = false
-            return
-        end
-        
-        -- Priority 3: Check if Survival gamemode card is visible on screen
-        local survivalObj = findTargetButton("survival")
-        if survivalObj then
-            print("[TDS AutoQueue] Step 2/4: Selected Survival Mode")
-            tStatus.Text = "Status: Selecting Survival..."
-            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
-            triggerAllSignals(survivalObj)
-            task.wait(1.2)
-            isQueueRunning = false
-            return
-        end
-        
-        -- Priority 4: Check if Lobby PLAY button is visible on screen
-        local playObj = findTargetButton("play")
-        if playObj then
-            print("[TDS AutoQueue] Step 1/4: Clicked Play Button")
-            tStatus.Text = "Status: Opening Play Menu..."
-            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
-            triggerAllSignals(playObj)
-            task.wait(1.2)
-            isQueueRunning = false
-            return
-        end
-        
-        tStatus.Text = "Status: Standing By"
-        tStatus.TextColor3 = Color3.fromRGB(160, 170, 184)
     end)
     
     isQueueRunning = false
