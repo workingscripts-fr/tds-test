@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue ssssssssg",
+        Text = "Auto queue brooo",
         Duration = 5
     })
 end)
@@ -1956,115 +1956,77 @@ function executeAutoQueueStepByStep()
         end
         
         ----------------------------------------------------
-        -- STEP 1 & STEP 2: RenderStepped Synchronized Play -> Survival Flow
+        -- STEP 1 & STEP 2: Green PLAY Button -> Wait 1s -> Survival Card Flow
         ----------------------------------------------------
-        print("[AutoQueue Debug L5] Step 1: Checking for Survival button or searching Play button...")
+        print("[AutoQueue] Step 1: Searching for Green PLAY button...")
         
-        -- Check if Survival button is ALREADY visible (Play menu already open)
+        -- Check if Survival card is ALREADY visible (Choose a Gamemode menu already open)
         local survivalBtn = findTargetButton("survival")
         
         if not survivalBtn then
-            print("[AutoQueue Debug L5.1] Play menu closed. Searching for Play button...")
             local playBtn = findTargetButton("play")
             local retries = 0
             while not playBtn and retries < 5 and autoQueueEnabled do
                 retries = retries + 1
-                print(string.format("[AutoQueue Retry] Step 1: Searching for Play button (Attempt %d/5)...", retries))
-                tStatus.Text = string.format("Status: Waiting for Play (%d/5)...", retries)
+                print(string.format("[AutoQueue Retry] Searching for Green PLAY button (Attempt %d/5)...", retries))
+                tStatus.Text = string.format("Status: Waiting for PLAY (%d/5)...", retries)
                 tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
                 task.wait(0.5)
                 playBtn = findTargetButton("play")
             end
             
             if not playBtn then
-                print("[AutoQueue Exit] RETURN 4: Play button could not be found after 5 retries")
-                tStatus.Text = "Status: Play Button Not Found - Retrying..."
+                print("[AutoQueue Exit] Green PLAY button could not be found")
+                tStatus.Text = "Status: PLAY Button Not Found"
                 tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
                 return
             end
             
-            -- 1. Record current number of PlayerGui descendants before clicking Play
-            local pg = getPlayerGui()
-            local initialDescendantCount = pg and #pg:GetDescendants() or 0
-            
-            -- Trigger Play click
+            print("[AutoQueue] Found Green PLAY button. Clicking PLAY...")
             notifyDiag("Play Clicked", "")
+            tStatus.Text = "Status: Clicking PLAY..."
+            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
+            
+            -- Trigger Click on Green PLAY button
             triggerAllSignals(playBtn)
             
-            -- 2. Monitor PlayerGui every RenderStepped frame until hierarchy changes
-            local guiChanged = false
-            local startTime = os.clock()
-            while (os.clock() - startTime < 3.0) and autoQueueEnabled do
-                RunService.RenderStepped:Wait()
-                local currentCount = pg and #pg:GetDescendants() or 0
-                if currentCount ~= initialDescendantCount then
-                    guiChanged = true
-                    break
-                end
-            end
+            -- Wait exactly 1 second after PLAY button click as requested
+            print("[AutoQueue] Waiting 1 second after PLAY button click...")
+            task.wait(1.0)
             
-            if guiChanged then
-                notifyDiag("GUI Updated", "")
-            end
-            
-            -- 3. Once GUI changes (or timeout reached), call findTargetButton("survival") every RenderStepped frame until found
             notifyDiag("Searching Survival", "")
-            startTime = os.clock()
-            while not survivalBtn and (os.clock() - startTime < 4.0) and autoQueueEnabled do
-                RunService.RenderStepped:Wait()
-                survivalBtn = findTargetButton("survival")
-            end
+            tStatus.Text = "Status: Searching for Survival..."
+            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
             
-            -- 4. Retry loop if Survival still not found
+            survivalBtn = findTargetButton("survival")
+            
+            -- Retry if Play menu took longer to animate
             local playRetries = 0
-            while not survivalBtn and playRetries < 5 and autoQueueEnabled do
+            while not survivalBtn and playRetries < 3 and autoQueueEnabled do
                 playRetries = playRetries + 1
-                print(string.format("[AutoQueue] Retrying Play click (%d/5)...", playRetries))
-                tStatus.Text = string.format("Status: Retrying Play Click (%d/5)...", playRetries)
-                tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
-                
-                initialDescendantCount = pg and #pg:GetDescendants() or 0
-                notifyDiag("Play Clicked", "")
+                print(string.format("[AutoQueue Retry] Re-clicking Green PLAY button (%d/3)...", playRetries))
                 triggerAllSignals(playBtn)
-                
-                startTime = os.clock()
-                while (os.clock() - startTime < 3.0) and autoQueueEnabled do
-                    RunService.RenderStepped:Wait()
-                    local currentCount = pg and #pg:GetDescendants() or 0
-                    if currentCount ~= initialDescendantCount then
-                        guiChanged = true
-                        break
-                    end
-                end
-                
-                if guiChanged then
-                    notifyDiag("GUI Updated", "")
-                end
-                
-                notifyDiag("Searching Survival", "")
-                startTime = os.clock()
-                while not survivalBtn and (os.clock() - startTime < 4.0) and autoQueueEnabled do
-                    RunService.RenderStepped:Wait()
-                    survivalBtn = findTargetButton("survival")
-                end
+                task.wait(1.0)
+                survivalBtn = findTargetButton("survival")
             end
         else
             notifyDiag("Searching Survival", "")
         end
 
         ----------------------------------------------------
-        -- STEP 2 Execution: Click Survival Button
+        -- STEP 2 Execution: Click Survival Gamemode Card
         ----------------------------------------------------
         if survivalBtn then
+            print("[AutoQueue] Found Survival card! Clicking Survival...")
             notifyDiag("Survival Found", "")
-            triggerAllSignals(survivalBtn)
+            tStatus.Text = "Status: Clicking Survival..."
+            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
             
-            local diffCheck = waitForCondition(function()
-                return findTargetButton(selectedDifficulty)
-            end, 1.5, 0.1, "Difficulty Menu")
+            triggerAllSignals(survivalBtn)
+            task.wait(0.5)
         else
-            print("[AutoQueue Exit] RETURN 5: Survival button failed to appear after retries. Restarting sequence...")
-            tStatus.Text = "Status: Survival Menu Not Found - Restarting..."
+            print("[AutoQueue Exit] Survival gamemode card not found")
+            tStatus.Text = "Status: Survival Card Not Found"
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
             return
         end
