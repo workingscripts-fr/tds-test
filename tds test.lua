@@ -2396,7 +2396,8 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (SCOUT PHASE + SHOTGUNNER 1 PLACE & 2x UPGRADE)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (REUSABLE UPGRADETOWER HELPER + SHOTGUNNER #1 2x UPGRADE)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
@@ -2404,7 +2405,43 @@ scoutUpgraded = false
 scoutSold = false
 shotgunner1Placed = false
 shotgunner1Upgraded = false
+
+-- Stored instance references for future build sequence
+local scoutTower = nil
+local shotgunner1 = nil
+local shotgunner2 = nil
+local shotgunner3 = nil
+local shotgunner4 = nil
+local shotgunner5 = nil
+local shotgunner6 = nil
+local shotgunner7 = nil
+local shotgunner8 = nil
+local shotgunner9 = nil
+
 local _autoPlaceTask = nil
+
+local function UpgradeTower(tower)
+    if not tower or not tower.Parent then
+        return false
+    end
+
+    local args = {
+        "Troops",
+        "Upgrade",
+        "Set",
+        {
+            Troop = tower
+        }
+    }
+
+    local success, result = pcall(function()
+        return game:GetService("ReplicatedStorage")
+            :WaitForChild("RemoteFunction")
+            :InvokeServer(unpack(args))
+    end)
+
+    return success
+end
 
 local autoPlaceCard = Instance.new("Frame")
 autoPlaceCard.Name = "ToggleCard_AutoPlaceTowers"
@@ -2541,6 +2578,16 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         scoutSold = false
         shotgunner1Placed = false
         shotgunner1Upgraded = false
+        scoutTower = nil
+        shotgunner1 = nil
+        shotgunner2 = nil
+        shotgunner3 = nil
+        shotgunner4 = nil
+        shotgunner5 = nil
+        shotgunner6 = nil
+        shotgunner7 = nil
+        shotgunner8 = nil
+        shotgunner9 = nil
 
         _autoPlaceTask = task.spawn(function()
             -- 1. Execute Scout Placement remote
@@ -2560,38 +2607,23 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
             if not autoPlaceEnabled then return end
 
-            -- Wait for Scout tower instance in workspace.Towers
-            local scoutTower = waitForTowerInstance("Intern", 4) or workspace:WaitForChild("Towers", 3):FindFirstChild("Intern")
+            -- Wait for Scout tower instance in workspace.Towers and store reference
+            scoutTower = waitForTowerInstance("Intern", 4) or workspace:WaitForChild("Towers", 3):FindFirstChild("Intern")
 
             if not autoPlaceEnabled or not scoutTower then return end
             scoutPlaced = true
 
-            -- 2. Upgrade Scout twice with direct tower instance reference
-            local scoutUpgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = scoutTower
-                }
-            }
-
-            -- Scout Upgrade 1
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgradeArgs))
-            end)
+            -- Scout Upgrade 1 & 2 using UpgradeTower helper
+            UpgradeTower(scoutTower)
             task.wait(0.35)
             if not autoPlaceEnabled then return end
 
-            -- Scout Upgrade 2
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgradeArgs))
-            end)
+            UpgradeTower(scoutTower)
             task.wait(0.35)
             if not autoPlaceEnabled then return end
             scoutUpgraded = true
 
-            -- 3. Monitor existing money counter for $1,225 threshold
+            -- 3. Monitor existing money counter for $1,225 threshold to sell Scout
             while autoPlaceEnabled and scoutPlaced and not scoutSold do
                 if autoPlaceEnabled and scoutPlaced and not scoutSold and currentTDSMoneyNumber >= 1225 then
                     local sellArgs = {
@@ -2614,7 +2646,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
             task.wait(0.3) -- Propagation delay
 
-            -- 4. Place First Shotgunner & Store Direct Instance Reference
+            -- 4. Place First Shotgunner & Store Instance Reference in shotgunner1
             if autoPlaceEnabled and scoutSold and not shotgunner1Placed then
                 local vectorPos = Vector3.new(12.490434646606445, 1.0000064373016357, -10.304333686828613)
                 if vector and vector.create then
@@ -2635,33 +2667,18 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                     game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerPlaceArgs))
                 end)
 
-                -- Wait for Shotgunner 1 instance to exist in workspace.Towers and save reference
-                local shotgunner1Tower = waitForTowerInstance("Shotgunner", 4) or workspace:WaitForChild("Towers", 3):FindFirstChild("Shotgunner")
+                -- Wait for Shotgunner 1 instance to exist and store reference in shotgunner1
+                shotgunner1 = waitForTowerInstance("Shotgunner", 4) or workspace:WaitForChild("Towers", 3):FindFirstChild("Shotgunner")
 
-                if not autoPlaceEnabled or not shotgunner1Tower then return end
+                if not autoPlaceEnabled or not shotgunner1 then return end
                 shotgunner1Placed = true
 
-                -- 5. Upgrade Shotgunner 1 EXACTLY TWO TIMES using stored instance
-                local shotgunnerUpgradeArgs = {
-                    "Troops",
-                    "Upgrade",
-                    "Set",
-                    {
-                        Troop = shotgunner1Tower
-                    }
-                }
-
-                -- Shotgunner 1 Upgrade 1
-                pcall(function()
-                    game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerUpgradeArgs))
-                end)
+                -- 5. Upgrade Shotgunner 1 EXACTLY TWO TIMES using UpgradeTower(shotgunner1)
+                UpgradeTower(shotgunner1)
                 task.wait(0.35)
                 if not autoPlaceEnabled then return end
 
-                -- Shotgunner 1 Upgrade 2
-                pcall(function()
-                    game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerUpgradeArgs))
-                end)
+                UpgradeTower(shotgunner1)
                 task.wait(0.35)
 
                 shotgunner1Upgraded = true
@@ -2679,6 +2696,16 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         scoutSold = false
         shotgunner1Placed = false
         shotgunner1Upgraded = false
+        scoutTower = nil
+        shotgunner1 = nil
+        shotgunner2 = nil
+        shotgunner3 = nil
+        shotgunner4 = nil
+        shotgunner5 = nil
+        shotgunner6 = nil
+        shotgunner7 = nil
+        shotgunner8 = nil
+        shotgunner9 = nil
         stopAutoPlaceTask()
     end
 end)
