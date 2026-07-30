@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "React Hotbar Money Update",
-        Text = "TDS ReactUniversalHotbar cash tracking active",
+        Title = "Scout Upgrade Sequence Update",
+        Text = "Auto Scout place, 2x upgrade & $1,225 auto sell enabled",
         Duration = 5
     })
 end)
@@ -2393,10 +2393,12 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (TOGGLE + AUTO SCOUT & SELL AT $1,225)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (TOGGLE + SCOUT PLACE & UPGRADE x2 & AUTO SELL AT $1,225)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
+scoutUpgraded = false
 scoutSold = false
 local _autoPlaceTask = nil
 
@@ -2437,7 +2439,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Place Scout & auto sell at $1,225."
+apcSub.Text = "Place & upgrade Scout x2, auto sell at $1,225."
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2497,6 +2499,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         
         stopAutoPlaceTask()
         scoutPlaced = false
+        scoutUpgraded = false
         scoutSold = false
 
         _autoPlaceTask = task.spawn(function()
@@ -2517,11 +2520,42 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
             if not autoPlaceEnabled then return end
 
-            task.wait(0.2) -- Placement propagation wait
-            scoutPlaced = true
-            scoutSold = false
+            -- Wait for Scout tower instance in workspace.Towers
+            pcall(function()
+                workspace:WaitForChild("Towers", 5):WaitForChild("Intern", 5)
+            end)
 
-            -- 2. Monitor existing money counter (currentTDSMoneyNumber) for $1,225 threshold
+            if not autoPlaceEnabled then return end
+            scoutPlaced = true
+
+            -- 2. Upgrade Scout twice with short delay (0.35s) between them
+            local upgradeArgs = {
+                "Troops",
+                "Upgrade",
+                "Set",
+                {
+                    Troop = workspace:WaitForChild("Towers"):WaitForChild("Intern")
+                }
+            }
+
+            -- Upgrade 1
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+            end)
+
+            task.wait(0.35)
+            if not autoPlaceEnabled then return end
+
+            -- Upgrade 2
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+            end)
+
+            task.wait(0.35)
+            if not autoPlaceEnabled then return end
+            scoutUpgraded = true
+
+            -- 3. Monitor existing money counter (currentTDSMoneyNumber) for $1,225 threshold
             while autoPlaceEnabled and scoutPlaced and not scoutSold do
                 if autoPlaceEnabled and scoutPlaced and not scoutSold and currentTDSMoneyNumber >= 1225 then
                     local sellArgs = {
@@ -2535,7 +2569,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                         game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(sellArgs))
                     end)
                     scoutSold = true
-                    break -- Stop monitoring immediately, sell fires ONLY ONCE
+                    break -- End Scout phase completely
                 end
                 task.wait(0.05)
             end
@@ -2547,6 +2581,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         
         autoPlaceEnabled = false
         scoutPlaced = false
+        scoutUpgraded = false
         scoutSold = false
         stopAutoPlaceTask()
     end
