@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto towers",
+        Text = "Auto queue working",
         Duration = 5
     })
 end)
@@ -2396,77 +2396,44 @@ local function getTargetPlacementPosition()
     return Vector3.new(28.5, 4.2, -22.5)
 end
 
-local function placeScoutTowerSmart()
-    if placedScoutTower then return end
+-- Verified Remote Scout Placement Function
+local function placeScout(targetPosition)
+    print("[Scout] Sending placement request...")
+    print("[Scout] Position:", targetPosition)
     
-    local pos = getTargetPlacementPosition()
-    print(string.format("[Towers] Attempting smart placement of ONLY 1 Scout tower at (%.1f, %.1f, %.1f)...", pos.X, pos.Y, pos.Z))
-    notifyDiag("Towers:", "Placing Scout Tower...")
-    
-    -- Method 1: RemoteFunction Invocation
-    pcall(function()
-        local rep = game:GetService("ReplicatedStorage")
-        local rf = rep:FindFirstChild("RemoteFunction") or (rep:FindFirstChild("State") and rep.State:FindFirstChild("RemoteFunction"))
-        if not rf then
-            for _, child in ipairs(rep:GetDescendants()) do
-                if child:IsA("RemoteFunction") and (string.find(string.lower(child.Name), "place") or string.find(string.lower(child.Name), "tower") or child.Name == "RemoteFunction") then
-                    rf = child
-                    break
-                end
-            end
-        end
-        
-        if rf then
-            rf:InvokeServer("Towers", "Place", "Scout", { ["Position"] = pos, ["Rotation"] = CFrame.new() })
-            rf:InvokeServer("Place", "Scout", CFrame.new(pos))
-            rf:InvokeServer("Towers", "Spawn", "Scout", pos)
-        end
+    local ok, result = pcall(function()
+        local Remote = game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction")
+        return Remote:InvokeServer(
+            "Troops",
+            "Place",
+            {
+                Rotation = CFrame.new(),
+                Position = targetPosition
+            },
+            "Scout"
+        )
     end)
     
-    -- Method 2: RemoteEvent FireServer
-    pcall(function()
-        local rep = game:GetService("ReplicatedStorage")
-        for _, child in ipairs(rep:GetDescendants()) do
-            if child:IsA("RemoteEvent") and (string.find(string.lower(child.Name), "place") or string.find(string.lower(child.Name), "tower") or child.Name == "RemoteEvent") then
-                child:FireServer("Towers", "Place", "Scout", CFrame.new(pos))
-                child:FireServer("Place", "Scout", pos)
-            end
-        end
-    end)
-    
-    -- Method 3: Virtual Keypress Slot 1 (Scout)
-    pcall(function()
-        local vim = game:GetService("VirtualInputManager")
-        vim:SendKeyEvent(true, Enum.KeyCode.One, false, game)
-        task.wait(0.1)
-        vim:SendKeyEvent(false, Enum.KeyCode.One, false, game)
-    end)
-    
-    task.wait(0.8)
-    
-    -- Verify tower placement in workspace.Towers
-    local towersFolder = workspace:FindFirstChild("Towers")
-    if towersFolder then
-        for _, tw in ipairs(towersFolder:GetChildren()) do
-            local owner = tw:FindFirstChild("Owner") or tw:FindFirstChild("Player")
-            if (not owner or owner.Value == game.Players.LocalPlayer or owner.Value == game.Players.LocalPlayer.Name) then
-                placedScoutTower = true
-                notifyDiag("Towers:", "Scout Tower Successfully Placed!")
-                print("[Towers] Scout tower verified in workspace.Towers!")
-                return
-            end
-        end
+    if ok and result then
+        print("[Scout] Placement succeeded.")
+        notifyDiag("Towers:", "Scout Tower Successfully Placed!")
+        return true
+    else
+        print("[Scout] Placement failed.")
+        if not ok then warn("[Scout Error] " .. tostring(result)) end
+        return false
     end
-    
-    placedScoutTower = true
-    notifyDiag("Towers:", "Scout Tower Placed!")
 end
 
--- Dedicated Smart Placement Loop
+-- Dedicated Smart Placement Worker Loop
 task.spawn(function()
     while true do
         if autoPlaceTowersSmart and not placedScoutTower then
-            placeScoutTowerSmart()
+            local pos = getTargetPlacementPosition()
+            local success = placeScout(pos)
+            if success then
+                placedScoutTower = true
+            end
             task.wait(2.0)
         else
             task.wait(1.0)
@@ -2481,7 +2448,13 @@ smartSwitchBtn.MouseButton1Click:Connect(function()
         smartSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         smartSwKnob.BackgroundColor3 = Color3.fromRGB(14, 255, 0)
         notifyDiag("Towers:", "Auto Place Towers (Smart) ENABLED")
-        placeScoutTowerSmart()
+        task.spawn(function()
+            local pos = getTargetPlacementPosition()
+            local success = placeScout(pos)
+            if success then
+                placedScoutTower = true
+            end
+        end)
     else
         smartSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         smartSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
