@@ -1553,6 +1553,7 @@ end
 function triggerAllSignals(gui)
     if not gui or not isGuiObjectTrulyVisible(gui) then return false end
     local success = false
+    local signalLogs = {}
     
     -- 1. Execute direct signals via firesignal / getconnections / Activate
     if typeof(firesignal) == "function" then
@@ -1565,9 +1566,11 @@ function triggerAllSignals(gui)
                     firesignal(current.MouseButton1Down)
                     firesignal(current.MouseButton1Up)
                     firesignal(current.Activated)
+                    table.insert(signalLogs, "firesignal(GuiButton)")
                 end
                 firesignal(current.InputBegan, {UserInputType = Enum.UserInputType.MouseButton1, UserInputState = Enum.UserInputState.Begin})
                 firesignal(current.InputEnded, {UserInputType = Enum.UserInputType.MouseButton1, UserInputState = Enum.UserInputState.End})
+                table.insert(signalLogs, "firesignal(InputBegan/Ended)")
                 success = true
             end)
             current = current.Parent
@@ -1582,15 +1585,18 @@ function triggerAllSignals(gui)
                 for _, conn in pairs(getconnections(current.InputBegan)) do
                     conn:Fire({UserInputType = Enum.UserInputType.MouseButton1, UserInputState = Enum.UserInputState.Begin})
                     success = true
+                    table.insert(signalLogs, "getconnections(InputBegan)")
                 end
                 if current:IsA("GuiButton") then
                     for _, conn in pairs(getconnections(current.MouseButton1Click)) do
                         conn:Fire()
                         success = true
+                        table.insert(signalLogs, "getconnections(MouseButton1Click)")
                     end
                     for _, conn in pairs(getconnections(current.Activated)) do
                         conn:Fire()
                         success = true
+                        table.insert(signalLogs, "getconnections(Activated)")
                     end
                 end
             end)
@@ -1602,170 +1608,207 @@ function triggerAllSignals(gui)
         pcall(function()
             gui:Activate()
             success = true
+            table.insert(signalLogs, "gui:Activate()")
         end)
     end
     
     -- 2. Hardware click simulation
-    sendHardwareClick(gui)
+    local hwOk = sendHardwareClick(gui)
+    if hwOk then
+        table.insert(signalLogs, "sendHardwareClick")
+        success = true
+    end
     
+    print(string.format("[triggerAllSignals] Target '%s' (%s) -> Triggered: %s", gui.Name, gui.ClassName, table.concat(signalLogs, ", ")))
     return success
 end
 
 -- Precise Target Element Finder (with scoring, screen bounds, ImageButton support, and own-menu exclusion)
 function findTargetButton(targetKeyword)
-    local pg = getPlayerGui()
-    if not pg then return nil end
-    local lowerKw = string.lower(targetKeyword or "")
-    if lowerKw == "not chosen" or lowerKw == "" then return nil end
-    
-    local candidates = {}
-    local viewportY = 1000
-    pcall(function()
-        if workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize then
-            viewportY = workspace.CurrentCamera.ViewportSize.Y
-        end
-    end)
-    
-    for _, desc in ipairs(pg:GetDescendants()) do
-        -- CRITICAL: Skip any elements inside our own custom GUI menu!
-        if not (screenGui and desc:IsDescendantOf(screenGui)) then
-            if (desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("ImageLabel") or desc:IsA("ImageButton")) and isGuiObjectTrulyVisible(desc) then
-                local txt = ""
-                if desc:IsA("TextLabel") or desc:IsA("TextButton") then
-                    txt = string.lower(string.gsub(desc.Text or "", "^%s*(.-)%s*$", "%1"))
-                end
-                local descName = string.lower(desc.Name or "")
-                
-                local isQuestOrInfo = (string.find(txt, "win", 1, true) or string.find(txt, "quest", 1, true) or string.find(txt, "reward", 1, true) or string.find(txt, "badge", 1, true) or string.find(txt, "triumph", 1, true) or string.find(txt, "kill", 1, true) or string.find(txt, "level", 1, true) or string.find(txt, "stat", 1, true))
-                
-                local isMatch = false
-                local score = 0
-                
-                if lowerKw == "play" then
-                    if not isQuestOrInfo then
-                        if txt == "play" then isMatch = true; score = 100
-                        elseif descName == "play" or descName == "playbutton" or descName == "play_button" then isMatch = true; score = 90
-                        elseif string.find(txt, "play", 1, true) and not string.find(txt, "replay", 1, true) and not string.find(txt, "display", 1, true) and not string.find(txt, "player", 1, true) then
-                            isMatch = true; score = 70
-                        end
-                        if isMatch and desc.AbsolutePosition.Y > (viewportY * 0.4) then score = score + 50 end
+    local ok, result = pcall(function()
+        local pg = getPlayerGui()
+        if not pg then return nil end
+        local lowerKw = string.lower(targetKeyword or "")
+        if lowerKw == "not chosen" or lowerKw == "" then return nil end
+        
+        local candidates = {}
+        local viewportY = 1000
+        pcall(function()
+            if workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize then
+                viewportY = workspace.CurrentCamera.ViewportSize.Y
+            end
+        end)
+        
+        for _, desc in ipairs(pg:GetDescendants()) do
+            if not (screenGui and desc:IsDescendantOf(screenGui)) then
+                if (desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("ImageLabel") or desc:IsA("ImageButton")) and isGuiObjectTrulyVisible(desc) then
+                    local txt = ""
+                    if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+                        txt = string.lower(string.gsub(desc.Text or "", "^%s*(.-)%s*$", "%1"))
                     end
-                elseif lowerKw == "survival" then
-                    if not isQuestOrInfo then
-                        if txt == "survival" or descName == "survival" then isMatch = true; score = 100
-                        elseif string.find(txt, "classic tower defense", 1, true) or string.find(descName, "survival", 1, true) then isMatch = true; score = 80
+                    local descName = string.lower(desc.Name or "")
+                    
+                    local isQuestOrInfo = (string.find(txt, "win", 1, true) or string.find(txt, "quest", 1, true) or string.find(txt, "reward", 1, true) or string.find(txt, "badge", 1, true) or string.find(txt, "triumph", 1, true) or string.find(txt, "kill", 1, true) or string.find(txt, "level", 1, true) or string.find(txt, "stat", 1, true))
+                    
+                    local isMatch = false
+                    local score = 0
+                    
+                    if lowerKw == "play" then
+                        if not isQuestOrInfo then
+                            if txt == "play" then isMatch = true; score = 100
+                            elseif descName == "play" or descName == "playbutton" or descName == "play_button" then isMatch = true; score = 90
+                            elseif string.find(txt, "play", 1, true) and not string.find(txt, "replay", 1, true) and not string.find(txt, "display", 1, true) and not string.find(txt, "player", 1, true) then
+                                isMatch = true; score = 70
+                            end
+                            if isMatch and desc.AbsolutePosition.Y > (viewportY * 0.4) then score = score + 50 end
                         end
-                        if string.find(txt, "pvp", 1, true) or string.find(txt, "hardcore", 1, true) or string.find(txt, "sandbox", 1, true) then isMatch = false end
-                    end
-                elseif lowerKw == "easy" then
-                    if not isQuestOrInfo and (txt == "easy" or descName == "easy" or string.find(txt, "for new users", 1, true)) then isMatch = true; score = 100 end
-                elseif lowerKw == "casual" then
-                    if not isQuestOrInfo and (txt == "casual" or descName == "casual" or string.find(txt, "for the casual user", 1, true)) then isMatch = true; score = 100 end
-                elseif lowerKw == "intermediate" then
-                    if not isQuestOrInfo and (txt == "intermediate" or descName == "intermediate" or string.find(txt, "a balanced experience", 1, true)) then isMatch = true; score = 100 end
-                elseif lowerKw == "molten" then
-                    if not isQuestOrInfo and (txt == "molten" or descName == "molten" or string.find(txt, "for a molten experience", 1, true)) then isMatch = true; score = 100 end
-                elseif lowerKw == "fallen" then
-                    if not isQuestOrInfo and (txt == "fallen" or descName == "fallen" or string.find(txt, "for the experienced user", 1, true)) then isMatch = true; score = 100 end
-                elseif lowerKw == "solo" then
-                    if not isQuestOrInfo and (txt == "solo" or descName == "solo") then isMatch = true; score = 100 end
-                elseif lowerKw == "duo" then
-                    if not isQuestOrInfo and (txt == "duo" or descName == "duo") then isMatch = true; score = 100 end
-                elseif lowerKw == "trio" then
-                    if not isQuestOrInfo and (txt == "trio" or descName == "trio") then isMatch = true; score = 100 end
-                elseif lowerKw == "quad" then
-                    if not isQuestOrInfo and (txt == "quad" or descName == "quad") then isMatch = true; score = 100 end
-                elseif lowerKw == "cancel" then
-                    if txt == "cancel" or descName == "cancel" or string.find(txt, "cancel queue", 1, true) or string.find(txt, "leave queue", 1, true) then isMatch = true; score = 100 end
-                end
-                
-                if isMatch then
-                    local btnObj = desc
-                    local cur = desc
-                    for depth = 1, 5 do
-                        if not cur or cur:IsA("ScreenGui") then break end
-                        if (cur:IsA("GuiButton") or cur:IsA("TextButton") or cur:IsA("ImageButton")) and isGuiObjectTrulyVisible(cur) then
-                            btnObj = cur
-                            break
+                    elseif lowerKw == "survival" then
+                        if not isQuestOrInfo then
+                            if txt == "survival" or descName == "survival" then isMatch = true; score = 100
+                            elseif string.find(txt, "classic tower defense", 1, true) or string.find(descName, "survival", 1, true) then isMatch = true; score = 80
+                            end
+                            if string.find(txt, "pvp", 1, true) or string.find(txt, "hardcore", 1, true) or string.find(txt, "sandbox", 1, true) then isMatch = false end
                         end
-                        cur = cur.Parent
+                    elseif lowerKw == "easy" then
+                        if not isQuestOrInfo and (txt == "easy" or descName == "easy" or string.find(txt, "for new users", 1, true)) then isMatch = true; score = 100 end
+                    elseif lowerKw == "casual" then
+                        if not isQuestOrInfo and (txt == "casual" or descName == "casual" or string.find(txt, "for the casual user", 1, true)) then isMatch = true; score = 100 end
+                    elseif lowerKw == "intermediate" then
+                        if not isQuestOrInfo and (txt == "intermediate" or descName == "intermediate" or string.find(txt, "a balanced experience", 1, true)) then isMatch = true; score = 100 end
+                    elseif lowerKw == "molten" then
+                        if not isQuestOrInfo and (txt == "molten" or descName == "molten" or string.find(txt, "for a molten experience", 1, true)) then isMatch = true; score = 100 end
+                    elseif lowerKw == "fallen" then
+                        if not isQuestOrInfo and (txt == "fallen" or descName == "fallen" or string.find(txt, "for the experienced user", 1, true)) then isMatch = true; score = 100 end
+                    elseif lowerKw == "solo" then
+                        if not isQuestOrInfo and (txt == "solo" or descName == "solo") then isMatch = true; score = 100 end
+                    elseif lowerKw == "duo" then
+                        if not isQuestOrInfo and (txt == "duo" or descName == "duo") then isMatch = true; score = 100 end
+                    elseif lowerKw == "trio" then
+                        if not isQuestOrInfo and (txt == "trio" or descName == "trio") then isMatch = true; score = 100 end
+                    elseif lowerKw == "quad" then
+                        if not isQuestOrInfo and (txt == "quad" or descName == "quad") then isMatch = true; score = 100 end
+                    elseif lowerKw == "cancel" then
+                        if txt == "cancel" or descName == "cancel" or string.find(txt, "cancel queue", 1, true) or string.find(txt, "leave queue", 1, true) then isMatch = true; score = 100 end
                     end
-                    table.insert(candidates, { element = btnObj, score = score })
+                    
+                    if isMatch then
+                        local btnObj = desc
+                        local cur = desc
+                        for depth = 1, 5 do
+                            if not cur or cur:IsA("ScreenGui") then break end
+                            if (cur:IsA("GuiButton") or cur:IsA("TextButton") or cur:IsA("ImageButton")) and isGuiObjectTrulyVisible(cur) then
+                                btnObj = cur
+                                break
+                            end
+                            cur = cur.Parent
+                        end
+                        table.insert(candidates, { element = btnObj, score = score })
+                    end
                 end
             end
         end
-    end
+        
+        if #candidates > 0 then
+            table.sort(candidates, function(a, b) return a.score > b.score end)
+            return candidates[1].element
+        end
+        return nil
+    end)
     
-    if #candidates > 0 then
-        table.sort(candidates, function(a, b) return a.score > b.score end)
-        return candidates[1].element
+    if ok then
+        return result
+    else
+        warn("[findTargetButton ERROR] " .. tostring(result))
+        return nil
     end
-    return nil
 end
 
 -- Intelligent Multi-State Auto Queue Logic
 isQueueRunning = false
 
-local function waitForCondition(conditionFunc, timeout, retryInterval)
+local function waitForCondition(conditionFunc, timeout, retryInterval, conditionName)
     timeout = timeout or 1.5
     retryInterval = retryInterval or 0.1
+    conditionName = conditionName or "Condition"
     local startTime = os.clock()
     while os.clock() - startTime < timeout do
-        local result = conditionFunc()
-        if result then return result end
+        local ok, result = pcall(conditionFunc)
+        if ok and result then
+            print(string.format("[AutoQueue] waitForCondition SUCCESS: %s met in %.2fs", conditionName, os.clock() - startTime))
+            return result
+        end
         task.wait(retryInterval)
     end
+    print(string.format("[AutoQueue] waitForCondition TIMEOUT: %s was NOT met after %.2fs", conditionName, timeout))
     return nil
 end
 
 function executeAutoQueueStepByStep()
-    if isQueueRunning or not autoQueueEnabled then return end
-    isQueueRunning = true
+    print("[AutoQueue Debug L1] Function executeAutoQueueStepByStep called")
     
-    pcall(function()
+    -- Task 7: Variable Audit & Value Verification
+    print(string.format("[AutoQueue Variable Audit] autoQueueEnabled=%s, isQueueRunning=%s, selectedDifficulty=%s, selectedSquadSize=%s, isPlayerQueuedState=%s, tStatus=%s",
+        tostring(autoQueueEnabled), tostring(isQueueRunning), tostring(selectedDifficulty), tostring(selectedSquadSize), tostring(isPlayerQueuedState), tostring(tStatus and tStatus.Text or "NIL")))
+        
+    if isQueueRunning then
+        print("[AutoQueue Exit] RETURN 0: Already running (isQueueRunning state lock active)")
+        return
+    end
+    if not autoQueueEnabled then
+        print("[AutoQueue Exit] RETURN 1: Auto Queue is currently disabled")
+        if tStatus then tStatus.Text = "Status: Disabled" end
+        return
+    end
+    
+    isQueueRunning = true
+    print("[AutoQueue Debug L2] State lock acquired (isQueueRunning = true)")
+    
+    -- Task 1: Unmask errors and replace silent pcall
+    local success, err = pcall(function()
         if not autoQueueEnabled then
-            isQueueRunning = false
+            print("[AutoQueue Exit] RETURN 1.1: Disabled inside execution loop")
             tStatus.Text = "Status: Disabled"
             tStatus.TextColor3 = Color3.fromRGB(160, 170, 184)
             return
         end
         
+        print("[AutoQueue Debug L3] Checking selection validations...")
         -- Validation Check: Difficulty & Squad Size selected
         if selectedDifficulty == "Not Chosen" and selectedSquadSize == "Not Chosen" then
+            print("[AutoQueue Exit] RETURN 2.1: Difficulty & Squad Size Not Chosen")
             tStatus.Text = "Status: Difficulty & Squad Size Not Chosen"
             tStatus.TextColor3 = Color3.fromRGB(255, 120, 0)
-            isQueueRunning = false
             return
         elseif selectedDifficulty == "Not Chosen" then
+            print("[AutoQueue Exit] RETURN 2.2: Difficulty Not Chosen")
             tStatus.Text = "Status: Difficulty Not Chosen"
             tStatus.TextColor3 = Color3.fromRGB(255, 120, 0)
-            isQueueRunning = false
             return
         elseif selectedSquadSize == "Not Chosen" then
+            print("[AutoQueue Exit] RETURN 2.3: Squad Size Not Chosen")
             tStatus.Text = "Status: Squad Size Not Chosen"
             tStatus.TextColor3 = Color3.fromRGB(255, 120, 0)
-            isQueueRunning = false
             return
         end
         
-        -- Check if already queued
+        print("[AutoQueue Debug L4] Checking queue state confirmation...")
         local cancelBtn = findTargetButton("cancel")
         if cancelBtn or isPlayerQueuedState then
-            print("[AutoQueue] Queue Confirmation Detected - Already Queued")
+            print(string.format("[AutoQueue Exit] RETURN 3: Already queued (cancelBtn=%s, isPlayerQueuedState=%s)", tostring(cancelBtn ~= nil), tostring(isPlayerQueuedState)))
             tStatus.Text = "Status: Successfully Queued!"
             tStatus.TextColor3 = Color3.fromRGB(14, 255, 0)
-            isQueueRunning = false
             return
         end
         
         ----------------------------------------------------
         -- STEP 1: Verify Play button exists
         ----------------------------------------------------
+        print("[AutoQueue Debug L5] Searching for Play button...")
         local playBtn = findTargetButton("play")
         local retries = 0
         while not playBtn and retries < 5 and autoQueueEnabled do
             retries = retries + 1
-            print(string.format("[AutoQueue] Waiting for Play button (Retry %d/5)...", retries))
+            print(string.format("[AutoQueue Retry] Step 1: Searching for Play button (Attempt %d/5)...", retries))
             tStatus.Text = string.format("Status: Waiting for Play (%d/5)...", retries)
             tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
             task.wait(0.5)
@@ -1773,10 +1816,9 @@ function executeAutoQueueStepByStep()
         end
         
         if not playBtn then
-            print("[AutoQueue] Fail-Safe: Play button could not be found after 5 retries. Restarting sequence...")
+            print("[AutoQueue Exit] RETURN 4: Play button could not be found after 5 retries")
             tStatus.Text = "Status: Play Button Not Found - Retrying..."
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
-            isQueueRunning = false
             return
         end
         
@@ -1785,12 +1827,13 @@ function executeAutoQueueStepByStep()
         ----------------------------------------------------
         -- STEP 2: Click Play & Verify Survival menu appears
         ----------------------------------------------------
+        print("[AutoQueue Debug L6] Step 2: Clicking Play & waiting for Survival...")
         local survivalBtn = findTargetButton("survival")
         retries = 0
         while not survivalBtn and retries < 5 and autoQueueEnabled do
             retries = retries + 1
             print(string.format("[AutoQueue] Clicking Play (Attempt %d/5)", retries))
-            tStatus.Text = "Status: Clicking Play..."
+            tStatus.Text = string.format("Status: Clicking Play (%d/5)...", retries)
             tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
             
             triggerAllSignals(playBtn)
@@ -1798,18 +1841,18 @@ function executeAutoQueueStepByStep()
             print("[AutoQueue] Waiting for Survival")
             survivalBtn = waitForCondition(function()
                 return findTargetButton("survival")
-            end, 1.2, 0.15)
+            end, 1.2, 0.15, "Survival Menu Visibility")
             
             if not survivalBtn then
+                print(string.format("[AutoQueue Retry Notice] Survival not visible after attempt %d/5, re-verifying Play button", retries))
                 playBtn = findTargetButton("play") or playBtn
             end
         end
         
         if not survivalBtn then
-            print("[AutoQueue] Fail-Safe: Survival menu failed to appear after 5 retries. Restarting from Play...")
+            print("[AutoQueue Exit] RETURN 5: Survival menu failed to appear after 5 retries. Restarting sequence...")
             tStatus.Text = "Status: Survival Menu Not Found - Restarting..."
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
-            isQueueRunning = false
             return
         end
         
@@ -1818,12 +1861,13 @@ function executeAutoQueueStepByStep()
         ----------------------------------------------------
         -- STEP 3: Click Survival & Verify Difficulty menu appears
         ----------------------------------------------------
+        print(string.format("[AutoQueue Debug L7] Step 3: Clicking Survival & waiting for Difficulty '%s'...", selectedDifficulty))
         local diffBtn = findTargetButton(selectedDifficulty)
         retries = 0
         while not diffBtn and retries < 5 and autoQueueEnabled do
             retries = retries + 1
             print(string.format("[AutoQueue] Clicking Survival (Attempt %d/5)", retries))
-            tStatus.Text = "Status: Selecting Survival..."
+            tStatus.Text = string.format("Status: Selecting Survival (%d/5)...", retries)
             tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
             
             triggerAllSignals(survivalBtn)
@@ -1831,18 +1875,18 @@ function executeAutoQueueStepByStep()
             print("[AutoQueue] Waiting for Difficulty")
             diffBtn = waitForCondition(function()
                 return findTargetButton(selectedDifficulty)
-            end, 1.2, 0.15)
+            end, 1.2, 0.15, "Difficulty " .. tostring(selectedDifficulty) .. " Menu Visibility")
             
             if not diffBtn then
+                print(string.format("[AutoQueue Retry Notice] Difficulty '%s' not visible after attempt %d/5, re-verifying Survival button", selectedDifficulty, retries))
                 survivalBtn = findTargetButton("survival") or survivalBtn
             end
         end
         
         if not diffBtn then
-            print(string.format("[AutoQueue] Fail-Safe: Difficulty '%s' not found after 5 retries. Restarting from Play...", selectedDifficulty))
+            print(string.format("[AutoQueue Exit] RETURN 6: Difficulty '%s' not found after 5 retries. Restarting sequence...", selectedDifficulty))
             tStatus.Text = string.format("Status: Difficulty %s Not Found - Restarting...", selectedDifficulty)
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
-            isQueueRunning = false
             return
         end
         
@@ -1851,12 +1895,13 @@ function executeAutoQueueStepByStep()
         ----------------------------------------------------
         -- STEP 4: Click Selected Difficulty & Verify Squad menu appears
         ----------------------------------------------------
+        print(string.format("[AutoQueue Debug L8] Step 4: Clicking Difficulty '%s' & waiting for Squad '%s'...", selectedDifficulty, selectedSquadSize))
         local squadBtn = findTargetButton(selectedSquadSize)
         retries = 0
         while not squadBtn and retries < 5 and autoQueueEnabled do
             retries = retries + 1
             print(string.format("[AutoQueue] Clicking %s (Attempt %d/5)", selectedDifficulty, retries))
-            tStatus.Text = string.format("Status: Clicking %s...", selectedDifficulty)
+            tStatus.Text = string.format("Status: Clicking %s (%d/5)...", selectedDifficulty, retries)
             tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
             
             triggerAllSignals(diffBtn)
@@ -1864,18 +1909,18 @@ function executeAutoQueueStepByStep()
             print("[AutoQueue] Waiting for Squad")
             squadBtn = waitForCondition(function()
                 return findTargetButton(selectedSquadSize)
-            end, 1.2, 0.15)
+            end, 1.2, 0.15, "Squad " .. tostring(selectedSquadSize) .. " Menu Visibility")
             
             if not squadBtn then
+                print(string.format("[AutoQueue Retry Notice] Squad '%s' not visible after attempt %d/5, re-verifying Difficulty button", selectedSquadSize, retries))
                 diffBtn = findTargetButton(selectedDifficulty) or diffBtn
             end
         end
         
         if not squadBtn then
-            print(string.format("[AutoQueue] Fail-Safe: Squad option '%s' not found after 5 retries. Restarting from Play...", selectedSquadSize))
+            print(string.format("[AutoQueue Exit] RETURN 7: Squad option '%s' not found after 5 retries. Restarting sequence...", selectedSquadSize))
             tStatus.Text = string.format("Status: Squad %s Not Found - Restarting...", selectedSquadSize)
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
-            isQueueRunning = false
             return
         end
         
@@ -1884,12 +1929,13 @@ function executeAutoQueueStepByStep()
         ----------------------------------------------------
         -- STEP 5: Click Selected Squad Size & Verify Queue Confirmation
         ----------------------------------------------------
+        print(string.format("[AutoQueue Debug L9] Step 5: Clicking Squad '%s' & waiting for Queue Confirmation...", selectedSquadSize))
         retries = 0
         local isConfirmed = false
         while not isConfirmed and retries < 5 and autoQueueEnabled do
             retries = retries + 1
             print(string.format("[AutoQueue] Clicking %s (Attempt %d/5)", selectedSquadSize, retries))
-            tStatus.Text = string.format("Status: Clicking %s...", selectedSquadSize)
+            tStatus.Text = string.format("Status: Clicking %s (%d/5)...", selectedSquadSize, retries)
             tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
             
             triggerAllSignals(squadBtn)
@@ -1898,11 +1944,12 @@ function executeAutoQueueStepByStep()
             local confirm = waitForCondition(function()
                 local cBtn = findTargetButton("cancel")
                 return cBtn or isPlayerQueuedState
-            end, 1.5, 0.15)
+            end, 1.5, 0.15, "Queue Confirmation")
             
             if confirm then
                 isConfirmed = true
             else
+                print(string.format("[AutoQueue Retry Notice] Queue Confirmation not detected after attempt %d/5, re-verifying Squad button", retries))
                 squadBtn = findTargetButton(selectedSquadSize) or squadBtn
             end
         end
@@ -1911,15 +1958,27 @@ function executeAutoQueueStepByStep()
             isPlayerQueuedState = true
             tStatus.Text = "Status: Successfully Queued!"
             tStatus.TextColor3 = Color3.fromRGB(14, 255, 0)
-            print("[AutoQueue] Successfully Queued")
+            print("[AutoQueue Exit] RETURN 8: Successfully Queued")
         else
-            print("[AutoQueue] Fail-Safe: Queue confirmation failed after 5 retries. Restarting sequence...")
+            print("[AutoQueue Exit] RETURN 9: Queue confirmation failed after 5 retries")
             tStatus.Text = "Status: Queue Failed - Restarting..."
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
         end
     end)
     
+    -- Task 1: Explicit Error Logging & Status Display
+    if not success then
+        print("[AUTOQUEUE ERROR]")
+        warn("Auto Queue Exception: " .. tostring(err))
+        print(debug.traceback())
+        if tStatus then
+            tStatus.Text = "Status: ERROR -> " .. tostring(err)
+            tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
+        end
+    end
+    
     isQueueRunning = false
+    print("[AutoQueue Debug L10] State lock released (isQueueRunning = false)")
 end
 
 -- Auto Queue Main Polling Loop (Runs every 0.8 seconds)
