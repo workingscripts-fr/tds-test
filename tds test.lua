@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Reliable Shotgunner Upgrade Update",
-        Text = "Shotgunner #1 5x retry & verification loop enabled",
+        Title = "Shotgunner Model Detection Update",
+        Text = "0.3s stability model detection & 2x upgrade execution enabled",
         Duration = 5
     })
 end)
@@ -2398,7 +2398,8 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (RELIABLE SHOTGUNNER #1 INSTANCE CAPTURE & 2x UPGRADE RETRY LOOP)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (SCOUT PHASE + SHOTGUNNER #1 0.3s STABILITY MODEL DETECTION & 2x UPGRADE)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
@@ -2421,108 +2422,49 @@ local shotgunner9 = nil
 
 local _autoPlaceTask = nil
 
-local function reliableUpgradeTower(tower, maxRetries)
-    if not tower or not tower.Parent or tower.Parent ~= workspace:FindFirstChild("Towers") then
-        print("[AutoPlace] Upgrade aborted: Tower instance is invalid or parented to nil")
-        return false
-    end
+local function detectShotgunnerCandidate(towersFolder, preMap)
+    local startWait = tick()
+    local maxWait = 10.0
 
-    maxRetries = maxRetries or 5
+    for attempt = 1, 10 do
+        if not autoPlaceEnabled then return nil end
+        if (tick() - startWait) >= maxWait then break end
 
-    for attempt = 1, maxRetries do
-        if not autoPlaceEnabled then return false end
-        if not tower or not tower.Parent or tower.Parent ~= workspace:FindFirstChild("Towers") then
-            print("[AutoPlace] Upgrade retry aborted: Tower parent is nil")
-            return false
-        end
+        local foundCandidate = nil
 
-        print("[AutoPlace] Upgrade Attempt " .. attempt .. " for " .. tostring(tower.Name))
-
-        -- Capture pre-state
-        local preLevel = 0
-        pcall(function()
-            local upgObj = tower:FindFirstChild("Upgrades")
-            if upgObj then
-                preLevel = tonumber(upgObj.Value or upgObj) or 0
-            else
-                preLevel = tonumber(tower:GetAttribute("Level")) or 0
-            end
-        end)
-
-        local preAttrs = {}
-        pcall(function()
-            for k, v in pairs(tower:GetAttributes()) do
-                preAttrs[k] = v
-            end
-        end)
-
-        -- Execute Remote
-        local upgradeArgs = {
-            "Troops",
-            "Upgrade",
-            "Set",
-            {
-                Troop = tower
-            }
-        }
-
-        local remoteSuccess = false
-        pcall(function()
-            remoteSuccess = game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
-        end)
-
-        -- Verification loop (up to 2.0s)
-        local startCheck = tick()
-        local verified = false
-
-        while (tick() - startCheck) < 2.0 do
-            if not tower or not tower.Parent then break end
-
-            local currentLevel = 0
-            pcall(function()
-                local upgObj = tower:FindFirstChild("Upgrades")
-                if upgObj then
-                    currentLevel = tonumber(upgObj.Value or upgObj) or 0
-                else
-                    currentLevel = tonumber(tower:GetAttribute("Level")) or 0
-                end
-            end)
-
-            if currentLevel > preLevel or remoteSuccess == true then
-                verified = true
-                break
-            end
-
-            -- Check attribute changes (Damage, Range, Cooldown)
-            local attrChanged = false
-            pcall(function()
-                for k, v in pairs(tower:GetAttributes()) do
-                    if preAttrs[k] ~= v then
-                        attrChanged = true
+        for _, child in ipairs(towersFolder:GetChildren()) do
+            if not preMap[child] 
+            and child:IsA("Model") 
+            and child.Parent == towersFolder then
+                
+                -- Stability Check: Must remain inside workspace.Towers for at least 0.3s continuously
+                local stable = true
+                local checkStart = tick()
+                while (tick() - checkStart) < 0.3 do
+                    if not child or child.Parent ~= towersFolder or not child:IsDescendantOf(towersFolder) then
+                        stable = false
                         break
                     end
+                    task.wait(0.05)
                 end
-            end)
 
-            if attrChanged then
-                verified = true
-                break
+                if stable then
+                    foundCandidate = child
+                    break
+                end
             end
-
-            task.wait(0.05)
         end
 
-        if verified then
-            print("[AutoPlace] Upgrade Success on Attempt " .. attempt)
-            return true
-        else
-            print("[AutoPlace] Upgrade Attempt " .. attempt .. " Failed/Unverified. Retrying in 0.25s...")
-            task.wait(0.25)
+        if foundCandidate then
+            if foundCandidate and foundCandidate.Parent == towersFolder and foundCandidate:IsDescendantOf(towersFolder) then
+                return foundCandidate
+            end
         end
+
+        task.wait(0.05)
     end
 
-    print("[AutoPlace] All " .. maxRetries .. " upgrade attempts failed")
-    return false
+    return nil
 end
 
 local autoPlaceCard = Instance.new("Frame")
@@ -2679,11 +2621,24 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
             scoutPlaced = true
 
             -- Scout Upgrade 1 & 2
-            reliableUpgradeTower(scoutTower, 3)
+            local scoutUpgradeArgs = {
+                "Troops",
+                "Upgrade",
+                "Set",
+                {
+                    Troop = scoutTower
+                }
+            }
+
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgradeArgs))
+            end)
             task.wait(0.35)
             if not autoPlaceEnabled then return end
 
-            reliableUpgradeTower(scoutTower, 3)
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgradeArgs))
+            end)
             task.wait(0.35)
             if not autoPlaceEnabled then return end
             scoutUpgraded = true
@@ -2711,12 +2666,11 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
             task.wait(0.3) -- Propagation delay
 
-            -- 4. STEP 1 & 2: Place First Shotgunner & Capture New Child Instance
+            -- 4. Place First Shotgunner & Perform 0.3s Stability Model Candidate Detection
             if autoPlaceEnabled and scoutSold and not shotgunner1Placed then
                 local preChildren = towersFolder and towersFolder:GetChildren() or {}
                 local preMap = {}
                 for _, t in ipairs(preChildren) do preMap[t] = true end
-                local oldCount = #preChildren
 
                 local vectorPos = Vector3.new(12.490434646606445, 1.0000064373016357, -10.304333686828613)
                 if vector and vector.create then
@@ -2739,56 +2693,90 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
                 print("[AutoPlace] Placed Shotgunner Remote Sent")
 
-                -- STEP 1: Wait until children count increases by 1 (timeout 5s)
-                local startWait = tick()
-                while (#towersFolder:GetChildren() < oldCount + 1) and (tick() - startWait) < 5.0 do
-                    task.wait(0.05)
-                end
+                -- Detect Candidate Model with 0.3s Stability Check
+                local candidate = detectShotgunnerCandidate(towersFolder, preMap)
 
-                -- STEP 2: Find the newly added child instance
-                for _, child in ipairs(towersFolder:GetChildren()) do
-                    if not preMap[child] then
-                        shotgunner1 = child
-                        break
-                    end
-                end
-
-                -- STEP 3: Verify Instance & Print Debug Output
-                if shotgunner1 and shotgunner1.Parent then
-                    local dbgId = "N/A"
-                    pcall(function() dbgId = tostring(shotgunner1:GetDebugId()) end)
-
-                    print("[AutoPlace] Placed Shotgunner")
-                    print("[AutoPlace] Stored Instance:")
-                    print("  Name: " .. tostring(shotgunner1.Name))
-                    print("  FullName: " .. tostring(shotgunner1:GetFullName()))
-                    print("  ClassName: " .. tostring(shotgunner1.ClassName))
-                    print("  Parent: " .. tostring(shotgunner1.Parent and shotgunner1.Parent.Name or "nil"))
-                    print("  DebugId: " .. dbgId)
-                else
-                    print("[AutoPlace] ERROR: Shotgunner #1 placement failed or instance not found")
+                if not candidate or candidate.Parent ~= towersFolder or not candidate:IsDescendantOf(towersFolder) then
+                    print("[AutoPlace] ERROR: Shotgunner #1 candidate detection failed")
                     return
                 end
 
+                -- Candidate Found Print
+                print("===== CANDIDATE FOUND =====")
+                print("Name:", candidate.Name)
+                print("FullName:", candidate:GetFullName())
+                print("ClassName:", candidate.ClassName)
+                pcall(function() print("DebugId:", candidate:GetDebugId()) end)
+                print("Parent:", candidate.Parent)
+                print("Attributes:")
+                pcall(function()
+                    for k, v in pairs(candidate:GetAttributes()) do print("  ", k, "=", v) end
+                end)
+                print("Children:")
+                pcall(function()
+                    for _, ch in ipairs(candidate:GetChildren()) do print("  ", ch.Name, "(", ch.ClassName, ")") end
+                end)
+                print("===========================")
+
+                shotgunner1 = candidate
                 shotgunner1Placed = true
 
-                -- STEP 4, 5, 6: Upgrade Shotgunner #1 EXACTLY TWO TIMES with retries & verification
-                print("[AutoPlace] Performing Shotgunner #1 Upgrade 1...")
-                local upg1Success = reliableUpgradeTower(shotgunner1, 5)
+                -- UPGRADE 1
+                if candidate and candidate.Parent == towersFolder and candidate:IsDescendantOf(towersFolder) then
+                    print("===== UPGRADE REQUEST =====")
+                    print("Tower:", candidate)
+                    print("Name:", candidate.Name)
+                    print("FullName:", candidate:GetFullName())
+                    print("Parent:", candidate.Parent)
+                    print("Class:", candidate.ClassName)
+                    print("===========================")
 
-                if upg1Success and autoPlaceEnabled then
-                    task.wait(0.25)
-                    print("[AutoPlace] Performing Shotgunner #1 Upgrade 2...")
-                    local upg2Success = reliableUpgradeTower(shotgunner1, 5)
-                    
-                    if upg2Success then
-                        shotgunner1Upgraded = true
-                        print("[AutoPlace] Final Result: Shotgunner #1 2x Upgraded Successfully")
-                    else
-                        print("[AutoPlace] Final Result: Shotgunner #1 Upgrade 2 Failed after retries")
-                    end
+                    local upgradeArgs1 = {
+                        "Troops",
+                        "Upgrade",
+                        "Set",
+                        {
+                            Troop = candidate
+                        }
+                    }
+
+                    pcall(function()
+                        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs1))
+                    end)
                 else
-                    print("[AutoPlace] Final Result: Shotgunner #1 Upgrade 1 Failed after retries")
+                    print("[AutoPlace] Verification check failed before Upgrade 1!")
+                    return
+                end
+
+                task.wait(0.35)
+
+                -- UPGRADE 2
+                if candidate and candidate.Parent == towersFolder and candidate:IsDescendantOf(towersFolder) then
+                    print("===== UPGRADE REQUEST =====")
+                    print("Tower:", candidate)
+                    print("Name:", candidate.Name)
+                    print("FullName:", candidate:GetFullName())
+                    print("Parent:", candidate.Parent)
+                    print("Class:", candidate.ClassName)
+                    print("===========================")
+
+                    local upgradeArgs2 = {
+                        "Troops",
+                        "Upgrade",
+                        "Set",
+                        {
+                            Troop = candidate
+                        }
+                    }
+
+                    pcall(function()
+                        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs2))
+                    end)
+
+                    shotgunner1Upgraded = true
+                else
+                    print("[AutoPlace] Verification check failed before Upgrade 2!")
+                    return
                 end
             end
 
