@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue bruh",
+        Text = "Auto queue ssssssssg",
         Duration = 5
     })
 end)
@@ -2194,15 +2194,34 @@ function executeAutoQueueStepByStep()
     print("[AutoQueue Debug L10] State lock released (isQueueRunning = false)")
 end
 
--- Auto Queue Main Polling Loop (Runs every 0.8 seconds)
+-- Single-Threaded Non-Overlapping Auto Queue Loop Manager
+local autoQueueThread = nil
+
+local function startAutoQueueWorker()
+    if autoQueueThread then return end
+    
+    autoQueueThread = task.spawn(function()
+        print("[AutoQueue Worker] Single-threaded execution loop started")
+        while autoQueueEnabled do
+            -- Ensure previous execution has fully returned before starting a new one
+            if not isQueueRunning then
+                executeAutoQueueStepByStep()
+            end
+            -- Wait 0.8 seconds ONLY AFTER the previous execution has completely finished
+            task.wait(0.8)
+        end
+        print("[AutoQueue Worker] Execution loop stopped")
+        autoQueueThread = nil
+    end)
+end
+
+-- Monitor autoQueueEnabled changes cleanly
 task.spawn(function()
     while true do
-        if autoQueueEnabled then
-            executeAutoQueueStepByStep()
-            task.wait(0.8)
-        else
-            task.wait(0.5)
+        if autoQueueEnabled and not autoQueueThread then
+            startAutoQueueWorker()
         end
+        task.wait(0.3)
     end
 end)
 
