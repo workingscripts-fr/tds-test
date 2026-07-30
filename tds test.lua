@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue hehe stinky",
+        Text = "Auto queue working gibber",
         Duration = 5
     })
 end)
@@ -2379,44 +2379,70 @@ local function hlRoadApply()
     hlRoadCleanup()
     if not highlightRoadEnabled then return end
 
-    local roadFolder = nil
-    pcall(function()
-        local map = workspace:WaitForChild("Map", 5)
-        if map then
-            local r1 = map:WaitForChild("Road", 5)
-            if r1 then
-                roadFolder = r1:WaitForChild("Road", 5) or r1
-            end
-        end
-    end)
-
-    if not roadFolder then
-        print("[Highlight Road] Could not find workspace.Map.Road.Road")
-        notifyDiag("Road:", "workspace.Map.Road.Road not found")
+    local map = workspace:FindFirstChild("Map")
+    if not map then
+        notifyDiag("Road Debug", "Map missing")
         return
     end
 
-    local count = 0
-    for _, child in ipairs(roadFolder:GetChildren()) do
-        if child:IsA("BasePart") then
-            if not _hlRoadSavedState[child] then
-                _hlRoadSavedState[child] = {
-                    Material = child.Material,
-                    Color = child.Color,
-                    Transparency = child.Transparency
-                }
+    local road1 = map:FindFirstChild("Road")
+    if not road1 then
+        notifyDiag("Road Debug", "Road folder missing")
+        return
+    end
+
+    local roadFolder = road1:FindFirstChild("Road")
+    if not roadFolder then
+        notifyDiag("Road Debug", "Second Road missing")
+        return
+    end
+
+    notifyDiag("Road Debug", "Found Road folder")
+
+    local children = roadFolder:GetChildren()
+    local descendants = roadFolder:GetDescendants()
+
+    local basePartsCount = 0
+    local unionsCount = 0
+    local modelsCount = 0
+    local firstUnion = nil
+
+    for _, obj in ipairs(descendants) do
+        if obj:IsA("BasePart") then
+            basePartsCount = basePartsCount + 1
+        end
+        if obj:IsA("UnionOperation") then
+            unionsCount = unionsCount + 1
+            if not firstUnion then
+                firstUnion = obj
             end
-            pcall(function()
-                child.Material = Enum.Material.Neon
-                child.Color = Color3.fromRGB(255, 0, 0)
-                child.Transparency = 0.35
-            end)
-            count = count + 1
+        end
+        if obj:IsA("Model") then
+            modelsCount = modelsCount + 1
         end
     end
 
-    print("[Highlight Road] Highlighted " .. tostring(count) .. " children in workspace.Map.Road.Road")
-    notifyDiag("Road:", tostring(count) .. " parts highlighted")
+    notifyDiag("Road Debug", "Children: " .. tostring(#children))
+    notifyDiag("Road Debug", "Descendants: " .. tostring(#descendants))
+    notifyDiag("Road Debug", "BaseParts: " .. tostring(basePartsCount))
+    notifyDiag("Road Debug", "Unions: " .. tostring(unionsCount))
+    notifyDiag("Road Debug", "Models: " .. tostring(modelsCount))
+
+    for i = 1, math.min(15, #descendants) do
+        local d = descendants[i]
+        notifyDiag("Road Debug", d.Name .. "\n" .. d.ClassName)
+    end
+
+    if firstUnion then
+        pcall(function()
+            firstUnion.Material = Enum.Material.Neon
+            firstUnion.Color = Color3.fromRGB(255, 0, 0)
+            firstUnion.Transparency = 0.35
+        end)
+        notifyDiag("Road Debug", "Modified: " .. firstUnion.Name)
+    else
+        notifyDiag("Road Debug", "No UnionOperations found")
+    end
 end
 
 local function hlRoadStartWatcher()
