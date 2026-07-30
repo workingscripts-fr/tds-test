@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue working",
+        Text = "Auto",
         Duration = 5
     })
 end)
@@ -2404,57 +2404,71 @@ local function hlRoadApply()
         sendDebugNotif("ERROR: workspace.Map missing")
         return
     end
-    sendDebugNotif("Found Map")
 
     local road1 = map:FindFirstChild("Road")
     if not road1 then
         sendDebugNotif("ERROR: workspace.Map.Road missing")
         return
     end
-    sendDebugNotif("Found Road")
 
-    local roadLineFolder = road1:FindFirstChild("Road line") or road1:FindFirstChild("Road Line")
-    if not roadLineFolder then
+    local roadFolder = road1:FindFirstChild("Road line") or road1:FindFirstChild("Road Line")
+    if not roadFolder then
         sendDebugNotif("ERROR: workspace.Map.Road['Road line'] missing")
         return
     end
     sendDebugNotif("Found Road line")
 
-    local children = roadLineFolder:GetChildren()
-    sendDebugNotif("Children count: " .. tostring(#children))
+    local children = roadFolder:GetChildren()
 
-    local lineParts = {}
-    for _, child in ipairs(children) do
-        if child:IsA("BasePart") then
-            table.insert(lineParts, child)
-        end
-    end
-    sendDebugNotif("Line BaseParts count: " .. tostring(#lineParts))
+    local RoadPath = {
+        children[25],
+        roadFolder:FindFirstChild("Line") or children[1],
+        children[13],
+        children[2],
+        children[23],
+        children[22],
+        children[21],
+        children[20],
+        children[19],
+        children[18],
+        children[17],
+        children[16],
+        children[15],
+        children[14],
+        children[24],
+        children[12],
+        children[11],
+        children[10],
+        children[9],
+        children[8],
+        children[7],
+        children[6],
+        children[5],
+        children[4],
+        children[3],
+    }
 
-    if #lineParts == 0 then
-        sendDebugNotif("ERROR: 0 BaseParts in Road line")
-        return
-    end
-
-    -- Create attachments at center of each Line part in exact order returned by GetChildren()
     local attachmentsList = {}
-    for i, part in ipairs(lineParts) do
-        local attOk, attErr = pcall(function()
-            local att = Instance.new("Attachment")
-            att.Name = "TDS_RoadBeamAtt"
-            att.CFrame = CFrame.new(0, 0, 0)
-            att.Parent = part
-            table.insert(attachmentsList, att)
-            table.insert(_hlRoadCreatedAttachments, att)
-        end)
-        if not attOk then
-            sendDebugNotif("Attachment " .. i .. " Error: " .. tostring(attErr))
+    for idx, part in ipairs(RoadPath) do
+        if not part then
+            sendDebugNotif("RoadPath index " .. tostring(idx) .. " is nil")
+        else
+            local attOk, attErr = pcall(function()
+                local att = Instance.new("Attachment")
+                att.Name = "TDS_RoadBeamAtt"
+                att.CFrame = CFrame.new(0, 0, 0)
+                att.Parent = part
+                table.insert(attachmentsList, att)
+                table.insert(_hlRoadCreatedAttachments, att)
+            end)
+            if not attOk then
+                sendDebugNotif("Attachment " .. idx .. " Error: " .. tostring(attErr))
+            end
         end
     end
 
     sendDebugNotif("Attachments created: " .. tostring(#attachmentsList))
 
-    -- Create Beams connecting consecutive attachments (width 4)
     local beamsCount = 0
     for i = 1, #attachmentsList - 1 do
         local beamOk, beamErr = pcall(function()
