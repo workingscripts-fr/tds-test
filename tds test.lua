@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue nooooo",
+        Text = "Auto queue workinggggggg",
         Duration = 5
     })
 end)
@@ -16,11 +16,11 @@ local UserInputService = game:GetService("UserInputService")
 
 -- Safe Top-Level PlayerGui Resolver
 function getPlayerGui()
-    local lp = Players.LocalPlayer
+    local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
     if not lp then
         pcall(function()
             if workspace.CurrentCamera and workspace.CurrentCamera.CameraSubject then
-                lp = Players:GetPlayerFromCharacter(workspace.CurrentCamera.CameraSubject.Parent)
+                lp = game:GetService("Players"):GetPlayerFromCharacter(workspace.CurrentCamera.CameraSubject.Parent)
             end
         end)
     end
@@ -28,40 +28,8 @@ function getPlayerGui()
         local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
         if pg then return pg end
     end
-    return nil
-end
-
--- Safe Top-Level PlayerGui Resolver
-function getPlayerGui()
-    local lp = Players.LocalPlayer
-    if not lp then
-        pcall(function()
-            if workspace.CurrentCamera and workspace.CurrentCamera.CameraSubject then
-                lp = Players:GetPlayerFromCharacter(workspace.CurrentCamera.CameraSubject.Parent)
-            end
-        end)
-    end
-    if lp then
-        local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
-        if pg then return pg end
-    end
-    return nil
-end
-
--- Safe Top-Level PlayerGui Resolver
-function getPlayerGui()
-    local lp = Players.LocalPlayer
-    if not lp then
-        pcall(function()
-            if workspace.CurrentCamera and workspace.CurrentCamera.CameraSubject then
-                lp = Players:GetPlayerFromCharacter(workspace.CurrentCamera.CameraSubject.Parent)
-            end
-        end)
-    end
-    if lp then
-        local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
-        if pg then return pg end
-    end
+    local ok, cg = pcall(function() return game:GetService("CoreGui") end)
+    if ok and cg then return cg end
     return nil
 end
 local RunService = game:GetService("RunService")
@@ -94,7 +62,7 @@ pcall(function()
     parentContainer = game:GetService("CoreGui")
 end)
 if not parentContainer then
-    parentContainer = PlayerGui
+    parentContainer = getPlayerGui()
 end
 if not parentContainer and LocalPlayer then
     parentContainer = LocalPlayer:FindFirstChildOfClass("PlayerGui") or LocalPlayer:FindFirstChild("PlayerGui")
