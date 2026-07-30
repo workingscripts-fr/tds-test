@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue shesh",
+        Text = "Auto queue wow",
         Duration = 5
     })
 end)
