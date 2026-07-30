@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Shotgunner Placement Update",
-        Text = "First Shotgunner auto placement sequence added",
+        Title = "ReactUpgrades Mirror Update",
+        Text = "Tower Inspector live 0.1s ReactUpgrades GUI mirroring enabled",
         Duration = 5
     })
 end)
@@ -2395,13 +2395,15 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (SCOUT PHASE + SHOTGUNNER 1 PHASE)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (SCOUT PHASE + SHOTGUNNER 1 PLACE & 2x UPGRADE)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
 scoutUpgraded = false
 scoutSold = false
 shotgunner1Placed = false
+shotgunner1Upgraded = false
 local _autoPlaceTask = nil
 
 local autoPlaceCard = Instance.new("Frame")
@@ -2441,7 +2443,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout (2x upgrade, sell at $1,225) -> Shotgunner #1"
+apcSub.Text = "Scout (2x upg, sell $1225) -> Shotgunner #1 (place & 2x upg)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2492,6 +2494,40 @@ local function stopAutoPlaceTask()
     end
 end
 
+local function waitForTowerInstance(targetName, timeout)
+    timeout = timeout or 5
+    local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
+    if not towersFolder then return nil end
+
+    local existing = {}
+    for _, t in ipairs(towersFolder:GetChildren()) do
+        existing[t] = true
+    end
+
+    local found = nil
+    local conn = nil
+    conn = towersFolder.ChildAdded:Connect(function(child)
+        if not existing[child] and (not targetName or child.Name == targetName or string.find(string.lower(child.Name), string.lower(targetName))) then
+            found = child
+        end
+    end)
+
+    for _, t in ipairs(towersFolder:GetChildren()) do
+        if not existing[t] and (not targetName or t.Name == targetName or string.find(string.lower(t.Name), string.lower(targetName))) then
+            found = t
+            break
+        end
+    end
+
+    local start = tick()
+    while not found and (tick() - start) < timeout do
+        task.wait(0.05)
+    end
+
+    if conn then conn:Disconnect() end
+    return found
+end
+
 apcSwitchBtn.MouseButton1Click:Connect(function()
     autoPlaceEnabled = not autoPlaceEnabled
 
@@ -2504,10 +2540,11 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         scoutUpgraded = false
         scoutSold = false
         shotgunner1Placed = false
+        shotgunner1Upgraded = false
 
         _autoPlaceTask = task.spawn(function()
             -- 1. Execute Scout Placement remote
-            local placeArgs = {
+            local scoutPlaceArgs = {
                 "Troops",
                 "Place",
                 {
@@ -2518,70 +2555,66 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
             }
             
             pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(placeArgs))
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutPlaceArgs))
             end)
 
             if not autoPlaceEnabled then return end
 
             -- Wait for Scout tower instance in workspace.Towers
-            pcall(function()
-                workspace:WaitForChild("Towers", 5):WaitForChild("Intern", 5)
-            end)
+            local scoutTower = waitForTowerInstance("Intern", 4) or workspace:WaitForChild("Towers", 3):FindFirstChild("Intern")
 
-            if not autoPlaceEnabled then return end
+            if not autoPlaceEnabled or not scoutTower then return end
             scoutPlaced = true
 
-            -- 2. Upgrade Scout twice with short delay (0.35s) between them
-            local upgradeArgs = {
+            -- 2. Upgrade Scout twice with direct tower instance reference
+            local scoutUpgradeArgs = {
                 "Troops",
                 "Upgrade",
                 "Set",
                 {
-                    Troop = workspace:WaitForChild("Towers"):WaitForChild("Intern")
+                    Troop = scoutTower
                 }
             }
 
-            -- Upgrade 1
+            -- Scout Upgrade 1
             pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgradeArgs))
             end)
-
             task.wait(0.35)
             if not autoPlaceEnabled then return end
 
-            -- Upgrade 2
+            -- Scout Upgrade 2
             pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgradeArgs))
             end)
-
             task.wait(0.35)
             if not autoPlaceEnabled then return end
             scoutUpgraded = true
 
-            -- 3. Monitor existing money counter (currentTDSMoneyNumber) for $1,225 threshold
+            -- 3. Monitor existing money counter for $1,225 threshold
             while autoPlaceEnabled and scoutPlaced and not scoutSold do
                 if autoPlaceEnabled and scoutPlaced and not scoutSold and currentTDSMoneyNumber >= 1225 then
                     local sellArgs = {
                         "Troops",
                         "Sell",
                         {
-                            Troop = workspace:WaitForChild("Towers"):WaitForChild("Intern")
+                            Troop = scoutTower
                         }
                     }
                     pcall(function()
                         game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(sellArgs))
                     end)
                     scoutSold = true
-                    break -- End Scout phase
+                    break
                 end
                 task.wait(0.05)
             end
 
             if not autoPlaceEnabled or not scoutSold then return end
 
-            task.wait(0.3) -- Brief propagation delay before placing Shotgunner
+            task.wait(0.3) -- Propagation delay
 
-            -- 4. Place First Shotgunner exactly once
+            -- 4. Place First Shotgunner & Store Direct Instance Reference
             if autoPlaceEnabled and scoutSold and not shotgunner1Placed then
                 local vectorPos = Vector3.new(12.490434646606445, 1.0000064373016357, -10.304333686828613)
                 if vector and vector.create then
@@ -2602,7 +2635,36 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                     game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerPlaceArgs))
                 end)
 
+                -- Wait for Shotgunner 1 instance to exist in workspace.Towers and save reference
+                local shotgunner1Tower = waitForTowerInstance("Shotgunner", 4) or workspace:WaitForChild("Towers", 3):FindFirstChild("Shotgunner")
+
+                if not autoPlaceEnabled or not shotgunner1Tower then return end
                 shotgunner1Placed = true
+
+                -- 5. Upgrade Shotgunner 1 EXACTLY TWO TIMES using stored instance
+                local shotgunnerUpgradeArgs = {
+                    "Troops",
+                    "Upgrade",
+                    "Set",
+                    {
+                        Troop = shotgunner1Tower
+                    }
+                }
+
+                -- Shotgunner 1 Upgrade 1
+                pcall(function()
+                    game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerUpgradeArgs))
+                end)
+                task.wait(0.35)
+                if not autoPlaceEnabled then return end
+
+                -- Shotgunner 1 Upgrade 2
+                pcall(function()
+                    game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerUpgradeArgs))
+                end)
+                task.wait(0.35)
+
+                shotgunner1Upgraded = true
             end
 
             _autoPlaceTask = nil
@@ -2616,6 +2678,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         scoutUpgraded = false
         scoutSold = false
         shotgunner1Placed = false
+        shotgunner1Upgraded = false
         stopAutoPlaceTask()
     end
 end)
@@ -2895,6 +2958,458 @@ hlrSwitchBtn.MouseButton1Click:Connect(function()
         hlRoadCleanup()
     end
 end)
+
+-- ============================================================
+-- ============================================================
+-- ============================================================
+-- FEATURE 4: TOWER EXPLORER & PURE WORKSPACE INSPECTOR
+-- ============================================================
+towerExplorerEnabled = false
+local _towerDebugGuiInstance = nil
+local _towerExplorerConnections = {}
+local _inspectorLoopThread = nil
+
+local function stopInspectorLoop()
+    if _inspectorLoopThread then
+        pcall(function() task.cancel(_inspectorLoopThread) end)
+        _inspectorLoopThread = nil
+    end
+end
+
+local function destroyTowerExplorerGui()
+    for _, c in ipairs(_towerExplorerConnections) do
+        if c then pcall(function() c:Disconnect() end) end
+    end
+    _towerExplorerConnections = {}
+
+    stopInspectorLoop()
+
+    if _towerDebugGuiInstance and _towerDebugGuiInstance.Parent then
+        pcall(function() _towerDebugGuiInstance:Destroy() end)
+    end
+    _towerDebugGuiInstance = nil
+end
+
+local function openTowerExplorerGui()
+    destroyTowerExplorerGui()
+
+    local player = Players.LocalPlayer
+    if not player then return end
+
+    local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
+    if not towersFolder then return end
+
+    local selectedTower = nil
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "TowerDebugGUI"
+    gui.ResetOnSpawn = false
+    gui.Parent = getPlayerGui()
+    _towerDebugGuiInstance = gui
+
+    -- Main Container (Width 520, Height 340)
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 520, 0, 340)
+    mainFrame.Position = UDim2.new(1, -535, 0, 40)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = gui
+
+    Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+
+    -- Header Title
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -35, 0, 26)
+    title.Position = UDim2.new(0, 10, 0, 4)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.GothamBold
+    title.Text = "Active Towers Explorer & Inspector"
+    title.TextSize = 15
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = mainFrame
+
+    -- Close Button
+    local close = Instance.new("TextButton")
+    close.Size = UDim2.new(0, 22, 0, 22)
+    close.Position = UDim2.new(1, -27, 0, 5)
+    close.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
+    close.Text = "X"
+    close.Font = Enum.Font.GothamBold
+    close.TextSize = 14
+    close.TextColor3 = Color3.new(1, 1, 1)
+    close.Parent = mainFrame
+
+    Instance.new("UICorner", close).CornerRadius = UDim.new(0, 4)
+
+    ------------------------------------------------------------
+    -- Left Panel: Tower List (Explorer)
+    ------------------------------------------------------------
+    local leftFrame = Instance.new("Frame")
+    leftFrame.Size = UDim2.new(0, 210, 1, -40)
+    leftFrame.Position = UDim2.new(0, 8, 0, 32)
+    leftFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    leftFrame.BorderSizePixel = 0
+    leftFrame.Parent = mainFrame
+
+    Instance.new("UICorner", leftFrame).CornerRadius = UDim.new(0, 6)
+
+    local listScroll = Instance.new("ScrollingFrame")
+    listScroll.Size = UDim2.new(1, -8, 1, -8)
+    listScroll.Position = UDim2.new(0, 4, 0, 4)
+    listScroll.BackgroundTransparency = 1
+    listScroll.BorderSizePixel = 0
+    listScroll.ScrollBarThickness = 4
+    listScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
+    listScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    listScroll.Parent = leftFrame
+
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    listLayout.Padding = UDim.new(0, 4)
+    listLayout.Parent = listScroll
+
+    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        listScroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 6)
+    end)
+
+    -- Tower Count Header Label at Top of List
+    local countLabel = Instance.new("TextLabel")
+    countLabel.Name = "TowerCountLabel"
+    countLabel.Size = UDim2.new(1, -4, 0, 20)
+    countLabel.BackgroundTransparency = 1
+    countLabel.Font = Enum.Font.GothamBold
+    countLabel.TextSize = 12
+    countLabel.TextColor3 = Color3.fromRGB(180, 195, 215)
+    countLabel.TextXAlignment = Enum.TextXAlignment.Left
+    countLabel.Text = "Active Towers: 0 / 40"
+    countLabel.LayoutOrder = 0
+    countLabel.Parent = listScroll
+
+    ------------------------------------------------------------
+    -- Right Panel: Properties (Inspector)
+    ------------------------------------------------------------
+    local rightFrame = Instance.new("Frame")
+    rightFrame.Size = UDim2.new(1, -234, 1, -40)
+    rightFrame.Position = UDim2.new(0, 226, 0, 32)
+    rightFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    rightFrame.BorderSizePixel = 0
+    rightFrame.Parent = mainFrame
+
+    Instance.new("UICorner", rightFrame).CornerRadius = UDim.new(0, 6)
+
+    local inspectorScroll = Instance.new("ScrollingFrame")
+    inspectorScroll.Size = UDim2.new(1, -8, 1, -8)
+    inspectorScroll.Position = UDim2.new(0, 4, 0, 4)
+    inspectorScroll.BackgroundTransparency = 1
+    inspectorScroll.BorderSizePixel = 0
+    inspectorScroll.ScrollBarThickness = 4
+    inspectorScroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 80)
+    inspectorScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    inspectorScroll.Parent = rightFrame
+
+    local inspectorText = Instance.new("TextLabel")
+    inspectorText.Size = UDim2.new(1, -4, 0, 0)
+    inspectorText.Position = UDim2.new(0, 2, 0, 2)
+    inspectorText.BackgroundTransparency = 1
+    inspectorText.Font = Enum.Font.Code
+    inspectorText.TextSize = 13
+    inspectorText.TextColor3 = Color3.fromRGB(220, 220, 220)
+    inspectorText.TextXAlignment = Enum.TextXAlignment.Left
+    inspectorText.TextYAlignment = Enum.TextYAlignment.Top
+    inspectorText.TextWrapped = true
+    inspectorText.RichText = true
+    inspectorText.Text = "No tower selected."
+    inspectorText.Parent = inspectorScroll
+
+    inspectorText:GetPropertyChangedSignal("TextBounds"):Connect(function()
+        inspectorText.Size = UDim2.new(1, -4, 0, inspectorText.TextBounds.Y + 10)
+        inspectorScroll.CanvasSize = UDim2.new(0, 0, 0, inspectorText.TextBounds.Y + 14)
+    end)
+
+    ------------------------------------------------------------
+    -- Helper Formatting & Pure Workspace Inspector Renderer
+    ------------------------------------------------------------
+    local function getTowerInfo(tower)
+        local skin = ""
+        local ok, result = pcall(function()
+            if tower:GetAttribute("Skin") then
+                return tostring(tower:GetAttribute("Skin"))
+            end
+        end)
+        if ok and result then
+            skin = " | " .. result
+        end
+
+        local owner = ""
+        local ownerValue = tower:FindFirstChild("Owner", true)
+        if ownerValue and ownerValue:IsA("ObjectValue") and ownerValue.Value then
+            owner = " (" .. ownerValue.Value.Name .. ")"
+        end
+
+        return tower.Name .. skin .. owner
+    end
+
+    local function renderTowerProperties(tower)
+        if not tower or not tower.Parent then
+            selectedTower = nil
+            inspectorText.Text = "No tower selected."
+            return
+        end
+
+        local lines = {}
+        
+        -- GENERAL
+        table.insert(lines, "<font color=\"#569CD6\"><b>=== GENERAL ===</b></font>")
+        table.insert(lines, " <b>Name:</b> " .. tower.Name)
+        table.insert(lines, " <b>ClassName:</b> " .. tower.ClassName)
+        table.insert(lines, " <b>FullName:</b> " .. tower:GetFullName())
+        table.insert(lines, " <b>Parent:</b> " .. (tower.Parent and tower.Parent.Name or "nil"))
+
+        local debugId = "N/A"
+        pcall(function() debugId = tostring(tower:GetDebugId()) end)
+        table.insert(lines, " <b>DebugId:</b> " .. debugId)
+        table.insert(lines, " <b>Archivable:</b> " .. tostring(tower.Archivable))
+        table.insert(lines, "")
+
+        -- MODEL
+        table.insert(lines, "<font color=\"#4EC9B0\"><b>=== MODEL ===</b></font>")
+        table.insert(lines, " <b>PrimaryPart:</b> " .. (tower.PrimaryPart and tower.PrimaryPart.Name or "None"))
+        
+        local pivotPos = "N/A"
+        local pivotRot = "N/A"
+        pcall(function()
+            local cf = tower:GetPivot()
+            pivotPos = string.format("%.2f, %.2f, %.2f", cf.Position.X, cf.Position.Y, cf.Position.Z)
+            local rx, ry, rz = cf:ToOrientation()
+            pivotRot = string.format("%.1f, %.1f, %.1f", math.deg(rx), math.deg(ry), math.deg(rz))
+        end)
+        table.insert(lines, " <b>Pivot Position:</b> " .. pivotPos)
+        table.insert(lines, " <b>Pivot Rotation:</b> " .. pivotRot)
+        table.insert(lines, " <b>Child Count:</b> " .. #tower:GetChildren())
+        table.insert(lines, " <b>Descendant Count:</b> " .. #tower:GetDescendants())
+        table.insert(lines, "")
+
+        -- ATTRIBUTES
+        table.insert(lines, "<font color=\"#DCDCAA\"><b>=== ATTRIBUTES ===</b></font>")
+        local attrs = tower:GetAttributes()
+        local attrCount = 0
+        for k, v in pairs(attrs) do
+            attrCount = attrCount + 1
+            table.insert(lines, " " .. tostring(k) .. " = " .. tostring(v))
+        end
+        if attrCount == 0 then
+            table.insert(lines, "<i>(None)</i>")
+        end
+        table.insert(lines, "")
+
+        -- VALUE OBJECTS
+        local objVals, strVals, numVals, intVals, boolVals = {}, {}, {}, {}, {}
+        for _, desc in ipairs(tower:GetDescendants()) do
+            if desc:IsA("ObjectValue") then
+                table.insert(objVals, desc)
+            elseif desc:IsA("StringValue") then
+                table.insert(strVals, desc)
+            elseif desc:IsA("NumberValue") then
+                table.insert(numVals, desc)
+            elseif desc:IsA("IntValue") then
+                table.insert(intVals, desc)
+            elseif desc:IsA("BoolValue") then
+                table.insert(boolVals, desc)
+            end
+        end
+
+        table.insert(lines, "<font color=\"#CE9178\"><b>=== OBJECT VALUES ===</b></font>")
+        if #objVals > 0 then
+            for _, val in ipairs(objVals) do
+                local targetName = val.Value and val.Value.Name or "nil"
+                table.insert(lines, " " .. tostring(val.Name) .. " -> " .. tostring(targetName))
+            end
+        else
+            table.insert(lines, "<i>(None)</i>")
+        end
+        table.insert(lines, "")
+
+        table.insert(lines, "<font color=\"#9CDCFE\"><b>=== STRING VALUES ===</b></font>")
+        if #strVals > 0 then
+            for _, val in ipairs(strVals) do
+                table.insert(lines, " " .. tostring(val.Name) .. " = \"" .. tostring(val.Value) .. "\"")
+            end
+        else
+            table.insert(lines, "<i>(None)</i>")
+        end
+        table.insert(lines, "")
+
+        table.insert(lines, "<font color=\"#B5CEA8\"><b>=== NUMBER VALUES ===</b></font>")
+        if #numVals > 0 then
+            for _, val in ipairs(numVals) do
+                table.insert(lines, " " .. tostring(val.Name) .. " = " .. tostring(val.Value))
+            end
+        else
+            table.insert(lines, "<i>(None)</i>")
+        end
+        table.insert(lines, "")
+
+        table.insert(lines, "<font color=\"#B5CEA8\"><b>=== INT VALUES ===</b></font>")
+        if #intVals > 0 then
+            for _, val in ipairs(intVals) do
+                table.insert(lines, " " .. tostring(val.Name) .. " = " .. tostring(val.Value))
+            end
+        else
+            table.insert(lines, "<i>(None)</i>")
+        end
+        table.insert(lines, "")
+
+        table.insert(lines, "<font color=\"#569CD6\"><b>=== BOOL VALUES ===</b></font>")
+        if #boolVals > 0 then
+            for _, val in ipairs(boolVals) do
+                table.insert(lines, " " .. tostring(val.Name) .. " = " .. tostring(val.Value))
+            end
+        else
+            table.insert(lines, "<i>(None)</i>")
+        end
+        table.insert(lines, "")
+
+        -- CHILDREN
+        table.insert(lines, "<font color=\"#C586C0\"><b>=== CHILDREN ===</b></font>")
+        local children = tower:GetChildren()
+        if #children > 0 then
+            for _, ch in ipairs(children) do
+                table.insert(lines, " " .. tostring(ch.Name) .. " (" .. tostring(ch.ClassName) .. ")")
+            end
+        else
+            table.insert(lines, "<i>(None)</i>")
+        end
+
+        inspectorText.Text = table.concat(lines, "\n")
+    end
+
+    local function startInspectorLoop(tower)
+        stopInspectorLoop()
+
+        if not tower or not tower.Parent then
+            selectedTower = nil
+            inspectorText.Text = "No tower selected."
+            return
+        end
+
+        selectedTower = tower
+
+        _inspectorLoopThread = task.spawn(function()
+            while true do
+                if not selectedTower or not selectedTower.Parent then
+                    selectedTower = nil
+                    inspectorText.Text = "No tower selected."
+                    stopInspectorLoop()
+                    break
+                end
+
+                pcall(function()
+                    renderTowerProperties(selectedTower)
+                end)
+
+                task.wait(0.1)
+            end
+        end)
+    end
+
+    ------------------------------------------------------------
+    -- Refresh Explorer List
+    ------------------------------------------------------------
+    local function refreshExplorer()
+        for _, child in ipairs(listScroll:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+
+        local towers = towersFolder:GetChildren()
+        countLabel.Text = "Active Towers: " .. #towers .. " / 40"
+
+        table.sort(towers, function(a, b)
+            return a.Name < b.Name
+        end)
+
+        if #towers == 0 then
+            selectedTower = nil
+            inspectorText.Text = "No tower selected."
+            stopInspectorLoop()
+            return
+        end
+
+        if selectedTower and not selectedTower.Parent then
+            selectedTower = nil
+            inspectorText.Text = "No tower selected."
+            stopInspectorLoop()
+        end
+
+        for i, tower in ipairs(towers) do
+            local btn = Instance.new("TextButton")
+            btn.Name = "TowerBtn_" .. tower.Name
+            btn.Size = UDim2.new(1, 0, 0, 28)
+            btn.LayoutOrder = i
+            btn.Font = Enum.Font.GothamMedium
+            btn.Text = " " .. i .. ". " .. getTowerInfo(tower)
+            btn.TextSize = 12
+            btn.TextXAlignment = Enum.TextXAlignment.Left
+            btn.Parent = listScroll
+
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+            if selectedTower == tower then
+                btn.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            else
+                btn.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+                btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+            end
+
+            btn.MouseButton1Click:Connect(function()
+                startInspectorLoop(tower)
+
+                for _, b in ipairs(listScroll:GetChildren()) do
+                    if b:IsA("TextButton") then
+                        if b == btn then
+                            b.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+                            b.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        else
+                            b.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+                            b.TextColor3 = Color3.fromRGB(200, 200, 200)
+                        end
+                    end
+                end
+            end)
+        end
+    end
+
+    ------------------------------------------------------------
+    -- Watch Folder & Close Event
+    ------------------------------------------------------------
+    table.insert(_towerExplorerConnections,
+        towersFolder.ChildAdded:Connect(function()
+            task.wait()
+            refreshExplorer()
+        end)
+    )
+
+    table.insert(_towerExplorerConnections,
+        towersFolder.ChildRemoved:Connect(function()
+            task.wait()
+            refreshExplorer()
+        end)
+    )
+
+    close.MouseButton1Click:Connect(function()
+        towerExplorerEnabled = false
+        if teSwKnob then
+            teSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+            teSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+        end
+        destroyTowerExplorerGui()
+    end)
+
+    refreshExplorer()
+end
 
 -- FEATURE 3: OBJECT INSPECTOR TOGGLE
 -- ============================================================
