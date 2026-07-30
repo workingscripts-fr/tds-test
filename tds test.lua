@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "TDS Test",
-        Text = "Auto queue working",
+        Title = "Money Counter Update",
+        Text = "Money counter delay set to 5ms",
         Duration = 5
     })
 end)
@@ -765,7 +765,7 @@ task.spawn(function()
                 moneyLabel.Text = "$0"
             end
         end)
-        task.wait(0.1) -- Update every 100 milliseconds
+        task.wait(0.005) -- Lowest delay possible (5 milliseconds)
     end
 end)
 
