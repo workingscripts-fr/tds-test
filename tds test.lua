@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue brooo",
+        Text = "Auto queue glug",
         Duration = 5
     })
 end)
@@ -1725,8 +1725,6 @@ function findTargetButton(targetKeyword)
             end
         end)
         
-        local survivalMatchesCount = 0
-        
         for _, container in ipairs(containers) do
             local descendants = {}
             pcall(function() descendants = container:GetDescendants() end)
@@ -1734,81 +1732,51 @@ function findTargetButton(targetKeyword)
             for _, desc in ipairs(descendants) do
                 if not isExcludedContainer(desc) then
                     local descName = string.lower(desc.Name or "")
-                    local txt = ""
-                    local combinedText = ""
-                    pcall(function()
-                        if desc:IsA("TextLabel") or desc:IsA("TextButton") then
-                            txt = string.lower(string.gsub(desc.Text or "", "^%s*(.-)%s*$", "%1"))
-                        end
-                        combinedText = txt
-                        for _, child in ipairs(desc:GetChildren()) do
-                            if (child:IsA("TextLabel") or child:IsA("TextButton")) and child.Text then
-                                combinedText = combinedText .. " " .. string.lower(child.Text)
-                            end
-                        end
-                    end)
                     
-                    -- Check if element contains "survival" in Name or Text
+                    -- DEEP RECURSIVE SURVIVAL CARD SEARCH
                     if lowerKw == "survival" then
-                        local hasSurvival = (string.find(descName, "survival", 1, true) or string.find(combinedText, "survival", 1, true))
-                        if hasSurvival then
-                            survivalMatchesCount = survivalMatchesCount + 1
-                            
-                            local isVis = isGuiObjectTrulyVisible(desc)
-                            local fullPath = desc:GetFullName()
-                            local absPosStr = "N/A"
-                            local absSizeStr = "N/A"
-                            pcall(function()
-                                if desc:IsA("GuiObject") then
-                                    absPosStr = tostring(desc.AbsolutePosition)
-                                    absSizeStr = tostring(desc.AbsoluteSize)
+                        local allText = ""
+                        pcall(function()
+                            if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+                                allText = allText .. " " .. string.lower(desc.Text or "")
+                            end
+                            for _, sub in ipairs(desc:GetDescendants()) do
+                                if (sub:IsA("TextLabel") or sub:IsA("TextButton")) and sub.Text then
+                                    allText = allText .. " " .. string.lower(sub.Text)
                                 end
-                            end)
-                            
-                            local rejectionReason = nil
-                            if not isVis then
-                                pcall(function()
-                                    if desc:IsA("GuiObject") and (desc.AbsoluteSize.X <= 1 or desc.AbsoluteSize.Y <= 1) then
-                                        rejectionReason = "Size <= 1"
-                                    else
-                                        local cur = desc
-                                        while cur do
-                                            if cur:IsA("ScreenGui") and not cur.Enabled then
-                                                rejectionReason = "ScreenGui Disabled (" .. cur.Name .. ")"
-                                                break
-                                            elseif cur:IsA("GuiObject") and not cur.Visible then
-                                                rejectionReason = "Parent Visible=false (" .. cur.Name .. ")"
-                                                break
-                                            elseif cur:IsA("CanvasGroup") and cur.GroupTransparency >= 1.0 then
-                                                rejectionReason = "CanvasGroup Fully Transparent (1.0)"
-                                                break
-                                            end
-                                            cur = cur.Parent
-                                        end
-                                        if not rejectionReason then rejectionReason = "Off Screen Bounds" end
-                                    end
-                                end)
                             end
-                            
-                            -- Report candidate details via single notification
-                            local infoMsg = string.format("Name: %s | Class: %s | Vis: %s | Pos: %s | Size: %s | Path: %s",
-                                desc.Name, desc.ClassName, tostring(isVis), absPosStr, absSizeStr, fullPath)
-                            if rejectionReason then
-                                infoMsg = infoMsg .. " | REJECTED: " .. rejectionReason
-                            else
-                                infoMsg = infoMsg .. " | ACCEPTED"
+                        end)
+                        
+                        local isMatch = (string.find(descName, "survival", 1, true) or string.find(allText, "survival", 1, true) or
+                                         string.find(allText, "classic tower defense", 1, true))
+                                         
+                        local isExcludedMode = (string.find(allText, "pvp", 1, true) or string.find(descName, "pvp", 1, true) or
+                                                string.find(allText, "hardcore", 1, true) or string.find(descName, "hardcore", 1, true) or
+                                                string.find(allText, "special", 1, true) or string.find(descName, "special", 1, true) or
+                                                string.find(allText, "sandbox", 1, true) or string.find(descName, "sandbox", 1, true))
+                                                
+                        if isMatch and not isExcludedMode and isGuiObjectTrulyVisible(desc) then
+                            local btnObj = desc
+                            local cur = desc
+                            for depth = 1, 6 do
+                                if not cur or cur:IsA("ScreenGui") then break end
+                                if (cur:IsA("GuiButton") or cur:IsA("TextButton") or cur:IsA("ImageButton")) and isGuiObjectTrulyVisible(cur) then
+                                    btnObj = cur
+                                    break
+                                end
+                                cur = cur.Parent
                             end
-                            notifyDiag("Survival Candidate:", infoMsg)
-                            
-                            if isVis then
-                                local isClickableType = (desc:IsA("GuiButton") or desc:IsA("TextButton") or desc:IsA("ImageButton"))
-                                local btnObj = isClickableType and desc or desc.Parent
-                                return btnObj
-                            end
+                            return btnObj
                         end
                     end
                     
                     -- Standard search for non-survival keywords
+                    local txt = ""
+                    pcall(function()
+                        if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+                            txt = string.lower(string.gsub(desc.Text or "", "^%s*(.-)%s*$", "%1"))
+                        end
+                    end)
                     local isClickableType = (desc:IsA("GuiButton") or desc:IsA("TextButton") or desc:IsA("ImageButton"))
                     local hasClickableParent = (desc.Parent and (desc.Parent:IsA("GuiButton") or desc.Parent:IsA("TextButton") or desc.Parent:IsA("ImageButton")))
                     
@@ -1857,10 +1825,6 @@ function findTargetButton(targetKeyword)
                     end
                 end
             end
-        end
-        
-        if lowerKw == "survival" and survivalMatchesCount == 0 then
-            notifyDiag("Survival Notice:", "No Survival objects exist yet.")
         end
         
         if #candidates > 0 then
@@ -1956,14 +1920,35 @@ function executeAutoQueueStepByStep()
         end
         
         ----------------------------------------------------
-        -- STEP 1 & STEP 2: Green PLAY Button -> Wait 1s -> Survival Card Flow
+        -- STEP 1 & STEP 2: Gamemode Menu State Aware Flow
         ----------------------------------------------------
-        print("[AutoQueue] Step 1: Searching for Green PLAY button...")
+        local function isGamemodeMenuOpen()
+            local pg = getPlayerGui()
+            if not pg then return false end
+            for _, desc in ipairs(pg:GetDescendants()) do
+                if desc:IsA("GuiObject") and isGuiObjectTrulyVisible(desc) and not isExcludedContainer(desc) then
+                    local n = string.lower(desc.Name or "")
+                    local txt = ""
+                    pcall(function()
+                        if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+                            txt = string.lower(desc.Text or "")
+                        end
+                    end)
+                    if string.find(n, "choose", 1, true) or string.find(txt, "choose a gamemode", 1, true) or string.find(n, "gamemode", 1, true) then
+                        return true
+                    end
+                end
+            end
+            return false
+        end
+
+        local menuAlreadyOpen = isGamemodeMenuOpen()
         
-        -- Check if Survival card is ALREADY visible (Choose a Gamemode menu already open)
-        local survivalBtn = findTargetButton("survival")
-        
-        if not survivalBtn then
+        if not menuAlreadyOpen then
+            print("[AutoQueue] Gamemode menu closed. Searching for PLAY button...")
+            tStatus.Text = "Status: Searching for PLAY..."
+            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+            
             local playBtn = findTargetButton("play")
             local retries = 0
             while not playBtn and retries < 5 and autoQueueEnabled do
@@ -1987,35 +1972,31 @@ function executeAutoQueueStepByStep()
             tStatus.Text = "Status: Clicking PLAY..."
             tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
             
-            -- Trigger Click on Green PLAY button
             triggerAllSignals(playBtn)
-            
-            -- Wait exactly 1 second after PLAY button click as requested
-            print("[AutoQueue] Waiting 1 second after PLAY button click...")
             task.wait(1.0)
-            
-            notifyDiag("Searching Survival", "")
-            tStatus.Text = "Status: Searching for Survival..."
-            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
-            
-            survivalBtn = findTargetButton("survival")
-            
-            -- Retry if Play menu took longer to animate
-            local playRetries = 0
-            while not survivalBtn and playRetries < 3 and autoQueueEnabled do
-                playRetries = playRetries + 1
-                print(string.format("[AutoQueue Retry] Re-clicking Green PLAY button (%d/3)...", playRetries))
-                triggerAllSignals(playBtn)
-                task.wait(1.0)
-                survivalBtn = findTargetButton("survival")
-            end
         else
-            notifyDiag("Searching Survival", "")
+            print("[AutoQueue] Choose a Gamemode menu is ALREADY open. Proceeding to Survival...")
         end
 
         ----------------------------------------------------
-        -- STEP 2 Execution: Click Survival Gamemode Card
+        -- STEP 2 Execution: Find & Click Survival Card
         ----------------------------------------------------
+        print("[AutoQueue] Searching for Survival card...")
+        notifyDiag("Searching Survival", "")
+        tStatus.Text = "Status: Searching for Survival..."
+        tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+        
+        local survivalBtn = findTargetButton("survival")
+        local retries = 0
+        while not survivalBtn and retries < 5 and autoQueueEnabled do
+            retries = retries + 1
+            print(string.format("[AutoQueue Retry] Searching for Survival card (%d/5)...", retries))
+            tStatus.Text = string.format("Status: Searching Survival (%d/5)...", retries)
+            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+            task.wait(0.5)
+            survivalBtn = findTargetButton("survival")
+        end
+        
         if survivalBtn then
             print("[AutoQueue] Found Survival card! Clicking Survival...")
             notifyDiag("Survival Found", "")
@@ -2025,7 +2006,7 @@ function executeAutoQueueStepByStep()
             triggerAllSignals(survivalBtn)
             task.wait(0.5)
         else
-            print("[AutoQueue Exit] Survival gamemode card not found")
+            print("[AutoQueue Exit] Survival gamemode card not found after retries")
             tStatus.Text = "Status: Survival Card Not Found"
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
             return
