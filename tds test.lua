@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "Scout Upgrade Sequence Update",
-        Text = "Auto Scout place, 2x upgrade & $1,225 auto sell enabled",
+        Text = "Auto Scout place, 2x upgrade & $1,225 auto sell enabled.",
         Duration = 5
     })
 end)
