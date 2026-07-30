@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue kilber",
+        Text = "licking clits yo",
         Duration = 5
     })
 end)
@@ -2354,12 +2354,23 @@ end)
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 2: HIGHLIGHT ROAD TOGGLE (RED NEON BEAM OVERLAY)
+-- ============================================================
+-- FEATURE 2: HIGHLIGHT ROAD TOGGLE (STEP-BY-STEP DIAGNOSTIC INSTRUMENTATION)
 -- ============================================================
 highlightRoadEnabled = false
 local _hlRoadCreatedBeams = {}
 local _hlRoadCreatedAttachments = {}
 local _hlRoadWatcher = nil
+
+local function sendDebugNotif(msg)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Road Debug",
+            Text = tostring(msg),
+            Duration = 5
+        })
+    end)
+end
 
 local function hlRoadCleanup()
     for _, beam in ipairs(_hlRoadCreatedBeams) do
@@ -2378,54 +2389,78 @@ local function hlRoadCleanup()
 end
 
 local function hlRoadApply()
+    sendDebugNotif("hlRoadApply entered")
     hlRoadCleanup()
-    if not highlightRoadEnabled then return end
 
-    local roadFolder = nil
-    pcall(function()
-        local map = workspace:FindFirstChild("Map")
-        if map then
-            local r1 = map:FindFirstChild("Road")
-            if r1 then
-                roadFolder = r1:FindFirstChild("Road") or r1
-            end
-        end
-    end)
-
-    if not roadFolder then
-        notifyDiag("Road:", "Map path missing")
+    if not highlightRoadEnabled then
+        sendDebugNotif("Aborted: toggle disabled")
         return
     end
 
-    notifyDiag("Road:", "Road path found")
+    local map = workspace:FindFirstChild("Map")
+    if not map then
+        sendDebugNotif("ERROR: workspace.Map missing")
+        return
+    end
+    sendDebugNotif("Found Map")
+
+    local road1 = map:FindFirstChild("Road")
+    if not road1 then
+        sendDebugNotif("ERROR: workspace.Map.Road missing")
+        return
+    end
+    sendDebugNotif("Found Road")
+
+    local roadFolder = road1:FindFirstChild("Road")
+    if not roadFolder then
+        sendDebugNotif("ERROR: workspace.Map.Road.Road missing (using road1)")
+        roadFolder = road1
+    else
+        sendDebugNotif("Found workspace.Map.Road.Road")
+    end
+
+    local children = roadFolder:GetChildren()
+    sendDebugNotif("Children count: " .. tostring(#children))
+
+    if #children > 0 then
+        sendDebugNotif("First child: " .. tostring(children[1].Name) .. " (" .. tostring(children[1].ClassName) .. ")")
+    else
+        sendDebugNotif("ERROR: Children count is 0")
+    end
 
     local parts = {}
-    for _, child in ipairs(roadFolder:GetChildren()) do
+    for _, child in ipairs(children) do
         if child:IsA("BasePart") then
             table.insert(parts, child)
         end
     end
+    sendDebugNotif("BaseParts count: " .. tostring(#parts))
 
     if #parts == 0 then
-        notifyDiag("Road:", "No road parts found")
+        sendDebugNotif("ERROR: 0 BaseParts in children")
         return
     end
 
-    -- Sort parts by Name (handles numeric or alphanumeric names)
-    table.sort(parts, function(a, b)
-        local na = tonumber(a.Name:match("%d+"))
-        local nb = tonumber(b.Name:match("%d+"))
-        if na and nb then
-            return na < nb
-        else
-            return a.Name < b.Name
-        end
+    local sortOk, sortErr = pcall(function()
+        table.sort(parts, function(a, b)
+            local na = tonumber(a.Name:match("%d+"))
+            local nb = tonumber(b.Name:match("%d+"))
+            if na and nb then
+                return na < nb
+            else
+                return a.Name < b.Name
+            end
+        end)
     end)
+    if not sortOk then
+        sendDebugNotif("Sort Error: " .. tostring(sortErr))
+    else
+        sendDebugNotif("Parts sorted")
+    end
 
-    -- Create attachments at the center of each road part
     local attachmentsList = {}
-    for _, part in ipairs(parts) do
-        pcall(function()
+    for i, part in ipairs(parts) do
+        local attOk, attErr = pcall(function()
             local att = Instance.new("Attachment")
             att.Name = "TDS_RoadBeamAtt"
             att.CFrame = CFrame.new(0, 0, 0)
@@ -2433,14 +2468,19 @@ local function hlRoadApply()
             table.insert(attachmentsList, att)
             table.insert(_hlRoadCreatedAttachments, att)
         end)
+        if not attOk then
+            sendDebugNotif("Attachment " .. i .. " Error: " .. tostring(attErr))
+        end
     end
 
-    notifyDiag("Road:", "Created " .. tostring(#attachmentsList) .. " attachments")
+    sendDebugNotif("Attachments created: " .. tostring(#attachmentsList))
+    if #attachmentsList > 0 then
+        sendDebugNotif("First attachment created")
+    end
 
-    -- Create Beams connecting consecutive attachments
     local beamsCount = 0
     for i = 1, #attachmentsList - 1 do
-        pcall(function()
+        local beamOk, beamErr = pcall(function()
             local beam = Instance.new("Beam")
             beam.Name = "TDS_RoadBeam_" .. tostring(i)
             beam.Attachment0 = attachmentsList[i]
@@ -2456,10 +2496,17 @@ local function hlRoadApply()
             table.insert(_hlRoadCreatedBeams, beam)
             beamsCount = beamsCount + 1
         end)
+        if not beamOk then
+            sendDebugNotif("Beam " .. i .. " Error: " .. tostring(beamErr))
+        end
     end
 
-    notifyDiag("Road:", "Created " .. tostring(beamsCount) .. " beams")
-    notifyDiag("Road:", "Road Highlight Enabled")
+    sendDebugNotif("Beams created: " .. tostring(beamsCount))
+    if beamsCount > 0 then
+        sendDebugNotif("First beam created")
+    end
+
+    sendDebugNotif("Finished successfully")
 end
 
 local function hlRoadStartWatcher()
@@ -2581,6 +2628,7 @@ hlrKnobCorner.Parent = hlrSwKnob
 
 hlrSwitchBtn.MouseButton1Click:Connect(function()
     highlightRoadEnabled = not highlightRoadEnabled
+    sendDebugNotif("Toggle callback entered: " .. tostring(highlightRoadEnabled))
 
     if highlightRoadEnabled then
         hlrSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
@@ -2592,7 +2640,7 @@ hlrSwitchBtn.MouseButton1Click:Connect(function()
     else
         hlrSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         hlrSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
-        notifyDiag("Road:", "Road Highlight Disabled")
+        sendDebugNotif("Road Highlight Disabled")
         hlRoadStopWatcher()
         hlRoadCleanup()
     end
