@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue hehe",
+        Text = "Auto queue workinsdsdsg",
         Duration = 5
     })
 end)
@@ -2396,18 +2396,18 @@ local function getTargetPlacementPosition()
 end
 
 -- Comprehensive Diagnostic Instrumented Scout Placement Function
--- Verified Remote Scout Placement Function (Cobalt Schema)
+-- Verified Remote Scout Placement Function (Exact Cobalt Snippet)
 local function placeScout(targetPosition)
-    print("[Scout] Invoking verified Cobalt placement args...")
+    print("[Scout] Invoking exact Cobalt replay remote call...")
     
-    local pos
+    local posVal
     if typeof(vector) == "table" and typeof(vector.create) == "function" then
         pcall(function()
-            pos = vector.create(12.947556495666504, 1.0000064373016357, -9.138900756835938)
+            posVal = vector.create(12.947556495666504, 1.0000064373016357, -9.138900756835938)
         end)
     end
-    if not pos then
-        pos = Vector3.new(12.947556495666504, 1.0000064373016357, -9.138900756835938)
+    if not posVal then
+        posVal = Vector3.new(12.947556495666504, 1.0000064373016357, -9.138900756835938)
     end
     
     local args = {
@@ -2415,18 +2415,17 @@ local function placeScout(targetPosition)
         "Place",
         {
             Rotation = CFrame.new(0, 0, 0, 1, -0, 0, 0, 1, -0, 0, 0, 1),
-            Position = pos
+            Position = posVal
         },
         "Scout"
     }
     
     local ok, result = pcall(function()
-        local Remote = game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction")
-        return Remote:InvokeServer(unpack(args))
+        return game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(args))
     end)
     
     if ok then
-        print("[Scout] Placement succeeded.")
+        print("[Scout] Placement succeeded. Return value:", tostring(result))
         notifyDiag("Towers:", "Scout Tower Successfully Placed!")
         return true
     else
@@ -2434,7 +2433,6 @@ local function placeScout(targetPosition)
         warn("[Scout Error] " .. tostring(result))
         return false
     end
-end
 end
 
 -- Dedicated Smart Placement Worker Loop
@@ -2475,7 +2473,6 @@ smartSwitchBtn.MouseButton1Click:Connect(function()
 end)
 
 
-do -- Page 2: Menu Settings scope
 -- ==========================================================
 -- PAGE 2: MENU SETTINGS TAB
 -- ==========================================================
