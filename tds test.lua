@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue working hehehe",
+        Text = "Auto queue working blibing",
         Duration = 5
     })
 end)
@@ -2351,145 +2351,100 @@ placeScoutBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ============================================================
--- FEATURE 2: HIGHLIGHT ROAD TOGGLE
+-- ============================================================
+-- FEATURE 2: HIGHLIGHT ROAD TOGGLE (TARGETED DIRECT MODIFICATION)
 -- ============================================================
 highlightRoadEnabled = false
-local _hlRoadHighlights = {}
-local _hlRoadMapWatcher = nil
+local _hlRoadSavedState = {}
+local _hlRoadWatcher = nil
 
 local function hlRoadCleanup()
-    for _, h in ipairs(_hlRoadHighlights) do
-        if h and h.Parent then
-            h:Destroy()
+    local count = 0
+    for part, saved in pairs(_hlRoadSavedState) do
+        if part and part.Parent then
+            pcall(function()
+                part.Material = saved.Material
+                part.Color = saved.Color
+                part.Transparency = saved.Transparency
+            end)
+            count = count + 1
         end
     end
-    _hlRoadHighlights = {}
-end
-
-local function hlRoadFindPathContainer()
-    local mapRoot = workspace:FindFirstChild("Map") or workspace:FindFirstChild("Stage")
-    if not mapRoot then
-        for _, child in ipairs(workspace:GetChildren()) do
-            if child:IsA("Model") or child:IsA("Folder") then
-                for _, name in ipairs({"Path", "Paths", "Road", "Track", "Nodes", "Waypoints"}) do
-                    local found = child:FindFirstChild(name)
-                    if found then return found, child end
-                end
-            end
-        end
-        return nil, nil
-    end
-    for _, name in ipairs({"Path", "Paths", "Road", "Track", "Nodes", "Waypoints"}) do
-        local found = mapRoot:FindFirstChild(name)
-        if found then return found, mapRoot end
-    end
-    for _, desc in ipairs(mapRoot:GetDescendants()) do
-        if (desc:IsA("Model") or desc:IsA("Folder")) then
-            local n = string.lower(desc.Name)
-            if n:find("path") or n:find("road") or n:find("track") then
-                return desc, mapRoot
-            end
-        end
-    end
-    return nil, mapRoot
+    _hlRoadSavedState = {}
+    print("[Highlight Road] Restored " .. tostring(count) .. " parts")
 end
 
 local function hlRoadApply()
     hlRoadCleanup()
     if not highlightRoadEnabled then return end
 
-    local pathContainer = hlRoadFindPathContainer()
-    if not pathContainer then
-        print("[Highlight Road] No path container found")
-        notifyDiag("Road:", "No path found in current map")
-        return
-    end
-
-    local roadParts = {}
-    for _, desc in ipairs(pathContainer:GetDescendants()) do
-        if desc:IsA("BasePart") then
-            table.insert(roadParts, desc)
+    local roadFolder = nil
+    pcall(function()
+        local r1 = workspace:WaitForChild("Road", 5)
+        if r1 then
+            roadFolder = r1:WaitForChild("Road", 5) or r1
         end
-    end
-    if pathContainer:IsA("BasePart") then
-        table.insert(roadParts, pathContainer)
-    end
+    end)
 
-    if #roadParts == 0 then
-        print("[Highlight Road] No road BaseParts found")
-        notifyDiag("Road:", "No road parts found")
+    if not roadFolder then
+        print("[Highlight Road] Could not find workspace.Road.Road")
+        notifyDiag("Road:", "workspace.Road.Road not found")
         return
     end
 
     local count = 0
-    for _, part in ipairs(roadParts) do
-        local ok = false
-        pcall(function()
-            local h = Instance.new("Highlight")
-            h.Name = "TDS_RoadHL"
-            h.Adornee = part
-            h.FillColor = Color3.fromRGB(255, 0, 0)
-            h.OutlineColor = Color3.fromRGB(255, 0, 0)
-            h.FillTransparency = 0.35
-            h.OutlineTransparency = 0
-            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            h.Parent = part
-            table.insert(_hlRoadHighlights, h)
-            ok = true
-            count = count + 1
-        end)
-        if not ok then
+    for _, desc in ipairs(roadFolder:GetDescendants()) do
+        if desc:IsA("BasePart") then
+            if not _hlRoadSavedState[desc] then
+                _hlRoadSavedState[desc] = {
+                    Material = desc.Material,
+                    Color = desc.Color,
+                    Transparency = desc.Transparency
+                }
+            end
             pcall(function()
-                local overlay = Instance.new("Part")
-                overlay.Name = "TDS_RoadHL_Overlay"
-                overlay.Size = Vector3.new(part.Size.X + 0.1, 0.15, part.Size.Z + 0.1)
-                overlay.CFrame = CFrame.new(part.Position + Vector3.new(0, part.Size.Y / 2 + 0.08, 0)) * (part.CFrame - part.Position)
-                overlay.Color = Color3.fromRGB(255, 0, 0)
-                overlay.Material = Enum.Material.Neon
-                overlay.Transparency = 0.35
-                overlay.Anchored = true
-                overlay.CanCollide = false
-                overlay.CanQuery = false
-                overlay.CanTouch = false
-                overlay.CastShadow = false
-                overlay.Parent = workspace
-                table.insert(_hlRoadHighlights, overlay)
-                count = count + 1
+                desc.Material = Enum.Material.Neon
+                desc.Color = Color3.fromRGB(255, 0, 0)
+                desc.Transparency = 0.35
             end)
+            count = count + 1
         end
     end
 
-    print("[Highlight Road] Highlighted " .. tostring(count) .. " road parts")
+    print("[Highlight Road] Highlighted " .. tostring(count) .. " parts in workspace.Road.Road")
     notifyDiag("Road:", tostring(count) .. " parts highlighted")
 end
 
 local function hlRoadStartWatcher()
-    if _hlRoadMapWatcher then return end
-    _hlRoadMapWatcher = task.spawn(function()
-        local lastMapKey = ""
+    if _hlRoadWatcher then return end
+    _hlRoadWatcher = task.spawn(function()
+        local lastRoadObj = nil
         while highlightRoadEnabled do
-            local mapRoot = workspace:FindFirstChild("Map") or workspace:FindFirstChild("Stage")
-            local mapName = mapRoot and mapRoot.Name or ""
-            local childCount = 0
-            if mapRoot then
-                pcall(function() childCount = #mapRoot:GetChildren() end)
-            end
-            local mapKey = mapName .. "_" .. tostring(childCount)
-            if mapKey ~= lastMapKey and mapName ~= "" then
-                lastMapKey = mapKey
-                task.wait(1.5)
-                hlRoadApply()
+            local currentRoad = nil
+            pcall(function()
+                local r1 = workspace:FindFirstChild("Road")
+                if r1 then
+                    currentRoad = r1:FindFirstChild("Road") or r1
+                end
+            end)
+
+            if currentRoad and currentRoad ~= lastRoadObj then
+                lastRoadObj = currentRoad
+                task.wait(1)
+                if highlightRoadEnabled then
+                    hlRoadApply()
+                end
             end
             task.wait(3)
         end
-        _hlRoadMapWatcher = nil
+        _hlRoadWatcher = nil
     end)
 end
 
 local function hlRoadStopWatcher()
-    if _hlRoadMapWatcher then
-        task.cancel(_hlRoadMapWatcher)
-        _hlRoadMapWatcher = nil
+    if _hlRoadWatcher then
+        task.cancel(_hlRoadWatcher)
+        _hlRoadWatcher = nil
     end
 end
 
@@ -2530,7 +2485,7 @@ hlrSub.Position = UDim2.fromOffset(16, 36)
 hlrSub.Size = UDim2.new(0.65, 0, 0, 20)
 hlrSub.BackgroundTransparency = 1
 hlrSub.Font = Enum.Font.GothamMedium
-hlrSub.Text = "Render bright red overlay on the enemy path."
+hlrSub.Text = "Highlight workspace.Road.Road parts in red neon."
 hlrSub.TextSize = 11
 hlrSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 hlrSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2596,8 +2551,6 @@ hlrSwitchBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-
--- ============================================================
 -- FEATURE 3: OBJECT INSPECTOR TOGGLE
 -- ============================================================
 objectInspectorEnabled = false
