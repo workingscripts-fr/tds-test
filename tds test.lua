@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue noooo",
+        Text = "Auto queue nooooo",
         Duration = 5
     })
 end)
