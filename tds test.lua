@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "licking clits yo",
+        Text = "hehehehe",
         Duration = 5
     })
 end)
@@ -2355,7 +2355,8 @@ end)
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 2: HIGHLIGHT ROAD TOGGLE (STEP-BY-STEP DIAGNOSTIC INSTRUMENTATION)
+-- ============================================================
+-- FEATURE 2: HIGHLIGHT ROAD TOGGLE (PROXIMITY ROAD PATH BEAMS)
 -- ============================================================
 highlightRoadEnabled = false
 local _hlRoadCreatedBeams = {}
@@ -2422,12 +2423,6 @@ local function hlRoadApply()
     local children = roadFolder:GetChildren()
     sendDebugNotif("Children count: " .. tostring(#children))
 
-    if #children > 0 then
-        sendDebugNotif("First child: " .. tostring(children[1].Name) .. " (" .. tostring(children[1].ClassName) .. ")")
-    else
-        sendDebugNotif("ERROR: Children count is 0")
-    end
-
     local parts = {}
     for _, child in ipairs(children) do
         if child:IsA("BasePart") then
@@ -2441,29 +2436,74 @@ local function hlRoadApply()
         return
     end
 
+    -- ============================================================
+    -- PROXIMITY-BASED ROAD PATH RECONSTRUCTION ALGORITHM
+    -- ============================================================
+    local orderedParts = {}
     local sortOk, sortErr = pcall(function()
-        table.sort(parts, function(a, b)
-            local na = tonumber(a.Name:match("%d+"))
-            local nb = tonumber(b.Name:match("%d+"))
-            if na and nb then
-                return na < nb
-            else
-                return a.Name < b.Name
+        -- 1. Find an endpoint of the road
+        local startIndex = 1
+        local maxSecondDist = -1
+
+        for i = 1, #parts do
+            local dists = {}
+            for j = 1, #parts do
+                if i ~= j then
+                    local d = (parts[i].Position - parts[j].Position).Magnitude
+                    table.insert(dists, d)
+                end
             end
-        end)
+            table.sort(dists)
+            local score = dists[2] or dists[1] or 0
+            if score > maxSecondDist then
+                maxSecondDist = score
+                startIndex = i
+            end
+        end
+
+        -- 2. Nearest Neighbor Traversal from startIndex
+        local unvisited = {}
+        for i, part in ipairs(parts) do
+            if i ~= startIndex then
+                table.insert(unvisited, part)
+            end
+        end
+
+        orderedParts = { parts[startIndex] }
+        local currentPos = parts[startIndex].Position
+
+        while #unvisited > 0 do
+            local closestIndex = 1
+            local minDistance = (currentPos - unvisited[1].Position).Magnitude
+
+            for i = 2, #unvisited do
+                local dist = (currentPos - unvisited[i].Position).Magnitude
+                if dist < minDistance then
+                    minDistance = dist
+                    closestIndex = i
+                end
+            end
+
+            local nextPart = table.remove(unvisited, closestIndex)
+            table.insert(orderedParts, nextPart)
+            currentPos = nextPart.Position
+        end
     end)
-    if not sortOk then
-        sendDebugNotif("Sort Error: " .. tostring(sortErr))
+
+    if not sortOk or #orderedParts == 0 then
+        sendDebugNotif("Path Order Error: " .. tostring(sortErr))
+        orderedParts = parts
     else
-        sendDebugNotif("Parts sorted")
+        sendDebugNotif("Road path ordered by proximity")
     end
 
+    -- Create attachments at the center of each road part (raised 0.15 above)
     local attachmentsList = {}
-    for i, part in ipairs(parts) do
+    for i, part in ipairs(orderedParts) do
         local attOk, attErr = pcall(function()
             local att = Instance.new("Attachment")
             att.Name = "TDS_RoadBeamAtt"
-            att.CFrame = CFrame.new(0, 0, 0)
+            att.Position = Vector3.new(0, 0.15, 0)
             att.Parent = part
             table.insert(attachmentsList, att)
             table.insert(_hlRoadCreatedAttachments, att)
@@ -2474,10 +2514,8 @@ local function hlRoadApply()
     end
 
     sendDebugNotif("Attachments created: " .. tostring(#attachmentsList))
-    if #attachmentsList > 0 then
-        sendDebugNotif("First attachment created")
-    end
 
+    -- Create Beams connecting consecutive attachments (width 5)
     local beamsCount = 0
     for i = 1, #attachmentsList - 1 do
         local beamOk, beamErr = pcall(function()
@@ -2486,8 +2524,8 @@ local function hlRoadApply()
             beam.Attachment0 = attachmentsList[i]
             beam.Attachment1 = attachmentsList[i + 1]
             beam.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0))
-            beam.Width0 = 3
-            beam.Width1 = 3
+            beam.Width0 = 5
+            beam.Width1 = 5
             beam.LightEmission = 1
             beam.FaceCamera = true
             beam.Transparency = NumberSequence.new(0)
@@ -2502,11 +2540,7 @@ local function hlRoadApply()
     end
 
     sendDebugNotif("Beams created: " .. tostring(beamsCount))
-    if beamsCount > 0 then
-        sendDebugNotif("First beam created")
-    end
-
-    sendDebugNotif("Finished successfully")
+    sendDebugNotif("Road Highlight Enabled")
 end
 
 local function hlRoadStartWatcher()
