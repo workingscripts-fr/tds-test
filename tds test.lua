@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "HUD Money Tracker Update",
-        Text = "TDS permanent HUD cash binding active",
+        Title = "React Hotbar Money Update",
+        Text = "TDS ReactUniversalHotbar cash tracking active",
         Duration = 5
     })
 end)
@@ -684,160 +684,118 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- PERMANENT HUD CASH MONEY TRACKER BINDING
+-- ============================================================
+-- DIRECT REACT UNIVERSAL HOTBAR MONEY TRACKER
+-- Path: Players.LocalPlayer.PlayerGui.ReactUniversalHotbar.Frame.values.cash
 -- ============================================================
 currentTDSMoneyNumber = 0
-local _cachedCashObject = nil
-local _cashSignalConn = nil
+local _cashTargetObject = nil
+local _cashTargetConnection = nil
 
-local function isBlacklistedLabel(label)
-    if not label or not label:IsA("Instance") then return true end
-    
-    local name = string.lower(label.Name)
-    local parentName = label.Parent and string.lower(label.Parent.Name) or ""
-    local grandParentName = (label.Parent and label.Parent.Parent) and string.lower(label.Parent.Parent.Name) or ""
-    local text = label:IsA("TextLabel") and string.lower(label.Text) or ""
-
-    local blacklist = {
-        "reward", "cost", "sell", "upgrade", "bonus", "notification", 
-        "info", "tooltip", "card", "store", "shop", "tower", "wave",
-        "intern", "scout", "sniper", "paintballer", "demoman"
-    }
-
-    for _, word in ipairs(blacklist) do
-        if string.find(name, word) or string.find(parentName, word) or string.find(grandParentName, word) or string.find(text, word) then
-            return true
-        end
-    end
-    return false
+local function parseCashStringToNumber(valStr)
+    if not valStr then return 0 end
+    local str = tostring(valStr)
+    -- Strip $, commas, spaces, and any non-digit characters
+    local cleanStr = string.gsub(str, "[^%d]", "")
+    return tonumber(cleanStr) or 0
 end
 
-local function findPermanentTDSCashObject()
-    local lp = LocalPlayer or Players.LocalPlayer
-    if not lp then return nil end
-
-    local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
-    if not pg then return nil end
-
-    -- 1. Check direct TDS HUD paths in PlayerGui
-    local knownPaths = {
-        {"MainGui", "Hotbar", "Stats", "Cash"},
-        {"MainGui", "Hotbar", "Cash"},
-        {"MainGui", "Hotbar", "Bottom", "Cash"},
-        {"MainGui", "Bar", "Coins"},
-        {"GameGui", "Hotbar", "Cash"},
-        {"Hotbar", "CashContainer", "Cash"},
-        {"HUD", "Cash"},
-    }
-
-    for _, path in ipairs(knownPaths) do
-        local curr = pg
-        for _, step in ipairs(path) do
-            if curr then
-                curr = curr:FindFirstChild(step)
-            end
-        end
-        if curr then
-            if curr:IsA("TextLabel") and not isBlacklistedLabel(curr) then
-                return curr
-            elseif curr:IsA("ValueBase") then
-                return curr
-            else
-                for _, desc in ipairs(curr:GetDescendants()) do
-                    if desc:IsA("TextLabel") and not isBlacklistedLabel(desc) then
-                        return desc
-                    end
-                end
-            end
-        end
-    end
-
-    -- 2. Search MainGui / GameGui / Hotbar strictly for money TextLabels matching pure dollar numbers
-    local hudContainers = { pg:FindFirstChild("MainGui"), pg:FindFirstChild("GameGui"), pg:FindFirstChild("Hotbar") }
-    for _, container in ipairs(hudContainers) do
-        if container then
-            for _, desc in ipairs(container:GetDescendants()) do
-                if desc:IsA("TextLabel") and desc.Visible and desc.TextTransparency < 1 then
-                    if not isBlacklistedLabel(desc) then
-                        local txt = desc.Text
-                        if string.match(txt, "^%s*%$?%s*%d+[,%d]*%s*$") then
-                            return desc
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    -- 3. Fallback: State folder / leaderstats
-    local stateFolder = lp:FindFirstChild("State") or ReplicatedStorage:FindFirstChild("State")
-    if stateFolder then
-        local c = stateFolder:FindFirstChild("Cash") or stateFolder:FindFirstChild("Coins")
-        if c and c:IsA("ValueBase") then return c end
-    end
-
-    local leaderstats = lp:FindFirstChild("leaderstats")
-    if leaderstats then
-        local c = leaderstats:FindFirstChild("Cash") or leaderstats:FindFirstChild("Coins")
-        if c and c:IsA("ValueBase") then return c end
-    end
-
-    return nil
-end
-
-local function applyCashUpdate(obj)
+local function updateMoneyFromCashObject(obj)
     if not obj or not obj.Parent then return end
-    local valStr = ""
-    if obj:IsA("TextLabel") then
-        valStr = obj.Text
-    elseif obj:IsA("ValueBase") then
-        valStr = tostring(obj.Value)
+    
+    local rawVal = ""
+    if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+        rawVal = obj.Text
+    elseif obj:IsA("StringValue") or obj:IsA("IntValue") or obj:IsA("NumberValue") or obj:IsA("ValueBase") then
+        rawVal = tostring(obj.Value)
+    else
+        -- Class detection fallback for custom instances
+        local hasText, textResult = pcall(function() return obj.Text end)
+        if hasText and textResult then
+            rawVal = textResult
+        else
+            local hasVal, valResult = pcall(function() return obj.Value end)
+            if hasVal and valResult then
+                rawVal = tostring(valResult)
+            else
+                local childText = obj:FindFirstChildOfClass("TextLabel")
+                if childText then rawVal = childText.Text end
+            end
+        end
     end
 
-    local cleanDigits = string.gsub(valStr, "[^%d]", "")
-    local num = tonumber(cleanDigits) or 0
-
-    currentTDSMoneyNumber = num
+    local numericMoney = parseCashStringToNumber(rawVal)
+    currentTDSMoneyNumber = numericMoney
 
     if moneyLabel then
-        moneyLabel.Text = "$" .. string.format("%d", num)
+        moneyLabel.Text = "$" .. string.format("%d", numericMoney)
     end
 end
 
-local function bindCashSignal()
-    if _cashSignalConn then
-        pcall(function() _cashSignalConn:Disconnect() end)
-        _cashSignalConn = nil
+local function bindDirectCashTracker()
+    if _cashTargetConnection then
+        pcall(function() _cashTargetConnection:Disconnect() end)
+        _cashTargetConnection = nil
     end
 
-    local obj = findPermanentTDSCashObject()
-    if obj then
-        _cachedCashObject = obj
-        applyCashUpdate(obj)
+    local lp = LocalPlayer or Players.LocalPlayer
+    if not lp then return end
 
-        if obj:IsA("TextLabel") then
-            _cashSignalConn = obj:GetPropertyChangedSignal("Text"):Connect(function()
-                applyCashUpdate(obj)
+    local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
+    if not pg then return end
+
+    -- Safe WaitForChild targeting exact path: ReactUniversalHotbar.Frame.values.cash
+    local cashObj = nil
+    pcall(function()
+        local hotbar = pg:WaitForChild("ReactUniversalHotbar", 2)
+        if hotbar then
+            local frame = hotbar:WaitForChild("Frame", 2)
+            if frame then
+                local values = frame:WaitForChild("values", 2)
+                if values then
+                    cashObj = values:WaitForChild("cash", 2)
+                end
+            end
+        end
+    end)
+
+    if cashObj then
+        _cashTargetObject = cashObj
+        updateMoneyFromCashObject(cashObj)
+
+        if cashObj:IsA("TextLabel") or cashObj:IsA("TextButton") then
+            _cashTargetConnection = cashObj:GetPropertyChangedSignal("Text"):Connect(function()
+                updateMoneyFromCashObject(cashObj)
             end)
-        elseif obj:IsA("ValueBase") then
-            _cashSignalConn = obj:GetPropertyChangedSignal("Value"):Connect(function()
-                applyCashUpdate(obj)
+        elseif cashObj:IsA("StringValue") or cashObj:IsA("IntValue") or cashObj:IsA("NumberValue") or cashObj:IsA("ValueBase") then
+            _cashTargetConnection = cashObj.Changed:Connect(function()
+                updateMoneyFromCashObject(cashObj)
             end)
+        else
+            -- Event binding fallback for custom instances
+            local hasTextSignal, textSignal = pcall(function() return cashObj:GetPropertyChangedSignal("Text") end)
+            if hasTextSignal and textSignal then
+                _cashTargetConnection = textSignal:Connect(function()
+                    updateMoneyFromCashObject(cashObj)
+                end)
+            else
+                _cashTargetConnection = cashObj.Changed:Connect(function()
+                    updateMoneyFromCashObject(cashObj)
+                end)
+            end
         end
     else
-        _cachedCashObject = nil
-        currentTDSMoneyNumber = 0
-        if moneyLabel then moneyLabel.Text = "$0" end
+        _cashTargetObject = nil
     end
 end
 
--- Reacquire loop: periodically checks cache validity and updates cash without scanning PlayerGui constantly
+-- Re-acquisition & Watcher Task
 task.spawn(function()
     while true do
-        if not _cachedCashObject or not _cachedCashObject.Parent then
-            bindCashSignal()
+        if not _cashTargetObject or not _cashTargetObject.Parent then
+            bindDirectCashTracker()
         else
-            applyCashUpdate(_cachedCashObject)
+            updateMoneyFromCashObject(_cashTargetObject)
         end
         task.wait(1)
     end
