@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue glug",
+        Text = "Auto queue shesh",
         Duration = 5
     })
 end)
@@ -1920,13 +1920,13 @@ function executeAutoQueueStepByStep()
         end
         
         ----------------------------------------------------
-        -- STEP 1 & STEP 2: Gamemode Menu State Aware Flow
+        -- STEP 1 & STEP 2: Robust Open Menu Detection & Click Flow
         ----------------------------------------------------
         local function isGamemodeMenuOpen()
             local pg = getPlayerGui()
             if not pg then return false end
             for _, desc in ipairs(pg:GetDescendants()) do
-                if desc:IsA("GuiObject") and isGuiObjectTrulyVisible(desc) and not isExcludedContainer(desc) then
+                if desc:IsA("GuiObject") and desc.Visible and not isExcludedContainer(desc) then
                     local n = string.lower(desc.Name or "")
                     local txt = ""
                     pcall(function()
@@ -1934,7 +1934,11 @@ function executeAutoQueueStepByStep()
                             txt = string.lower(desc.Text or "")
                         end
                     end)
-                    if string.find(n, "choose", 1, true) or string.find(txt, "choose a gamemode", 1, true) or string.find(n, "gamemode", 1, true) then
+                    if string.find(n, "choose", 1, true) or string.find(txt, "choose a gamemode", 1, true) or
+                       string.find(n, "gamemode", 1, true) or string.find(n, "modes", 1, true) or
+                       string.find(txt, "survival", 1, true) or string.find(txt, "classic tower defense", 1, true) or
+                       string.find(txt, "pvp", 1, true) or string.find(txt, "hardcore", 1, true) or
+                       string.find(n, "survival", 1, true) then
                         return true
                     end
                 end
@@ -1945,7 +1949,7 @@ function executeAutoQueueStepByStep()
         local menuAlreadyOpen = isGamemodeMenuOpen()
         
         if not menuAlreadyOpen then
-            print("[AutoQueue] Gamemode menu closed. Searching for PLAY button...")
+            print("[AutoQueue] Play menu is closed. Searching for Green PLAY button...")
             tStatus.Text = "Status: Searching for PLAY..."
             tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
             
@@ -1975,7 +1979,9 @@ function executeAutoQueueStepByStep()
             triggerAllSignals(playBtn)
             task.wait(1.0)
         else
-            print("[AutoQueue] Choose a Gamemode menu is ALREADY open. Proceeding to Survival...")
+            print("[AutoQueue] Play ALREADY clicked. Choose a Gamemode menu is open!")
+            tStatus.Text = "Status: Menu Open -> Finding Survival..."
+            tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
         end
 
         ----------------------------------------------------
