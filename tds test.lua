@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Towers Placement Update",
-        Text = "Auto Place Towers & Auto Sell updated",
+        Title = "Auto Place Fix & Clean Update",
+        Text = "Scout auto place & $1,225 auto sell fixed",
         Duration = 5
     })
 end)
@@ -754,6 +754,8 @@ local function getTDSStatMoney()
     return fallbackZeroText
 end
 
+currentTDSMoneyNumber = 0
+
 task.spawn(function()
     while true do
         pcall(function()
@@ -761,8 +763,13 @@ task.spawn(function()
             if rawCash ~= nil then
                 local str = tostring(rawCash)
                 moneyLabel.Text = (string.sub(str, 1, 1) == "$" and str or ("$" .. str))
+                
+                -- Extract numeric digits only from valid cash string
+                local cleanDigits = string.gsub(str, "[^%d]", "")
+                currentTDSMoneyNumber = tonumber(cleanDigits) or 0
             else
                 moneyLabel.Text = "$0"
+                currentTDSMoneyNumber = 0
             end
         end)
         task.wait(0.005) -- Lowest delay possible (5 milliseconds)
@@ -2360,12 +2367,13 @@ tabPagesList["Towers"] = towersPage
 
 -- ============================================================
 -- ============================================================
+-- ============================================================
 -- FEATURE 1: AUTO PLACE TOWERS (TOGGLE + AUTO SCOUT & SELL AT $1,225)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
 scoutSold = false
-local _autoPlaceMonitorThread = nil
+local _autoPlaceTask = nil
 
 local autoPlaceCard = Instance.new("Frame")
 autoPlaceCard.Name = "ToggleCard_AutoPlaceTowers"
@@ -2448,6 +2456,13 @@ local apcKnobCorner = Instance.new("UICorner")
 apcKnobCorner.CornerRadius = UDim.new(1, 0)
 apcKnobCorner.Parent = apcSwKnob
 
+local function stopAutoPlaceTask()
+    if _autoPlaceTask then
+        pcall(function() task.cancel(_autoPlaceTask) end)
+        _autoPlaceTask = nil
+    end
+end
+
 apcSwitchBtn.MouseButton1Click:Connect(function()
     autoPlaceEnabled = not autoPlaceEnabled
 
@@ -2455,43 +2470,35 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         apcSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         apcSwKnob.BackgroundColor3 = Color3.fromRGB(14, 255, 0)
         
+        stopAutoPlaceTask()
         scoutPlaced = false
         scoutSold = false
 
-        -- 1. Immediately place ONE Scout Tower using exact existing placement code
-        local placeArgs = {
-            "Troops",
-            "Place",
-            {
-                Rotation = CFrame.new(0,0,0,1,0,0,0,1,0,0,0,1),
-                Position = Vector3.new(12.885271072387695, 1.0000064373016357, -8.871417045593262)
-            },
-            "Scout"
-        }
-        
-        pcall(function()
-            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(placeArgs))
-        end)
-        
-        scoutPlaced = true
-        scoutSold = false
+        _autoPlaceTask = task.spawn(function()
+            -- 1. Execute Scout Placement remote
+            local placeArgs = {
+                "Troops",
+                "Place",
+                {
+                    Rotation = CFrame.new(0,0,0,1,0,0,0,1,0,0,0,1),
+                    Position = Vector3.new(12.885271072387695, 1.0000064373016357, -8.871417045593262)
+                },
+                "Scout"
+            }
+            
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(placeArgs))
+            end)
 
-        -- 2. Monitor existing money tracker for $1,225 sell threshold
-        if _autoPlaceMonitorThread then
-            pcall(function() task.cancel(_autoPlaceMonitorThread) end)
-            _autoPlaceMonitorThread = nil
-        end
+            if not autoPlaceEnabled then return end
 
-        _autoPlaceMonitorThread = task.spawn(function()
+            task.wait(0.2) -- Placement propagation wait
+            scoutPlaced = true
+            scoutSold = false
+
+            -- 2. Monitor existing money counter (currentTDSMoneyNumber) for $1,225 threshold
             while autoPlaceEnabled and scoutPlaced and not scoutSold do
-                local rawCash = getTDSStatMoney()
-                local currentMoney = 0
-                if rawCash then
-                    local numStr = string.match(tostring(rawCash), "%d+")
-                    currentMoney = tonumber(numStr) or 0
-                end
-
-                if autoPlaceEnabled and scoutPlaced and not scoutSold and currentMoney >= 1225 then
+                if autoPlaceEnabled and scoutPlaced and not scoutSold and currentTDSMoneyNumber >= 1225 then
                     local sellArgs = {
                         "Troops",
                         "Sell",
@@ -2503,12 +2510,11 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                         game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(sellArgs))
                     end)
                     scoutSold = true
-                    break
+                    break -- Stop monitoring immediately, sell fires ONLY ONCE
                 end
-
-                task.wait(0.005)
+                task.wait(0.05)
             end
-            _autoPlaceMonitorThread = nil
+            _autoPlaceTask = nil
         end)
     else
         apcSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
@@ -2517,11 +2523,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         autoPlaceEnabled = false
         scoutPlaced = false
         scoutSold = false
-
-        if _autoPlaceMonitorThread then
-            pcall(function() task.cancel(_autoPlaceMonitorThread) end)
-            _autoPlaceMonitorThread = nil
-        end
+        stopAutoPlaceTask()
     end
 end)
 
