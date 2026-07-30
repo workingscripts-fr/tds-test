@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto",
+        Text = "Auto queue working",
         Duration = 5
     })
 end)
@@ -596,10 +596,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- Performance monitor widgets (FPS / Ping / Clock)
+-- Performance monitor widgets (FPS / Ping / Clock / Money)
 local statsContainer = Instance.new("Frame")
 statsContainer.Name = "StatsMonitor"
-statsContainer.Size = UDim2.fromOffset(190, 30)
+statsContainer.Size = UDim2.fromOffset(255, 30)
 statsContainer.BackgroundColor3 = Color3.fromRGB(11, 15, 24)
 statsContainer.BorderSizePixel = 0
 statsContainer.LayoutOrder = 8
@@ -619,12 +619,12 @@ local statsList = Instance.new("UIListLayout")
 statsList.FillDirection = Enum.FillDirection.Horizontal
 statsList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 statsList.VerticalAlignment = Enum.VerticalAlignment.Center
-statsList.Padding = UDim.new(0, 10)
+statsList.Padding = UDim.new(0, 8)
 statsList.Parent = statsContainer
 
 local fpsLabel = Instance.new("TextLabel")
 fpsLabel.BackgroundTransparency = 1
-fpsLabel.Size = UDim2.new(0, 50, 1, 0)
+fpsLabel.Size = UDim2.new(0, 48, 1, 0)
 fpsLabel.Font = Enum.Font.GothamBold
 fpsLabel.Text = "60 FPS"
 fpsLabel.TextSize = 11
@@ -633,23 +633,33 @@ fpsLabel.Parent = statsContainer
 
 local pingLabel = Instance.new("TextLabel")
 pingLabel.BackgroundTransparency = 1
-pingLabel.Size = UDim2.new(0, 50, 1, 0)
+pingLabel.Size = UDim2.new(0, 48, 1, 0)
 pingLabel.Font = Enum.Font.GothamBold
 pingLabel.Text = "0 MS"
 pingLabel.TextSize = 11
 pingLabel.TextColor3 = Color3.fromRGB(174, 204, 236)
 pingLabel.Parent = statsContainer
 
+local moneyLabel = Instance.new("TextLabel")
+moneyLabel.Name = "MoneyStatLabel"
+moneyLabel.BackgroundTransparency = 1
+moneyLabel.Size = UDim2.new(0, 62, 1, 0)
+moneyLabel.Font = Enum.Font.GothamBold
+moneyLabel.Text = "$0"
+moneyLabel.TextSize = 11
+moneyLabel.TextColor3 = Color3.fromRGB(14, 255, 0)
+moneyLabel.Parent = statsContainer
+
 local clockLabel = Instance.new("TextLabel")
 clockLabel.BackgroundTransparency = 1
-clockLabel.Size = UDim2.new(0, 50, 1, 0)
+clockLabel.Size = UDim2.new(0, 45, 1, 0)
 clockLabel.Font = Enum.Font.GothamBold
 clockLabel.Text = "00:00"
 clockLabel.TextSize = 11
 clockLabel.TextColor3 = Color3.fromRGB(140, 150, 165)
 clockLabel.Parent = statsContainer
 
--- Live Monitor Stats Loop
+-- Live Monitor Stats Loop (FPS / Ping / Clock)
 task.spawn(function()
     local frameCount = 0
     local lastFpsTime = os.clock()
@@ -671,6 +681,92 @@ task.spawn(function()
             clockLabel.Text = os.date("%H:%M")
         end
     end)
+end)
+
+-- Fast Money Tracking Resolution (Updates every 100 milliseconds, no notifications)
+local function getTDSStatMoney()
+    local lp = LocalPlayer or Players.LocalPlayer
+    if not lp then return nil end
+
+    -- 1. Check PlayerGui visible TextLabels containing '$' (prioritizes active > $0)
+    local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
+    local fallbackZeroText = nil
+
+    if pg then
+        for _, desc in ipairs(pg:GetDescendants()) do
+            if desc:IsA("TextLabel") and desc.Visible and desc.TextTransparency < 1 then
+                local txt = desc.Text
+                if string.find(txt, "%$") then
+                    local numStr = string.match(txt, "%d+")
+                    local num = tonumber(numStr)
+                    if num then
+                        if num > 0 then
+                            return txt -- Active cash > $0 found!
+                        elseif not fallbackZeroText then
+                            fallbackZeroText = txt
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 2. Check in-match State folder / values
+    local stateFolder = lp:FindFirstChild("State") or ReplicatedStorage:FindFirstChild("State")
+    if stateFolder then
+        local cashVal = stateFolder:FindFirstChild("Cash") or stateFolder:FindFirstChild("Coins") or stateFolder:FindFirstChild("Money")
+        if cashVal and cashVal.Value then
+            local n = tonumber(cashVal.Value)
+            if n and n > 0 then
+                return cashVal.Value
+            elseif not fallbackZeroText then
+                fallbackZeroText = cashVal.Value
+            end
+        end
+    end
+
+    -- 3. Check leaderstats (Lobby / Match)
+    local leaderstats = lp:FindFirstChild("leaderstats")
+    if leaderstats then
+        local c = leaderstats:FindFirstChild("Cash") or leaderstats:FindFirstChild("Coins") or leaderstats:FindFirstChild("Money")
+        if c and c.Value then
+            local n = tonumber(c.Value)
+            if n and n > 0 then
+                return c.Value
+            elseif not fallbackZeroText then
+                fallbackZeroText = c.Value
+            end
+        end
+    end
+
+    -- 4. Check direct ValueBase children under LocalPlayer
+    for _, child in ipairs(lp:GetChildren()) do
+        if (child.Name == "Cash" or child.Name == "Coins" or child.Name == "Money") and child:IsA("ValueBase") then
+            local n = tonumber(child.Value)
+            if n and n > 0 then
+                return child.Value
+            elseif not fallbackZeroText then
+                fallbackZeroText = child.Value
+            end
+        end
+    end
+
+    return fallbackZeroText
+end
+
+task.spawn(function()
+    while true do
+        pcall(function()
+            local rawCash = getTDSStatMoney()
+            if rawCash ~= nil then
+                local str = tostring(rawCash)
+                moneyLabel.Text = (string.sub(str, 1, 1) == "$" and str or ("$" .. str))
+            else
+                moneyLabel.Text = "$0"
+            end
+        end)
+        task.wait(0.1) -- Update every 100 milliseconds
+    end
 end)
 
 -- Profile Avatar Badge
