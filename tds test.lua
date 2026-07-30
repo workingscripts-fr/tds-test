@@ -2400,7 +2400,8 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (SCOUT PHASE + SHOTGUNNER #1 TowerUID IDENTIFICATION & REACQUISITION)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (TOWERUID IDENTIFICATION & REACQUISITION)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
@@ -2409,83 +2410,88 @@ scoutSold = false
 shotgunner1Placed = false
 shotgunner1Upgraded = false
 
--- Stored instance & UID references for build sequence
+-- Stored instance & TowerUID references for build sequence
 local scoutTower = nil
-local shotgunner1 = nil
+local shotgunner1Model = nil
 local shotgunner1UID = nil
-local shotgunner2 = nil
-local shotgunner2UID = nil
-local shotgunner3 = nil
-local shotgunner3UID = nil
-local shotgunner4 = nil
-local shotgunner4UID = nil
-local shotgunner5 = nil
-local shotgunner5UID = nil
-local shotgunner6 = nil
-local shotgunner6UID = nil
-local shotgunner7 = nil
-local shotgunner7UID = nil
-local shotgunner8 = nil
-local shotgunner8UID = nil
-local shotgunner9 = nil
-local shotgunner9UID = nil
+local shotgunner2Model, shotgunner2UID = nil, nil
+local shotgunner3Model, shotgunner3UID = nil, nil
+local shotgunner4Model, shotgunner4UID = nil, nil
+local shotgunner5Model, shotgunner5UID = nil, nil
+local shotgunner6Model, shotgunner6UID = nil, nil
+local shotgunner7Model, shotgunner7UID = nil, nil
+local shotgunner8Model, shotgunner8UID = nil, nil
+local shotgunner9Model, shotgunner9UID = nil, nil
 
 local _autoPlaceTask = nil
 
-local function getTowerUID(tower)
-    if not tower or not tower.Parent then return nil end
-
-    local uid = nil
+local function sendInGameNotification(titleText, descText)
     pcall(function()
-        for _, childName in ipairs({"TowerUID", "UID", "TowerId", "Id", "TowerID", "id"}) do
-            local obj = tower:FindFirstChild(childName)
-            if obj then
-                local val = obj.Value or obj
-                if val ~= nil and tostring(val) ~= "" then
-                    uid = tostring(val)
-                    return
-                end
-            end
-        end
-
-        for _, attrName in ipairs({"TowerUID", "UID", "TowerId", "Id", "TowerID", "id"}) do
-            local attr = tower:GetAttribute(attrName)
-            if attr ~= nil and tostring(attr) ~= "" then
-                uid = tostring(attr)
-                return
-            end
-        end
-
-        for _, desc in ipairs(tower:GetDescendants()) do
-            if desc:IsA("StringValue") or desc:IsA("IntValue") or desc:IsA("NumberValue") then
-                local dName = string.lower(desc.Name)
-                if string.find(dName, "uid") or string.find(dName, "id") then
-                    if desc.Value ~= nil and tostring(desc.Value) ~= "" then
-                        uid = tostring(desc.Value)
-                        return
-                    end
-                end
-            end
-        end
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = tostring(titleText),
+            Text = tostring(descText),
+            Duration = 5
+        })
     end)
-
-    return uid
 end
 
-local function reacquireTowerByUID(targetUID)
-    if not targetUID or targetUID == "" then return nil end
+local function getTowerUID(model)
+    if not model then return nil end
+    local uid = nil
+
+    pcall(function()
+        uid = model:GetAttribute("TowerUID") or model:GetAttribute("UID") or model:GetAttribute("ID")
+    end)
+
+    if not uid then
+        pcall(function()
+            local v = model:FindFirstChild("TowerUID") or model:FindFirstChild("UID") or model:FindFirstChild("ID")
+            if v then uid = v.Value end
+        end)
+    end
+
+    if not uid then
+        pcall(function()
+            for k, val in pairs(model:GetAttributes()) do
+                if string.find(string.lower(tostring(k)), "uid") or string.find(string.lower(tostring(k)), "id") then
+                    uid = val
+                    break
+                end
+            end
+        end)
+    end
+
+    if not uid then
+        pcall(function()
+            for _, child in ipairs(model:GetChildren()) do
+                if child:IsA("ValueBase") and (string.find(string.lower(child.Name), "uid") or string.find(string.lower(child.Name), "id")) then
+                    uid = child.Value
+                    break
+                end
+            end
+        end)
+    end
+
+    if not uid then
+        pcall(function() uid = model:GetDebugId() end)
+    end
+
+    return uid and tostring(uid) or "Unknown_UID"
+end
+
+local function findTowerByUID(targetUID)
+    if not targetUID then return nil end
     local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
     if not towersFolder then return nil end
 
     for _, child in ipairs(towersFolder:GetChildren()) do
-        if child:IsA("Model") and child.Parent == towersFolder then
+        if child:IsA("Model") or child:IsA("Folder") then
             local uid = getTowerUID(child)
-            if uid and uid == targetUID then
+            if uid == targetUID then
                 return child
             end
         end
     end
-
     return nil
 end
 
@@ -2526,7 +2532,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout (2x upg, sell $1225) -> Shotgunner #1 (place & 2x upg)"
+apcSub.Text = "Scout (2x upg, sell $1225) -> Shotgunner #1 (TowerUID & 2x upg)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2591,8 +2597,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         shotgunner1Placed = false
         shotgunner1Upgraded = false
         scoutTower = nil
-        shotgunner1 = nil
-        shotgunner1UID = nil
+        shotgunner1Model, shotgunner1UID = nil, nil
 
         _autoPlaceTask = task.spawn(function()
             local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
@@ -2619,7 +2624,6 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
             if not autoPlaceEnabled then return end
 
-            -- Wait until count increases by at least 1
             local scoutStartWait = tick()
             while (#towersFolder:GetChildren() < scoutOldCount + 1) and (tick() - scoutStartWait) < 5.0 do
                 task.wait(0.05)
@@ -2636,24 +2640,12 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
             scoutPlaced = true
 
             -- Scout Upgrade 1 & 2
-            local scoutUpgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = scoutTower
-                }
-            }
-
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgradeArgs))
-            end)
+            local scoutUpgArgs = { "Troops", "Upgrade", "Set", { Troop = scoutTower } }
+            pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgArgs)) end)
             task.wait(0.35)
             if not autoPlaceEnabled then return end
 
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgradeArgs))
-            end)
+            pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgArgs)) end)
             task.wait(0.35)
             if not autoPlaceEnabled then return end
             scoutUpgraded = true
@@ -2681,9 +2673,8 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
             task.wait(0.3) -- Propagation delay
 
-            -- 4. Place First Shotgunner & Identify via unique TowerUID
+            -- 4. Place First Shotgunner, Store Model & TowerUID
             if autoPlaceEnabled and scoutSold and not shotgunner1Placed then
-                -- STEP 1: Save every child currently inside workspace.Towers into preMap
                 local preChildren = towersFolder and towersFolder:GetChildren() or {}
                 local preMap = {}
                 for _, t in ipairs(preChildren) do preMap[t] = true end
@@ -2694,7 +2685,6 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                     pcall(function() vectorPos = vector.create(12.490434646606445, 1.0000064373016357, -10.304333686828613) end)
                 end
 
-                -- STEP 2: Send the Place remote
                 local shotgunnerPlaceArgs = {
                     "Troops",
                     "Place",
@@ -2709,110 +2699,93 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                     game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerPlaceArgs))
                 end)
 
-                print("[AutoPlace] Placed Shotgunner Remote Sent")
-
-                -- STEP 3: Wait until a new child appears
+                -- Wait until a new child appears
                 local startWait = tick()
-                while (#towersFolder:GetChildren() <= oldCount) and (tick() - startWait) < 6.0 do
+                while (#towersFolder:GetChildren() < oldCount + 1) and (tick() - startWait) < 5.0 do
                     task.wait(0.05)
                 end
 
-                -- STEP 4 & 5: Find newly added Model & read its TowerUID
+                -- Find the newly added Model
                 local newModel = nil
-                local detectedUID = nil
-
                 for _, child in ipairs(towersFolder:GetChildren()) do
-                    if not preMap[child] and child:IsA("Model") then
+                    if not preMap[child] then
                         newModel = child
-                        detectedUID = getTowerUID(child)
-                        if not detectedUID or detectedUID == "" then
-                            pcall(function() detectedUID = tostring(child:GetDebugId()) end)
-                        end
                         break
                     end
                 end
 
-                -- STEP 6: Store BOTH Model instance and TowerUID
-                if newModel and newModel.Parent == towersFolder then
-                    shotgunner1 = newModel
-                    shotgunner1UID = detectedUID or ("UID_" .. tostring(newModel:GetFullName()))
-
-                    -- STEP 7: Print info
-                    print("Tower Name:", tostring(shotgunner1.Name))
-                    print("TowerUID:", tostring(shotgunner1UID))
-                    print("FullName:", tostring(shotgunner1:GetFullName()))
-                    print("Parent:", tostring(shotgunner1.Parent))
-                else
-                    print("[AutoPlace] ERROR: Shotgunner #1 placement failed or new model not found")
+                if not newModel then
+                    sendInGameNotification("Shotgunner Error", "Failed to detect newly placed Shotgunner model")
                     return
                 end
+
+                -- Store BOTH Model instance and TowerUID
+                shotgunner1Model = newModel
+                shotgunner1UID = getTowerUID(newModel)
+
+                -- Display in-game notification
+                local descText = string.format(
+                    "Tower Name: %s\nTowerUID: %s\nFullName: %s\nParent: %s",
+                    tostring(shotgunner1Model.Name),
+                    tostring(shotgunner1UID),
+                    tostring(shotgunner1Model:GetFullName()),
+                    tostring(shotgunner1Model.Parent and shotgunner1Model.Parent.Name or "nil")
+                )
+                sendInGameNotification("Shotgunner Detected", descText)
 
                 shotgunner1Placed = true
 
-                -- UPGRADE 1
-                local currentTarget = shotgunner1
-                if not currentTarget or currentTarget.Parent ~= towersFolder or (shotgunner1UID and getTowerUID(currentTarget) ~= shotgunner1UID) then
-                    currentTarget = reacquireTowerByUID(shotgunner1UID) or shotgunner1
-                end
+                -- Upgrade helper using stored TowerUID & Model reacquisition
+                local function upgradeShotgunnerStep()
+                    if not autoPlaceEnabled then return false end
 
-                if currentTarget and currentTarget.Parent == towersFolder then
-                    print("===== UPGRADE =====")
-                    print("TowerUID:", tostring(shotgunner1UID))
-                    print("Name:", tostring(currentTarget.Name))
-                    print("FullName:", tostring(currentTarget:GetFullName()))
-                    print("Parent:", tostring(currentTarget.Parent))
-                    print("===================")
+                    -- Reacquire if model no longer exists or parented to nil
+                    if not shotgunner1Model or not shotgunner1Model.Parent or shotgunner1Model.Parent ~= workspace:FindFirstChild("Towers") then
+                        local reacquired = findTowerByUID(shotgunner1UID)
+                        if reacquired then
+                            shotgunner1Model = reacquired
+                        else
+                            sendInGameNotification("Shotgunner Upgrade Error", "TowerUID mismatch or model no longer exists")
+                            return false
+                        end
+                    end
 
-                    local upgradeArgs1 = {
+                    -- Notification immediately before upgrade
+                    local upgDescText = string.format(
+                        "TowerUID: %s\nName: %s\nFullName: %s\nParent: %s",
+                        tostring(shotgunner1UID),
+                        tostring(shotgunner1Model.Name),
+                        tostring(shotgunner1Model:GetFullName()),
+                        tostring(shotgunner1Model.Parent and shotgunner1Model.Parent.Name or "nil")
+                    )
+                    sendInGameNotification("Shotgunner Upgrade", upgDescText)
+
+                    -- Execute exact RemoteFunction payload
+                    local upgradeArgs = {
                         "Troops",
                         "Upgrade",
                         "Set",
                         {
-                            Troop = currentTarget
+                            Troop = shotgunner1Model
                         }
                     }
 
+                    local success = false
                     pcall(function()
-                        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs1))
+                        success = game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
                     end)
-                else
-                    print("[AutoPlace] ERROR: Reacquisition failed before Upgrade 1!")
-                    return
+
+                    return success
                 end
+
+                -- Perform Upgrade 1 & Upgrade 2
+                task.wait(0.35)
+                upgradeShotgunnerStep()
 
                 task.wait(0.35)
-
-                -- UPGRADE 2
-                currentTarget = shotgunner1
-                if not currentTarget or currentTarget.Parent ~= towersFolder or (shotgunner1UID and getTowerUID(currentTarget) ~= shotgunner1UID) then
-                    currentTarget = reacquireTowerByUID(shotgunner1UID) or shotgunner1
-                end
-
-                if currentTarget and currentTarget.Parent == towersFolder then
-                    print("===== UPGRADE =====")
-                    print("TowerUID:", tostring(shotgunner1UID))
-                    print("Name:", tostring(currentTarget.Name))
-                    print("FullName:", tostring(currentTarget:GetFullName()))
-                    print("Parent:", tostring(currentTarget.Parent))
-                    print("===================")
-
-                    local upgradeArgs2 = {
-                        "Troops",
-                        "Upgrade",
-                        "Set",
-                        {
-                            Troop = currentTarget
-                        }
-                    }
-
-                    pcall(function()
-                        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs2))
-                    end)
-
+                if autoPlaceEnabled then
+                    upgradeShotgunnerStep()
                     shotgunner1Upgraded = true
-                else
-                    print("[AutoPlace] ERROR: Reacquisition failed before Upgrade 2!")
-                    return
                 end
             end
 
@@ -2829,8 +2802,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         shotgunner1Placed = false
         shotgunner1Upgraded = false
         scoutTower = nil
-        shotgunner1 = nil
-        shotgunner1UID = nil
+        shotgunner1Model, shotgunner1UID = nil, nil
         stopAutoPlaceTask()
     end
 end)
