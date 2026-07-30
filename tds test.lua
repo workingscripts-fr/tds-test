@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue working gibber",
+        Text = "Auto queue kilber",
         Duration = 5
     })
 end)
@@ -2353,96 +2353,113 @@ end)
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 2: HIGHLIGHT ROAD TOGGLE (DIRECT MAP.ROAD.ROAD CHILDREN)
+-- ============================================================
+-- FEATURE 2: HIGHLIGHT ROAD TOGGLE (RED NEON BEAM OVERLAY)
 -- ============================================================
 highlightRoadEnabled = false
-local _hlRoadSavedState = {}
+local _hlRoadCreatedBeams = {}
+local _hlRoadCreatedAttachments = {}
 local _hlRoadWatcher = nil
 
 local function hlRoadCleanup()
-    local count = 0
-    for part, saved in pairs(_hlRoadSavedState) do
-        if part and part.Parent then
-            pcall(function()
-                part.Material = saved.Material
-                part.Color = saved.Color
-                part.Transparency = saved.Transparency
-            end)
-            count = count + 1
+    for _, beam in ipairs(_hlRoadCreatedBeams) do
+        if beam and beam.Parent then
+            pcall(function() beam:Destroy() end)
         end
     end
-    _hlRoadSavedState = {}
-    print("[Highlight Road] Restored " .. tostring(count) .. " parts")
+    _hlRoadCreatedBeams = {}
+
+    for _, att in ipairs(_hlRoadCreatedAttachments) do
+        if att and att.Parent then
+            pcall(function() att:Destroy() end)
+        end
+    end
+    _hlRoadCreatedAttachments = {}
 end
 
 local function hlRoadApply()
     hlRoadCleanup()
     if not highlightRoadEnabled then return end
 
-    local map = workspace:FindFirstChild("Map")
-    if not map then
-        notifyDiag("Road Debug", "Map missing")
-        return
-    end
-
-    local road1 = map:FindFirstChild("Road")
-    if not road1 then
-        notifyDiag("Road Debug", "Road folder missing")
-        return
-    end
-
-    local roadFolder = road1:FindFirstChild("Road")
-    if not roadFolder then
-        notifyDiag("Road Debug", "Second Road missing")
-        return
-    end
-
-    notifyDiag("Road Debug", "Found Road folder")
-
-    local children = roadFolder:GetChildren()
-    local descendants = roadFolder:GetDescendants()
-
-    local basePartsCount = 0
-    local unionsCount = 0
-    local modelsCount = 0
-    local firstUnion = nil
-
-    for _, obj in ipairs(descendants) do
-        if obj:IsA("BasePart") then
-            basePartsCount = basePartsCount + 1
-        end
-        if obj:IsA("UnionOperation") then
-            unionsCount = unionsCount + 1
-            if not firstUnion then
-                firstUnion = obj
+    local roadFolder = nil
+    pcall(function()
+        local map = workspace:FindFirstChild("Map")
+        if map then
+            local r1 = map:FindFirstChild("Road")
+            if r1 then
+                roadFolder = r1:FindFirstChild("Road") or r1
             end
         end
-        if obj:IsA("Model") then
-            modelsCount = modelsCount + 1
+    end)
+
+    if not roadFolder then
+        notifyDiag("Road:", "Map path missing")
+        return
+    end
+
+    notifyDiag("Road:", "Road path found")
+
+    local parts = {}
+    for _, child in ipairs(roadFolder:GetChildren()) do
+        if child:IsA("BasePart") then
+            table.insert(parts, child)
         end
     end
 
-    notifyDiag("Road Debug", "Children: " .. tostring(#children))
-    notifyDiag("Road Debug", "Descendants: " .. tostring(#descendants))
-    notifyDiag("Road Debug", "BaseParts: " .. tostring(basePartsCount))
-    notifyDiag("Road Debug", "Unions: " .. tostring(unionsCount))
-    notifyDiag("Road Debug", "Models: " .. tostring(modelsCount))
-
-    for i = 1, math.min(15, #descendants) do
-        local d = descendants[i]
-        notifyDiag("Road Debug", d.Name .. "\n" .. d.ClassName)
+    if #parts == 0 then
+        notifyDiag("Road:", "No road parts found")
+        return
     end
 
-    if firstUnion then
+    -- Sort parts by Name (handles numeric or alphanumeric names)
+    table.sort(parts, function(a, b)
+        local na = tonumber(a.Name:match("%d+"))
+        local nb = tonumber(b.Name:match("%d+"))
+        if na and nb then
+            return na < nb
+        else
+            return a.Name < b.Name
+        end
+    end)
+
+    -- Create attachments at the center of each road part
+    local attachmentsList = {}
+    for _, part in ipairs(parts) do
         pcall(function()
-            firstUnion.Material = Enum.Material.Neon
-            firstUnion.Color = Color3.fromRGB(255, 0, 0)
-            firstUnion.Transparency = 0.35
+            local att = Instance.new("Attachment")
+            att.Name = "TDS_RoadBeamAtt"
+            att.CFrame = CFrame.new(0, 0, 0)
+            att.Parent = part
+            table.insert(attachmentsList, att)
+            table.insert(_hlRoadCreatedAttachments, att)
         end)
-        notifyDiag("Road Debug", "Modified: " .. firstUnion.Name)
-    else
-        notifyDiag("Road Debug", "No UnionOperations found")
     end
+
+    notifyDiag("Road:", "Created " .. tostring(#attachmentsList) .. " attachments")
+
+    -- Create Beams connecting consecutive attachments
+    local beamsCount = 0
+    for i = 1, #attachmentsList - 1 do
+        pcall(function()
+            local beam = Instance.new("Beam")
+            beam.Name = "TDS_RoadBeam_" .. tostring(i)
+            beam.Attachment0 = attachmentsList[i]
+            beam.Attachment1 = attachmentsList[i + 1]
+            beam.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0))
+            beam.Width0 = 3
+            beam.Width1 = 3
+            beam.LightEmission = 1
+            beam.FaceCamera = true
+            beam.Transparency = NumberSequence.new(0)
+            beam.TextureMode = Enum.TextureMode.Stretch
+            beam.Parent = attachmentsList[i]
+            table.insert(_hlRoadCreatedBeams, beam)
+            beamsCount = beamsCount + 1
+        end)
+    end
+
+    notifyDiag("Road:", "Created " .. tostring(beamsCount) .. " beams")
+    notifyDiag("Road:", "Road Highlight Enabled")
 end
 
 local function hlRoadStartWatcher()
@@ -2518,7 +2535,7 @@ hlrSub.Position = UDim2.fromOffset(16, 36)
 hlrSub.Size = UDim2.new(0.65, 0, 0, 20)
 hlrSub.BackgroundTransparency = 1
 hlrSub.Font = Enum.Font.GothamMedium
-hlrSub.Text = "Highlight workspace.Map.Road.Road children in red neon."
+hlrSub.Text = "Continuous red neon beam following the road path."
 hlrSub.TextSize = 11
 hlrSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 hlrSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2568,8 +2585,6 @@ hlrSwitchBtn.MouseButton1Click:Connect(function()
     if highlightRoadEnabled then
         hlrSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         hlrSwKnob.BackgroundColor3 = Color3.fromRGB(255, 30, 30)
-        notifyDiag("Road:", "Highlight Road ENABLED")
-        print("[Highlight Road] ENABLED")
         task.spawn(function()
             hlRoadApply()
         end)
@@ -2577,8 +2592,7 @@ hlrSwitchBtn.MouseButton1Click:Connect(function()
     else
         hlrSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         hlrSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
-        notifyDiag("Road:", "Highlight Road DISABLED")
-        print("[Highlight Road] DISABLED")
+        notifyDiag("Road:", "Road Highlight Disabled")
         hlRoadStopWatcher()
         hlRoadCleanup()
     end
