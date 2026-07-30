@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue fart",
+        Text = "Auto queue bruh",
         Duration = 5
     })
 end)
@@ -1709,64 +1709,66 @@ function findTargetButton(targetKeyword)
         local lowerKw = string.lower(targetKeyword or "")
         if lowerKw == "not chosen" or lowerKw == "" then return nil end
         
-        -- Inner scan function
-        local function scanOnce()
-            local pg = getPlayerGui()
-            if not pg then return nil end
+        local containers = {}
+        pcall(function()
+            local cg = game:GetService("CoreGui")
+            if cg then table.insert(containers, cg) end
+        end)
+        local pg = getPlayerGui()
+        if pg then table.insert(containers, pg) end
+        
+        local candidates = {}
+        local viewportY = 1000
+        pcall(function()
+            if workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize then
+                viewportY = workspace.CurrentCamera.ViewportSize.Y
+            end
+        end)
+        
+        local survivalMatchesCount = 0
+        
+        for _, container in ipairs(containers) do
+            local descendants = {}
+            pcall(function() descendants = container:GetDescendants() end)
             
-            local candidates = {}
-            local viewportY = 1000
-            pcall(function()
-                if workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize then
-                    viewportY = workspace.CurrentCamera.ViewportSize.Y
-                end
-            end)
-            
-            for _, desc in ipairs(pg:GetDescendants()) do
+            for _, desc in ipairs(descendants) do
                 if not isExcludedContainer(desc) then
-                    local isClickableType = (desc:IsA("GuiButton") or desc:IsA("TextButton") or desc:IsA("ImageButton"))
-                    local hasClickableParent = false
-                    if not isClickableType and desc.Parent then
-                        if desc.Parent:IsA("GuiButton") or desc.Parent:IsA("TextButton") or desc.Parent:IsA("ImageButton") then
-                            hasClickableParent = true
+                    local descName = string.lower(desc.Name or "")
+                    local txt = ""
+                    local combinedText = ""
+                    pcall(function()
+                        if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+                            txt = string.lower(string.gsub(desc.Text or "", "^%s*(.-)%s*$", "%1"))
                         end
-                    end
+                        combinedText = txt
+                        for _, child in ipairs(desc:GetChildren()) do
+                            if (child:IsA("TextLabel") or child:IsA("TextButton")) and child.Text then
+                                combinedText = combinedText .. " " .. string.lower(child.Text)
+                            end
+                        end
+                    end)
                     
-                    if (isClickableType or hasClickableParent) then
-                        local txt = ""
-                        local combinedText = ""
-                        pcall(function()
-                            if desc:IsA("TextLabel") or desc:IsA("TextButton") then
-                                txt = string.lower(string.gsub(desc.Text or "", "^%s*(.-)%s*$", "%1"))
-                            end
-                            combinedText = txt
-                            for _, child in ipairs(desc:GetChildren()) do
-                                if (child:IsA("TextLabel") or child:IsA("TextButton")) and child.Text then
-                                    combinedText = combinedText .. " " .. string.lower(child.Text)
+                    -- Check if element contains "survival" in Name or Text
+                    if lowerKw == "survival" then
+                        local hasSurvival = (string.find(descName, "survival", 1, true) or string.find(combinedText, "survival", 1, true))
+                        if hasSurvival then
+                            survivalMatchesCount = survivalMatchesCount + 1
+                            
+                            local isVis = isGuiObjectTrulyVisible(desc)
+                            local fullPath = desc:GetFullName()
+                            local absPosStr = "N/A"
+                            local absSizeStr = "N/A"
+                            pcall(function()
+                                if desc:IsA("GuiObject") then
+                                    absPosStr = tostring(desc.AbsolutePosition)
+                                    absSizeStr = tostring(desc.AbsoluteSize)
                                 end
-                            end
-                        end)
-                        local descName = string.lower(desc.Name or "")
-                        
-                        -- Examine candidate for survival
-                        if lowerKw == "survival" then
-                            local isSurvivalCandidate = (string.find(combinedText, "survival", 1, true) or string.find(descName, "survival", 1, true) or
-                                                         string.find(combinedText, "classic tower defense", 1, true) or string.find(descName, "classictowerdefense", 1, true) or
-                                                         string.find(combinedText, "classic", 1, true) or string.find(descName, "classic", 1, true))
-                                                         
-                            local isPvpOrHardcore = (string.find(combinedText, "pvp", 1, true) or string.find(descName, "pvp", 1, true) or
-                                                     string.find(combinedText, "hardcore", 1, true) or string.find(descName, "hardcore", 1, true) or
-                                                     string.find(combinedText, "sandbox", 1, true) or string.find(descName, "sandbox", 1, true))
-                                                     
-                            if isSurvivalCandidate and not isPvpOrHardcore then
-                                local isVis = isGuiObjectTrulyVisible(desc)
-                                local parentObj = desc.Parent
-                                local parentVis = parentObj and parentObj:IsA("GuiObject") and parentObj.Visible or false
-                                local path = desc:GetFullName()
-                                
-                                local rejectionReason = nil
-                                if not isVis then
-                                    if desc.AbsoluteSize.X <= 1 or desc.AbsoluteSize.Y <= 1 then
+                            end)
+                            
+                            local rejectionReason = nil
+                            if not isVis then
+                                pcall(function()
+                                    if desc:IsA("GuiObject") and (desc.AbsoluteSize.X <= 1 or desc.AbsoluteSize.Y <= 1) then
                                         rejectionReason = "Size <= 1"
                                     else
                                         local cur = desc
@@ -1785,86 +1787,86 @@ function findTargetButton(targetKeyword)
                                         end
                                         if not rejectionReason then rejectionReason = "Off Screen Bounds" end
                                     end
-                                end
-                                
-                                -- Candidate Examination Report
-                                notifyDiag("Examined Candidate:", string.format("Name: %s | Class: %s | Text: '%s' | Vis: %s | ParentVis: %s | Pos: %s | Size: %s",
-                                    desc.Name, desc.ClassName, txt, tostring(isVis), tostring(parentVis), tostring(desc.AbsolutePosition), tostring(desc.AbsoluteSize)))
-                                    
-                                if rejectionReason then
-                                    notifyDiag("Rejection Reason:", rejectionReason)
-                                else
-                                    local btnObj = isClickableType and desc or desc.Parent
-                                    notifyDiag("SUCCESS:", "Survival Found: " .. btnObj.Name)
-                                    return btnObj
-                                end
+                                end)
+                            end
+                            
+                            -- Report candidate details via single notification
+                            local infoMsg = string.format("Name: %s | Class: %s | Vis: %s | Pos: %s | Size: %s | Path: %s",
+                                desc.Name, desc.ClassName, tostring(isVis), absPosStr, absSizeStr, fullPath)
+                            if rejectionReason then
+                                infoMsg = infoMsg .. " | REJECTED: " .. rejectionReason
+                            else
+                                infoMsg = infoMsg .. " | ACCEPTED"
+                            end
+                            notifyDiag("Survival Candidate:", infoMsg)
+                            
+                            if isVis then
+                                local isClickableType = (desc:IsA("GuiButton") or desc:IsA("TextButton") or desc:IsA("ImageButton"))
+                                local btnObj = isClickableType and desc or desc.Parent
+                                return btnObj
                             end
                         end
+                    end
+                    
+                    -- Standard search for non-survival keywords
+                    local isClickableType = (desc:IsA("GuiButton") or desc:IsA("TextButton") or desc:IsA("ImageButton"))
+                    local hasClickableParent = (desc.Parent and (desc.Parent:IsA("GuiButton") or desc.Parent:IsA("TextButton") or desc.Parent:IsA("ImageButton")))
+                    
+                    if (isClickableType or hasClickableParent) and isGuiObjectTrulyVisible(desc) then
+                        local isQuestOrInfo = (string.find(txt, "win", 1, true) or string.find(txt, "quest", 1, true) or string.find(txt, "reward", 1, true) or string.find(txt, "badge", 1, true) or string.find(txt, "triumph", 1, true) or string.find(txt, "kill", 1, true) or string.find(txt, "level", 1, true) or string.find(txt, "stat", 1, true))
+                        local isMatch = false
+                        local score = 0
                         
-                        -- Standard scoring for non-survival keywords
-                        if isGuiObjectTrulyVisible(desc) then
-                            local isQuestOrInfo = (string.find(txt, "win", 1, true) or string.find(txt, "quest", 1, true) or string.find(txt, "reward", 1, true) or string.find(txt, "badge", 1, true) or string.find(txt, "triumph", 1, true) or string.find(txt, "kill", 1, true) or string.find(txt, "level", 1, true) or string.find(txt, "stat", 1, true))
-                            local isMatch = false
-                            local score = 0
-                            
-                            if lowerKw == "play" then
-                                if not isQuestOrInfo then
-                                    if txt == "play" or descName == "play" then isMatch = true; score = 100
-                                    elseif descName == "playbutton" or descName == "play_button" or descName == "btnplay" or descName == "playbtn" then isMatch = true; score = 90
-                                    elseif string.find(txt, "play", 1, true) and not string.find(txt, "replay", 1, true) and not string.find(txt, "display", 1, true) and not string.find(txt, "player", 1, true) then
-                                        isMatch = true; score = 70
-                                    elseif string.find(descName, "play", 1, true) and not string.find(descName, "replay", 1, true) and not string.find(descName, "display", 1, true) and not string.find(descName, "player", 1, true) then
-                                        isMatch = true; score = 65
-                                    end
-                                    if isMatch and desc.AbsolutePosition.Y > (viewportY * 0.3) then score = score + 50 end
+                        if lowerKw == "play" then
+                            if not isQuestOrInfo then
+                                if txt == "play" or descName == "play" then isMatch = true; score = 100
+                                elseif descName == "playbutton" or descName == "play_button" or descName == "btnplay" or descName == "playbtn" then isMatch = true; score = 90
+                                elseif string.find(txt, "play", 1, true) and not string.find(txt, "replay", 1, true) and not string.find(txt, "display", 1, true) and not string.find(txt, "player", 1, true) then
+                                    isMatch = true; score = 70
+                                elseif string.find(descName, "play", 1, true) and not string.find(descName, "replay", 1, true) and not string.find(descName, "display", 1, true) and not string.find(descName, "player", 1, true) then
+                                    isMatch = true; score = 65
                                 end
-                            elseif lowerKw == "easy" then
-                                if not isQuestOrInfo and (txt == "easy" or descName == "easy" or string.find(txt, "for new users", 1, true)) then isMatch = true; score = 100 end
-                            elseif lowerKw == "casual" then
-                                if not isQuestOrInfo and (txt == "casual" or descName == "casual" or string.find(txt, "for the casual user", 1, true)) then isMatch = true; score = 100 end
-                            elseif lowerKw == "intermediate" then
-                                if not isQuestOrInfo and (txt == "intermediate" or descName == "intermediate" or string.find(txt, "a balanced experience", 1, true)) then isMatch = true; score = 100 end
-                            elseif lowerKw == "molten" then
-                                if not isQuestOrInfo and (txt == "molten" or descName == "molten" or string.find(txt, "for a molten experience", 1, true)) then isMatch = true; score = 100 end
-                            elseif lowerKw == "fallen" then
-                                if not isQuestOrInfo and (txt == "fallen" or descName == "fallen" or string.find(txt, "for the experienced user", 1, true)) then isMatch = true; score = 100 end
-                            elseif lowerKw == "solo" then
-                                if not isQuestOrInfo and (txt == "solo" or descName == "solo") then isMatch = true; score = 100 end
-                            elseif lowerKw == "duo" then
-                                if not isQuestOrInfo and (txt == "duo" or descName == "duo") then isMatch = true; score = 100 end
-                            elseif lowerKw == "trio" then
-                                if not isQuestOrInfo and (txt == "trio" or descName == "trio") then isMatch = true; score = 100 end
-                            elseif lowerKw == "quad" then
-                                if not isQuestOrInfo and (txt == "quad" or descName == "quad") then isMatch = true; score = 100 end
-                            elseif lowerKw == "cancel" then
-                                if txt == "cancel" or descName == "cancel" or string.find(txt, "cancel queue", 1, true) or string.find(txt, "leave queue", 1, true) then isMatch = true; score = 100 end
+                                if isMatch and desc.AbsolutePosition.Y > (viewportY * 0.3) then score = score + 50 end
                             end
-                            
-                            if isMatch then
-                                local btnObj = isClickableType and desc or desc.Parent
-                                table.insert(candidates, { element = btnObj, score = score })
-                            end
+                        elseif lowerKw == "easy" then
+                            if not isQuestOrInfo and (txt == "easy" or descName == "easy" or string.find(txt, "for new users", 1, true)) then isMatch = true; score = 100 end
+                        elseif lowerKw == "casual" then
+                            if not isQuestOrInfo and (txt == "casual" or descName == "casual" or string.find(txt, "for the casual user", 1, true)) then isMatch = true; score = 100 end
+                        elseif lowerKw == "intermediate" then
+                            if not isQuestOrInfo and (txt == "intermediate" or descName == "intermediate" or string.find(txt, "a balanced experience", 1, true)) then isMatch = true; score = 100 end
+                        elseif lowerKw == "molten" then
+                            if not isQuestOrInfo and (txt == "molten" or descName == "molten" or string.find(txt, "for a molten experience", 1, true)) then isMatch = true; score = 100 end
+                        elseif lowerKw == "fallen" then
+                            if not isQuestOrInfo and (txt == "fallen" or descName == "fallen" or string.find(txt, "for the experienced user", 1, true)) then isMatch = true; score = 100 end
+                        elseif lowerKw == "solo" then
+                            if not isQuestOrInfo and (txt == "solo" or descName == "solo") then isMatch = true; score = 100 end
+                        elseif lowerKw == "duo" then
+                            if not isQuestOrInfo and (txt == "duo" or descName == "duo") then isMatch = true; score = 100 end
+                        elseif lowerKw == "trio" then
+                            if not isQuestOrInfo and (txt == "trio" or descName == "trio") then isMatch = true; score = 100 end
+                        elseif lowerKw == "quad" then
+                            if not isQuestOrInfo and (txt == "quad" or descName == "quad") then isMatch = true; score = 100 end
+                        elseif lowerKw == "cancel" then
+                            if txt == "cancel" or descName == "cancel" or string.find(txt, "cancel queue", 1, true) or string.find(txt, "leave queue", 1, true) then isMatch = true; score = 100 end
+                        end
+                        
+                        if isMatch then
+                            local btnObj = isClickableType and desc or desc.Parent
+                            table.insert(candidates, { element = btnObj, score = score })
                         end
                     end
                 end
             end
-            
-            if #candidates > 0 then
-                table.sort(candidates, function(a, b) return a.score > b.score end)
-                return candidates[1].element
-            end
-            return nil
         end
         
-        -- Requirement 5: Poll up to 1.5 seconds (every 0.05s) for animating elements instead of returning nil instantly
-        local startTime = os.clock()
-        local maxWait = (lowerKw == "survival") and 1.5 or 0.0
-        repeat
-            local res = scanOnce()
-            if res then return res end
-            if maxWait > 0 then task.wait(0.05) end
-        until (os.clock() - startTime) >= maxWait
+        if lowerKw == "survival" and survivalMatchesCount == 0 then
+            notifyDiag("Survival Notice:", "No Survival objects exist yet.")
+        end
         
+        if #candidates > 0 then
+            table.sort(candidates, function(a, b) return a.score > b.score end)
+            return candidates[1].element
+        end
         return nil
     end)
     
