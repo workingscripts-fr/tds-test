@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue smell good",
+        Text = "Auto queue go vroom",
         Duration = 5
     })
 end)
@@ -1678,8 +1678,8 @@ end
 local function notifyDiag(titleText, bodyText)
     pcall(function()
         game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = string.sub(tostring(titleText or "Diagnostic"), 1, 30),
-            Text = string.sub(tostring(bodyText or ""), 1, 80),
+            Title = string.sub(tostring(titleText or "Diagnostic"), 1, 35),
+            Text = string.sub(tostring(bodyText or ""), 1, 85),
             Duration = 4
         })
     end)
@@ -1690,40 +1690,15 @@ function findTargetButton(targetKeyword)
         local lowerKw = string.lower(targetKeyword or "")
         if lowerKw == "not chosen" or lowerKw == "" then return nil end
         
-        -- Collect containers to scan: CoreGui + PlayerGui
         local containers = {}
         pcall(function()
             local cg = game:GetService("CoreGui")
             if cg then table.insert(containers, cg) end
         end)
-        pcall(function()
-            game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "getPlayerGui Audit",
-                Text = "type(getPlayerGui): " .. tostring(type(getPlayerGui)),
-                Duration = 2
-            })
-        end)
-        pcall(function()
-            game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "getPlayerGui Audit",
-                Text = "type(getPlayerGui): " .. tostring(type(getPlayerGui)),
-                Duration = 2
-            })
-        end)
-        pcall(function()
-            game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "getPlayerGui Audit",
-                Text = "type(getPlayerGui): " .. tostring(type(getPlayerGui)),
-                Duration = 2
-            })
-        end)
         local pg = getPlayerGui()
         if pg then table.insert(containers, pg) end
         
-        local totalButtonsScanned = 0
         local candidates = {}
-        local rejectionLogs = {}
-        
         local viewportY = 1000
         pcall(function()
             if workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize then
@@ -1736,12 +1711,6 @@ function findTargetButton(targetKeyword)
             pcall(function() descendants = container:GetDescendants() end)
             
             for _, desc in ipairs(descendants) do
-                -- Count TextButton and ImageButton
-                if desc:IsA("TextButton") or desc:IsA("ImageButton") then
-                    totalButtonsScanned = totalButtonsScanned + 1
-                end
-                
-                -- Check if descendant belongs to our custom menu
                 local isOurMenu = (screenGui and desc:IsDescendantOf(screenGui))
                 if not isOurMenu then
                     local isGuiType = (desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("ImageLabel") or desc:IsA("ImageButton"))
@@ -1754,57 +1723,36 @@ function findTargetButton(targetKeyword)
                     end)
                     local descName = string.lower(desc.Name or "")
                     
-                    -- Check keyword relevance for diagnostic reporting
-                    local isRelevantKeyword = false
-                    if lowerKw == "play" then
-                        if string.find(txt, "play", 1, true) or string.find(descName, "play", 1, true) or
-                           string.find(txt, "start", 1, true) or string.find(descName, "start", 1, true) or
-                           string.find(txt, "match", 1, true) or string.find(descName, "match", 1, true) or
-                           string.find(txt, "survival", 1, true) or string.find(descName, "survival", 1, true) then
-                            isRelevantKeyword = true
-                        end
-                    end
-                    
-                    if isRelevantKeyword then
-                        -- Inspect why it might be accepted or rejected
-                        local rejectReason = nil
-                        if not isGuiType then
-                            rejectReason = "Wrong Class (" .. desc.ClassName .. ")"
-                        elseif not isGuiObjectTrulyVisible(desc) then
-                            if desc.AbsoluteSize.X <= 2 or desc.AbsoluteSize.Y <= 2 then
-                                rejectReason = "Not Visible (Size <= 2)"
-                            else
-                                local current = desc
-                                local parentHidden = false
-                                while current do
-                                    if current:IsA("ScreenGui") and not current.Enabled then
-                                        parentHidden = true
-                                        rejectReason = "Parent Hidden (ScreenGui Disabled: " .. current.Name .. ")"
-                                        break
-                                    elseif current:IsA("GuiObject") and not current.Visible then
-                                        parentHidden = true
-                                        rejectReason = "Parent Hidden (Visible=false: " .. current.Name .. ")"
-                                        break
-                                    end
-                                    current = current.Parent
-                                end
-                                if not parentHidden then
-                                    rejectReason = "Not Visible (Off Screen)"
-                                end
-                            end
-                        end
+                    -- Strictly filter candidates ONLY for Survival or Classic Tower Defense when lowerKw == "survival"
+                    if lowerKw == "survival" then
+                        local isSurvivalCandidate = (string.find(txt, "survival", 1, true) or string.find(descName, "survival", 1, true) or
+                                                     string.find(txt, "classic tower defense", 1, true) or string.find(descName, "classic tower defense", 1, true))
                         
-                        local fullName = desc:GetFullName()
-                        if rejectReason then
-                            local logStr = string.format("REJECTED: %s | Text: '%s' | Reason: %s", desc.Name, txt, rejectReason)
-                            table.insert(rejectionLogs, logStr)
-                            if lowerKw == "play" then
-                                notifyDiag("Rejection: " .. desc.Name, logStr)
-                            end
-                        else
-                            local matchStr = string.format("MATCHED: %s | Text: '%s' | Path: %s", desc.Name, txt, fullName)
-                            if lowerKw == "play" then
-                                notifyDiag("FOUND PLAY!", matchStr)
+                        if isSurvivalCandidate then
+                            local isVis = isGuiObjectTrulyVisible(desc)
+                            local parentName = desc.Parent and desc.Parent.Name or "NIL"
+                            local displayTxt = (desc:IsA("TextLabel") or desc:IsA("TextButton")) and (desc.Text or "") or "N/A"
+                            
+                            notifyDiag("Candidate:", string.format("Name: %s | Text: %s | Visible: %s | Parent: %s", desc.Name, displayTxt, tostring(isVis), parentName))
+                            
+                            if not isVis then
+                                local reason = "Not Visible"
+                                if desc.AbsoluteSize.X <= 2 or desc.AbsoluteSize.Y <= 2 then
+                                    reason = "Size <= 2"
+                                else
+                                    local cur = desc
+                                    while cur do
+                                        if cur:IsA("ScreenGui") and not cur.Enabled then
+                                            reason = "ScreenGui Disabled (" .. cur.Name .. ")"
+                                            break
+                                        elseif cur:IsA("GuiObject") and not cur.Visible then
+                                            reason = "Parent Visible=false (" .. cur.Name .. ")"
+                                            break
+                                        end
+                                        cur = cur.Parent
+                                    end
+                                end
+                                notifyDiag("Rejected:", reason)
                             end
                         end
                     end
@@ -1873,25 +1821,9 @@ function findTargetButton(targetKeyword)
             end
         end
         
-        if lowerKw == "play" then
-            notifyDiag("Scan Complete", string.format("Scanned %d buttons total", totalButtonsScanned))
-        end
-        
         if #candidates > 0 then
             table.sort(candidates, function(a, b) return a.score > b.score end)
-            local selected = candidates[1].element
-            if lowerKw == "play" then
-                notifyDiag("Play Button Selected", string.format("Selected '%s' (%s)", selected.Name, selected.ClassName))
-            end
-            return selected
-        end
-        
-        if lowerKw == "play" then
-            if #rejectionLogs > 0 then
-                notifyDiag("No Play Button Selected", string.format("Found %d relevant but all rejected", #rejectionLogs))
-            else
-                notifyDiag("No Play button detected", "No element matching 'Play/Start/Survival' found")
-            end
+            return candidates[1].element
         end
         return nil
     end)
@@ -1900,7 +1832,6 @@ function findTargetButton(targetKeyword)
         return result
     else
         warn("[findTargetButton ERROR] " .. tostring(result))
-        notifyDiag("findTargetButton Error", tostring(result))
         return nil
     end
 end
@@ -2009,7 +1940,10 @@ function executeAutoQueueStepByStep()
         ----------------------------------------------------
         -- STEP 2: Click Play & Verify Survival menu appears
         ----------------------------------------------------
+        notifyDiag("Step 2 Started", "")
         print("[AutoQueue Debug L6] Step 2: Clicking Play & waiting for Survival...")
+        
+        notifyDiag("Searching for Survival...", "")
         local survivalBtn = findTargetButton("survival")
         retries = 0
         while not survivalBtn and retries < 5 and autoQueueEnabled do
@@ -2020,7 +1954,7 @@ function executeAutoQueueStepByStep()
             
             triggerAllSignals(playBtn)
             
-            print("[AutoQueue] Waiting for Survival")
+            notifyDiag("Searching for Survival...", "")
             survivalBtn = waitForCondition(function()
                 return findTargetButton("survival")
             end, 1.2, 0.15, "Survival Menu Visibility")
@@ -2031,7 +1965,19 @@ function executeAutoQueueStepByStep()
             end
         end
         
-        if not survivalBtn then
+        if survivalBtn then
+            notifyDiag("SUCCESS:", "Survival Found")
+            notifyDiag("Clicked Survival", "")
+            triggerAllSignals(survivalBtn)
+            
+            local diffCheck = waitForCondition(function()
+                return findTargetButton(selectedDifficulty)
+            end, 1.0, 0.1, "Difficulty Menu")
+            if diffCheck then
+                notifyDiag("Difficulty Menu Detected", "")
+            end
+        else
+            notifyDiag("FAILED:", "No Survival Button Found")
             print("[AutoQueue Exit] RETURN 5: Survival menu failed to appear after 5 retries. Restarting sequence...")
             tStatus.Text = "Status: Survival Menu Not Found - Restarting..."
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
