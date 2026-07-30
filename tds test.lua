@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue wow",
+        Text = "Auto queue working",
         Duration = 5
     })
 end)
@@ -846,6 +846,7 @@ local function createSidebarTabButton(name)
 end
 
 createSidebarTabButton("Auto Matchmaking")
+createSidebarTabButton("Towers")
 createSidebarTabButton("Menu Settings")
 
 
@@ -2217,6 +2218,175 @@ end)
 end -- Click Engine scope
 
 do -- Page 2: Menu Settings scope
+-- ==========================================================
+-- PAGE 2: TOWERS TAB
+-- ==========================================================
+do -- Page Towers scope
+local towersPage = Instance.new("Frame")
+towersPage.Name = "Page_Towers"
+towersPage.AnchorPoint = Vector2.new(1, 0)
+towersPage.Position = UDim2.new(1, 0, 0, 0)
+towersPage.Size = UDim2.new(1, -204, 1, 0)
+towersPage.BackgroundColor3 = Color3.fromRGB(11, 15, 24)
+towersPage.BackgroundTransparency = 0.25
+towersPage.BorderSizePixel = 0
+towersPage.Visible = false
+towersPage.ClipsDescendants = false
+towersPage.Parent = contentArea
+
+local twCorner = Instance.new("UICorner")
+twCorner.CornerRadius = UDim.new(0, 14)
+twCorner.Parent = towersPage
+
+local twStroke = Instance.new("UIStroke")
+twStroke.Color = Color3.fromRGB(255, 255, 255)
+twStroke.Thickness = 1.4
+twStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+twStroke.Parent = towersPage
+attachRotatingOutline(twStroke, 20, 270)
+
+local twTitle = Instance.new("TextLabel")
+twTitle.BackgroundTransparency = 1
+twTitle.Position = UDim2.fromOffset(18, 14)
+twTitle.Size = UDim2.new(1, -36, 0, 24)
+twTitle.Font = Enum.Font.GothamBold
+twTitle.Text = "Towers"
+twTitle.TextSize = 20
+twTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+twTitle.TextXAlignment = Enum.TextXAlignment.Left
+twTitle.Parent = towersPage
+
+local twDesc = Instance.new("TextLabel")
+twDesc.BackgroundTransparency = 1
+twDesc.Position = UDim2.fromOffset(18, 38)
+twDesc.Size = UDim2.new(1, -36, 0, 16)
+twDesc.Font = Enum.Font.GothamMedium
+twDesc.Text = "Automated tower placement & tactical defense management."
+twDesc.TextSize = 11
+twDesc.TextColor3 = Color3.fromRGB(140, 150, 165)
+twDesc.TextXAlignment = Enum.TextXAlignment.Left
+twDesc.Parent = towersPage
+
+local twScroll = Instance.new("ScrollingFrame")
+twScroll.BackgroundTransparency = 1
+twScroll.Position = UDim2.fromOffset(18, 64)
+twScroll.Size = UDim2.new(1, -36, 1, -74)
+twScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+twScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+twScroll.ScrollBarThickness = 4
+twScroll.ScrollBarImageColor3 = Color3.fromRGB(27, 36, 51)
+twScroll.ScrollBarImageTransparency = 0.35
+twScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+twScroll.BorderSizePixel = 0
+twScroll.ClipsDescendants = false
+twScroll.Parent = towersPage
+
+local twLayout = Instance.new("UIListLayout")
+twLayout.Padding = UDim.new(0, 14)
+twLayout.SortOrder = Enum.SortOrder.LayoutOrder
+twLayout.Parent = twScroll
+
+local twPadding = Instance.new("UIPadding")
+twPadding.PaddingLeft = UDim.new(0, 2)
+twPadding.PaddingRight = UDim.new(0, 6)
+twPadding.PaddingTop = UDim.new(0, 4)
+twPadding.PaddingBottom = UDim.new(0, 14)
+twPadding.Parent = twScroll
+
+tabPagesList["Towers"] = towersPage
+
+-- TOGGLE CONTROL: AUTO PLACE TOWERS (SMART)
+autoPlaceTowersSmart = false
+
+local smartToggleCard = Instance.new("Frame")
+smartToggleCard.Name = "ToggleCard_AutoPlaceTowersSmart"
+smartToggleCard.Size = UDim2.new(1, 0, 0, 72)
+smartToggleCard.BackgroundColor3 = Color3.fromRGB(16, 23, 34)
+smartToggleCard.BorderSizePixel = 0
+smartToggleCard.LayoutOrder = 1
+smartToggleCard.Parent = twScroll
+
+local stcCorner = Instance.new("UICorner")
+stcCorner.CornerRadius = UDim.new(0, 12)
+stcCorner.Parent = smartToggleCard
+
+local stcStroke = Instance.new("UIStroke")
+stcStroke.Color = Color3.fromRGB(255, 255, 255)
+stcStroke.Thickness = 1.4
+stcStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stcStroke.Parent = smartToggleCard
+attachRotatingOutline(stcStroke, 22, 45)
+
+local stLabel = Instance.new("TextLabel")
+stLabel.Position = UDim2.fromOffset(16, 14)
+stLabel.Size = UDim2.new(0.65, 0, 0, 20)
+stLabel.BackgroundTransparency = 1
+stLabel.Font = Enum.Font.GothamBold
+stLabel.Text = "Auto Place Towers (Smart)"
+stLabel.TextSize = 14
+stLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+stLabel.TextXAlignment = Enum.TextXAlignment.Left
+stLabel.Parent = smartToggleCard
+
+local stSub = Instance.new("TextLabel")
+stSub.Position = UDim2.fromOffset(16, 36)
+stSub.Size = UDim2.new(0.65, 0, 0, 20)
+stSub.BackgroundTransparency = 1
+stSub.Font = Enum.Font.GothamMedium
+stSub.Text = "Automatically place towers at optimal tactical coordinates."
+stSub.TextSize = 11
+stSub.TextColor3 = Color3.fromRGB(140, 150, 165)
+stSub.TextXAlignment = Enum.TextXAlignment.Left
+stSub.Parent = smartToggleCard
+
+local smartSwitchBtn = Instance.new("TextButton")
+smartSwitchBtn.Name = "SmartSwitchBtn"
+smartSwitchBtn.AnchorPoint = Vector2.new(1, 0.5)
+smartSwitchBtn.Position = UDim2.new(1, -16, 0.5, 0)
+smartSwitchBtn.Size = UDim2.fromOffset(50, 26)
+smartSwitchBtn.BackgroundColor3 = Color3.fromRGB(11, 15, 24)
+smartSwitchBtn.BorderSizePixel = 0
+smartSwitchBtn.AutoButtonColor = false
+smartSwitchBtn.Text = ""
+smartSwitchBtn.Parent = smartToggleCard
+
+local smartSwCorner = Instance.new("UICorner")
+smartSwCorner.CornerRadius = UDim.new(1, 0)
+smartSwCorner.Parent = smartSwitchBtn
+
+local smartSwStroke = Instance.new("UIStroke")
+smartSwStroke.Color = Color3.fromRGB(255, 255, 255)
+smartSwStroke.Thickness = 1.4
+smartSwStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+smartSwStroke.Parent = smartSwitchBtn
+attachRotatingOutline(smartSwStroke, 24, 135)
+
+local smartSwKnob = Instance.new("Frame")
+smartSwKnob.Name = "Knob"
+smartSwKnob.Size = UDim2.fromOffset(20, 20)
+smartSwKnob.Position = UDim2.fromOffset(3, 3)
+smartSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+smartSwKnob.BorderSizePixel = 0
+smartSwKnob.Parent = smartSwitchBtn
+
+local smartKnobCorner = Instance.new("UICorner")
+smartKnobCorner.CornerRadius = UDim.new(1, 0)
+smartKnobCorner.Parent = smartSwKnob
+
+smartSwitchBtn.MouseButton1Click:Connect(function()
+    autoPlaceTowersSmart = not autoPlaceTowersSmart
+    if autoPlaceTowersSmart then
+        smartSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+        smartSwKnob.BackgroundColor3 = Color3.fromRGB(14, 255, 0)
+        notifyDiag("Towers:", "Auto Place Towers (Smart) ENABLED")
+    else
+        smartSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+        smartSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+        notifyDiag("Towers:", "Auto Place Towers (Smart) DISABLED")
+    end
+end)
+end
+
 -- ==========================================================
 -- PAGE 2: MENU SETTINGS TAB
 -- ==========================================================
