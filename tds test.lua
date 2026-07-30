@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue go vroom",
+        Text = "Auto queue working",
         Duration = 5
     })
 end)
@@ -1715,27 +1715,63 @@ function findTargetButton(targetKeyword)
                 if not isOurMenu then
                     local isGuiType = (desc:IsA("TextLabel") or desc:IsA("TextButton") or desc:IsA("ImageLabel") or desc:IsA("ImageButton"))
                     
+                    -- Extract all child text for deep matching
                     local txt = ""
+                    local combinedText = ""
                     pcall(function()
                         if desc:IsA("TextLabel") or desc:IsA("TextButton") then
                             txt = string.lower(string.gsub(desc.Text or "", "^%s*(.-)%s*$", "%1"))
                         end
+                        combinedText = txt
+                        for _, child in ipairs(desc:GetChildren()) do
+                            if (child:IsA("TextLabel") or child:IsA("TextButton")) and child.Text then
+                                combinedText = combinedText .. " " .. string.lower(child.Text)
+                            end
+                        end
                     end)
                     local descName = string.lower(desc.Name or "")
                     
-                    -- Strictly filter candidates ONLY for Survival or Classic Tower Defense when lowerKw == "survival"
+                    -- ==========================================================
+                    -- SPECIAL SURVIVAL DETECTOR (Panel-Based & Immediate Return)
+                    -- ==========================================================
                     if lowerKw == "survival" then
-                        local isSurvivalCandidate = (string.find(txt, "survival", 1, true) or string.find(descName, "survival", 1, true) or
-                                                     string.find(txt, "classic tower defense", 1, true) or string.find(descName, "classic tower defense", 1, true))
+                        local isSurvivalMatch = false
+                        local isPvpOrHardcore = (string.find(combinedText, "pvp", 1, true) or string.find(descName, "pvp", 1, true) or
+                                                 string.find(combinedText, "hardcore", 1, true) or string.find(descName, "hardcore", 1, true) or
+                                                 string.find(combinedText, "sandbox", 1, true) or string.find(descName, "sandbox", 1, true) or
+                                                 string.find(combinedText, "event", 1, true) or string.find(descName, "event", 1, true))
+                                                 
+                        if not isPvpOrHardcore then
+                            if string.find(combinedText, "survival", 1, true) or string.find(descName, "survival", 1, true) or
+                               string.find(combinedText, "classic tower defense", 1, true) or string.find(descName, "classictowerdefense", 1, true) or
+                               string.find(combinedText, "classic", 1, true) or string.find(descName, "classic", 1, true) or
+                               string.find(descName, "survivalcard", 1, true) or string.find(descName, "gamemodecard", 1, true) or string.find(descName, "modecard", 1, true) then
+                                isSurvivalMatch = true
+                            end
+                        end
                         
-                        if isSurvivalCandidate then
+                        if isSurvivalMatch then
                             local isVis = isGuiObjectTrulyVisible(desc)
-                            local parentName = desc.Parent and desc.Parent.Name or "NIL"
-                            local displayTxt = (desc:IsA("TextLabel") or desc:IsA("TextButton")) and (desc.Text or "") or "N/A"
+                            local parentObj = desc.Parent
+                            local parentName = parentObj and parentObj.Name or "NIL"
+                            local displayTxt = (desc:IsA("TextLabel") or desc:IsA("TextButton")) and (desc.Text or "") or combinedText
                             
                             notifyDiag("Candidate:", string.format("Name: %s | Text: %s | Visible: %s | Parent: %s", desc.Name, displayTxt, tostring(isVis), parentName))
                             
-                            if not isVis then
+                            if isVis then
+                                local btnObj = desc
+                                local cur = desc
+                                for depth = 1, 5 do
+                                    if not cur or cur:IsA("ScreenGui") then break end
+                                    if (cur:IsA("GuiButton") or cur:IsA("TextButton") or cur:IsA("ImageButton")) and isGuiObjectTrulyVisible(cur) then
+                                        btnObj = cur
+                                        break
+                                    end
+                                    cur = cur.Parent
+                                end
+                                notifyDiag("SUCCESS:", "Survival Found")
+                                return btnObj -- IMMEDIATE RETURN: Stop scanning immediately!
+                            else
                                 local reason = "Not Visible"
                                 if desc.AbsoluteSize.X <= 2 or desc.AbsoluteSize.Y <= 2 then
                                     reason = "Size <= 2"
@@ -1757,7 +1793,7 @@ function findTargetButton(targetKeyword)
                         end
                     end
                     
-                    -- Standard search and scoring
+                    -- Standard search and scoring for other keywords (Play, Difficulty, Squad Size)
                     if isGuiType and isGuiObjectTrulyVisible(desc) then
                         local isQuestOrInfo = (string.find(txt, "win", 1, true) or string.find(txt, "quest", 1, true) or string.find(txt, "reward", 1, true) or string.find(txt, "badge", 1, true) or string.find(txt, "triumph", 1, true) or string.find(txt, "kill", 1, true) or string.find(txt, "level", 1, true) or string.find(txt, "stat", 1, true))
                         local isMatch = false
@@ -1773,13 +1809,6 @@ function findTargetButton(targetKeyword)
                                     isMatch = true; score = 65
                                 end
                                 if isMatch and desc.AbsolutePosition.Y > (viewportY * 0.3) then score = score + 50 end
-                            end
-                        elseif lowerKw == "survival" then
-                            if not isQuestOrInfo then
-                                if txt == "survival" or descName == "survival" then isMatch = true; score = 100
-                                elseif string.find(txt, "classic tower defense", 1, true) or string.find(descName, "survival", 1, true) then isMatch = true; score = 80
-                                end
-                                if string.find(txt, "pvp", 1, true) or string.find(txt, "hardcore", 1, true) or string.find(txt, "sandbox", 1, true) then isMatch = false end
                             end
                         elseif lowerKw == "easy" then
                             if not isQuestOrInfo and (txt == "easy" or descName == "easy" or string.find(txt, "for new users", 1, true)) then isMatch = true; score = 100 end
