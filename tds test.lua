@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue gghjhsdjsh",
+        Text = "Auto queue fart",
         Duration = 5
     })
 end)
@@ -1954,7 +1954,7 @@ function executeAutoQueueStepByStep()
         end
         
         ----------------------------------------------------
-        -- STEP 1 & STEP 2: Synchronized Play -> Survival Flow
+        -- STEP 1 & STEP 2: RenderStepped Synchronized Play -> Survival Flow
         ----------------------------------------------------
         print("[AutoQueue Debug L5] Step 1: Checking for Survival button or searching Play button...")
         
@@ -1981,52 +1981,86 @@ function executeAutoQueueStepByStep()
                 return
             end
             
-            print("[AutoQueue] Found Play. Clicking Play to open menu...")
+            -- 1. Record current number of PlayerGui descendants before clicking Play
+            local pg = getPlayerGui()
+            local initialDescendantCount = pg and #pg:GetDescendants() or 0
+            
+            -- Trigger Play click
+            notifyDiag("Play Clicked", "")
             triggerAllSignals(playBtn)
             
-            -- Wait for actual Survival button to exist as menu animation finishes (polling every 0.1s up to 5.0s)
-            notifyDiag("Searching for Survival...", "")
-            survivalBtn = waitForCondition(function()
-                return findTargetButton("survival")
-            end, 5.0, 0.1, "Survival Button Post-Animation Visibility")
+            -- 2. Monitor PlayerGui every RenderStepped frame until hierarchy changes
+            local guiChanged = false
+            local startTime = os.clock()
+            while (os.clock() - startTime < 3.0) and autoQueueEnabled do
+                RunService.RenderStepped:Wait()
+                local currentCount = pg and #pg:GetDescendants() or 0
+                if currentCount ~= initialDescendantCount then
+                    guiChanged = true
+                    break
+                end
+            end
             
-            -- If Survival button is still not found after 5.0s animation window, retry clicking Play
+            if guiChanged then
+                notifyDiag("GUI Updated", "")
+            end
+            
+            -- 3. Once GUI changes (or timeout reached), call findTargetButton("survival") every RenderStepped frame until found
+            notifyDiag("Searching Survival", "")
+            startTime = os.clock()
+            while not survivalBtn and (os.clock() - startTime < 4.0) and autoQueueEnabled do
+                RunService.RenderStepped:Wait()
+                survivalBtn = findTargetButton("survival")
+            end
+            
+            -- 4. Retry loop if Survival still not found
             local playRetries = 0
             while not survivalBtn and playRetries < 5 and autoQueueEnabled do
                 playRetries = playRetries + 1
-                print(string.format("[AutoQueue] Retrying Play click to trigger menu (%d/5)...", playRetries))
+                print(string.format("[AutoQueue] Retrying Play click (%d/5)...", playRetries))
                 tStatus.Text = string.format("Status: Retrying Play Click (%d/5)...", playRetries)
                 tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
                 
+                initialDescendantCount = pg and #pg:GetDescendants() or 0
+                notifyDiag("Play Clicked", "")
                 triggerAllSignals(playBtn)
-                notifyDiag("Searching for Survival...", "")
-                survivalBtn = waitForCondition(function()
-                    return findTargetButton("survival")
-                end, 5.0, 0.1, "Survival Button Post-Animation Visibility")
+                
+                startTime = os.clock()
+                while (os.clock() - startTime < 3.0) and autoQueueEnabled do
+                    RunService.RenderStepped:Wait()
+                    local currentCount = pg and #pg:GetDescendants() or 0
+                    if currentCount ~= initialDescendantCount then
+                        guiChanged = true
+                        break
+                    end
+                end
+                
+                if guiChanged then
+                    notifyDiag("GUI Updated", "")
+                end
+                
+                notifyDiag("Searching Survival", "")
+                startTime = os.clock()
+                while not survivalBtn and (os.clock() - startTime < 4.0) and autoQueueEnabled do
+                    RunService.RenderStepped:Wait()
+                    survivalBtn = findTargetButton("survival")
+                end
             end
         else
-            print("[AutoQueue Debug L5.2] Play menu is ALREADY open. Survival button detected.")
+            notifyDiag("Searching Survival", "")
         end
 
         ----------------------------------------------------
         -- STEP 2 Execution: Click Survival Button
         ----------------------------------------------------
-        notifyDiag("Step 2 Started", "")
-        print("[AutoQueue Debug L6] Step 2: Proceeding to click Survival...")
-        
         if survivalBtn then
-            notifyDiag("SUCCESS:", "Survival Found")
-            notifyDiag("Clicked Survival", "")
+            notifyDiag("Survival Found", "")
             triggerAllSignals(survivalBtn)
             
             local diffCheck = waitForCondition(function()
                 return findTargetButton(selectedDifficulty)
             end, 1.5, 0.1, "Difficulty Menu")
-            if diffCheck then
-                notifyDiag("Difficulty Menu Detected", "")
-            end
         else
-            notifyDiag("FAILED:", "No Survival Button Found")
             print("[AutoQueue Exit] RETURN 5: Survival button failed to appear after retries. Restarting sequence...")
             tStatus.Text = "Status: Survival Menu Not Found - Restarting..."
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
