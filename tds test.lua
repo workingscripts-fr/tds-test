@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue working",
+        Text = "Auto queue working hehehe",
         Duration = 5
     })
 end)
@@ -2593,6 +2593,163 @@ hlrSwitchBtn.MouseButton1Click:Connect(function()
         print("[Highlight Road] DISABLED")
         hlRoadStopWatcher()
         hlRoadCleanup()
+    end
+end)
+
+
+-- ============================================================
+-- FEATURE 3: OBJECT INSPECTOR TOGGLE
+-- ============================================================
+objectInspectorEnabled = false
+local _objInspectorConn = nil
+
+local function objInspectorDisconnect()
+    if _objInspectorConn then
+        _objInspectorConn:Disconnect()
+        _objInspectorConn = nil
+    end
+end
+
+local function objInspectorConnect()
+    objInspectorDisconnect()
+
+    local mouse = Players.LocalPlayer and Players.LocalPlayer:GetMouse()
+    if not mouse then
+        print("[Object Inspector] Could not get Mouse")
+        return
+    end
+
+    _objInspectorConn = mouse.Button1Down:Connect(function()
+        local target = mouse.Target
+        if not target then return end
+
+        local lines = {}
+        table.insert(lines, "=== OBJECT INSPECTOR ===")
+        table.insert(lines, "Name: " .. tostring(target.Name))
+        table.insert(lines, "ClassName: " .. tostring(target.ClassName))
+        table.insert(lines, "Parent: " .. tostring(target.Parent and target.Parent.Name or "nil"))
+        table.insert(lines, "FullName: " .. tostring(target:GetFullName()))
+
+        if target:IsA("BasePart") then
+            table.insert(lines, "Position: " .. tostring(target.Position))
+            table.insert(lines, "Size: " .. tostring(target.Size))
+            table.insert(lines, "Material: " .. tostring(target.Material))
+            table.insert(lines, "Color: " .. tostring(target.Color))
+            table.insert(lines, "Transparency: " .. tostring(target.Transparency))
+            table.insert(lines, "Anchored: " .. tostring(target.Anchored))
+            table.insert(lines, "CanCollide: " .. tostring(target.CanCollide))
+        end
+
+        local fullText = table.concat(lines, "\n")
+        print(fullText)
+
+        -- Show notification with key info (truncated for UI)
+        local notifText = target.Name .. "\n<" .. target.ClassName .. ">\nParent: " .. tostring(target.Parent and target.Parent.Name or "nil") .. "\n" .. target:GetFullName()
+        if target:IsA("BasePart") then
+            notifText = notifText .. "\nPos: " .. tostring(target.Position) .. "\nSize: " .. tostring(target.Size) .. "\nMat: " .. tostring(target.Material) .. "\nColor: " .. tostring(target.Color) .. "\nTransp: " .. tostring(target.Transparency) .. "\nAnchored: " .. tostring(target.Anchored) .. "\nCanCollide: " .. tostring(target.CanCollide)
+        end
+        notifyDiag("Inspector:", notifText)
+    end)
+
+    print("[Object Inspector] Click listener connected")
+end
+
+-- OBJECT INSPECTOR TOGGLE CARD UI
+local objInsCard = Instance.new("Frame")
+objInsCard.Name = "ToggleCard_ObjectInspector"
+objInsCard.Size = UDim2.new(1, 0, 0, 72)
+objInsCard.BackgroundColor3 = Color3.fromRGB(16, 23, 34)
+objInsCard.BorderSizePixel = 0
+objInsCard.LayoutOrder = 3
+objInsCard.Parent = twScroll
+
+local oicCorner = Instance.new("UICorner")
+oicCorner.CornerRadius = UDim.new(0, 12)
+oicCorner.Parent = objInsCard
+
+local oicStroke = Instance.new("UIStroke")
+oicStroke.Color = Color3.fromRGB(255, 255, 255)
+oicStroke.Thickness = 1.4
+oicStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+oicStroke.Parent = objInsCard
+attachRotatingOutline(oicStroke, 22, 270)
+
+local oicLabel = Instance.new("TextLabel")
+oicLabel.Position = UDim2.fromOffset(16, 14)
+oicLabel.Size = UDim2.new(0.65, 0, 0, 20)
+oicLabel.BackgroundTransparency = 1
+oicLabel.Font = Enum.Font.GothamBold
+oicLabel.Text = "Object Inspector"
+oicLabel.TextSize = 14
+oicLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+oicLabel.TextXAlignment = Enum.TextXAlignment.Left
+oicLabel.ZIndex = 6
+oicLabel.Parent = objInsCard
+
+local oicSub = Instance.new("TextLabel")
+oicSub.Position = UDim2.fromOffset(16, 36)
+oicSub.Size = UDim2.new(0.65, 0, 0, 20)
+oicSub.BackgroundTransparency = 1
+oicSub.Font = Enum.Font.GothamMedium
+oicSub.Text = "Click any object to inspect its properties."
+oicSub.TextSize = 11
+oicSub.TextColor3 = Color3.fromRGB(140, 150, 165)
+oicSub.TextXAlignment = Enum.TextXAlignment.Left
+oicSub.ZIndex = 6
+oicSub.Parent = objInsCard
+
+local oicSwitchBtn = Instance.new("TextButton")
+oicSwitchBtn.Name = "ObjectInspectorSwitchBtn"
+oicSwitchBtn.AnchorPoint = Vector2.new(1, 0.5)
+oicSwitchBtn.Position = UDim2.new(1, -16, 0.5, 0)
+oicSwitchBtn.Size = UDim2.fromOffset(50, 26)
+oicSwitchBtn.BackgroundColor3 = Color3.fromRGB(11, 15, 24)
+oicSwitchBtn.BorderSizePixel = 0
+oicSwitchBtn.AutoButtonColor = false
+oicSwitchBtn.Active = true
+oicSwitchBtn.ZIndex = 10
+oicSwitchBtn.Text = ""
+oicSwitchBtn.Parent = objInsCard
+
+local oicSwCorner = Instance.new("UICorner")
+oicSwCorner.CornerRadius = UDim.new(1, 0)
+oicSwCorner.Parent = oicSwitchBtn
+
+local oicSwStroke = Instance.new("UIStroke")
+oicSwStroke.Color = Color3.fromRGB(255, 255, 255)
+oicSwStroke.Thickness = 1.4
+oicSwStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+oicSwStroke.Parent = oicSwitchBtn
+attachRotatingOutline(oicSwStroke, 24, 315)
+
+local oicSwKnob = Instance.new("Frame")
+oicSwKnob.Name = "Knob"
+oicSwKnob.Size = UDim2.fromOffset(20, 20)
+oicSwKnob.Position = UDim2.fromOffset(3, 3)
+oicSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+oicSwKnob.BorderSizePixel = 0
+oicSwKnob.ZIndex = 11
+oicSwKnob.Parent = oicSwitchBtn
+
+local oicKnobCorner = Instance.new("UICorner")
+oicKnobCorner.CornerRadius = UDim.new(1, 0)
+oicKnobCorner.Parent = oicSwKnob
+
+oicSwitchBtn.MouseButton1Click:Connect(function()
+    objectInspectorEnabled = not objectInspectorEnabled
+
+    if objectInspectorEnabled then
+        oicSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+        oicSwKnob.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+        notifyDiag("Inspector:", "Object Inspector ENABLED")
+        print("[Object Inspector] ENABLED")
+        objInspectorConnect()
+    else
+        oicSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+        oicSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+        notifyDiag("Inspector:", "Object Inspector DISABLED")
+        print("[Object Inspector] DISABLED")
+        objInspectorDisconnect()
     end
 end)
 
