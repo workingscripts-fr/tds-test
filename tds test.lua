@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue i need this speed",
+        Text = "Auto queue working",
         Duration = 5
     })
 end)
@@ -2262,345 +2262,234 @@ twPadding.Parent = twScroll
 
 tabPagesList["Towers"] = towersPage
 
--- TOGGLE CONTROL: AUTO PLACE TOWERS (SMART)
-autoPlaceTowersSmart = false
+-- ============================================================
+-- FEATURE 1: PLACE SCOUT BUTTON
+-- ============================================================
 
-local smartToggleCard = Instance.new("Frame")
-smartToggleCard.Name = "ToggleCard_AutoPlaceTowersSmart"
-smartToggleCard.Size = UDim2.new(1, 0, 0, 72)
-smartToggleCard.BackgroundColor3 = Color3.fromRGB(16, 23, 34)
-smartToggleCard.BorderSizePixel = 0
-smartToggleCard.ZIndex = 5
-smartToggleCard.LayoutOrder = 1
-smartToggleCard.Parent = twScroll
+local placeScoutCard = Instance.new("Frame")
+placeScoutCard.Name = "Card_PlaceScout"
+placeScoutCard.Size = UDim2.new(1, 0, 0, 72)
+placeScoutCard.BackgroundColor3 = Color3.fromRGB(16, 23, 34)
+placeScoutCard.BorderSizePixel = 0
+placeScoutCard.ZIndex = 5
+placeScoutCard.LayoutOrder = 1
+placeScoutCard.Parent = twScroll
 
-local stcCorner = Instance.new("UICorner")
-stcCorner.CornerRadius = UDim.new(0, 12)
-stcCorner.Parent = smartToggleCard
+local pscCorner = Instance.new("UICorner")
+pscCorner.CornerRadius = UDim.new(0, 12)
+pscCorner.Parent = placeScoutCard
 
-local stcStroke = Instance.new("UIStroke")
-stcStroke.Color = Color3.fromRGB(255, 255, 255)
-stcStroke.Thickness = 1.4
-stcStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-stcStroke.Parent = smartToggleCard
-attachRotatingOutline(stcStroke, 22, 45)
+local pscStroke = Instance.new("UIStroke")
+pscStroke.Color = Color3.fromRGB(255, 255, 255)
+pscStroke.Thickness = 1.4
+pscStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+pscStroke.Parent = placeScoutCard
+attachRotatingOutline(pscStroke, 22, 45)
 
-local stLabel = Instance.new("TextLabel")
-stLabel.Position = UDim2.fromOffset(16, 14)
-stLabel.Size = UDim2.new(0.65, 0, 0, 20)
-stLabel.BackgroundTransparency = 1
-stLabel.Font = Enum.Font.GothamBold
-stLabel.Text = "Auto Place Towers (Smart)"
-stLabel.TextSize = 14
-stLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-stLabel.TextXAlignment = Enum.TextXAlignment.Left
-stLabel.ZIndex = 6
-stLabel.Parent = smartToggleCard
+local pscLabel = Instance.new("TextLabel")
+pscLabel.Position = UDim2.fromOffset(16, 14)
+pscLabel.Size = UDim2.new(0.55, 0, 0, 20)
+pscLabel.BackgroundTransparency = 1
+pscLabel.Font = Enum.Font.GothamBold
+pscLabel.Text = "Place Scout"
+pscLabel.TextSize = 14
+pscLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+pscLabel.TextXAlignment = Enum.TextXAlignment.Left
+pscLabel.ZIndex = 6
+pscLabel.Parent = placeScoutCard
 
-local stSub = Instance.new("TextLabel")
-stSub.Position = UDim2.fromOffset(16, 36)
-stSub.Size = UDim2.new(0.65, 0, 0, 20)
-stSub.BackgroundTransparency = 1
-stSub.Font = Enum.Font.GothamMedium
-stSub.Text = "Automatically place towers at optimal tactical coordinates."
-stSub.TextSize = 11
-stSub.TextColor3 = Color3.fromRGB(140, 150, 165)
-stSub.TextXAlignment = Enum.TextXAlignment.Left
-stSub.ZIndex = 6
-stSub.Parent = smartToggleCard
+local pscSub = Instance.new("TextLabel")
+pscSub.Position = UDim2.fromOffset(16, 36)
+pscSub.Size = UDim2.new(0.55, 0, 0, 20)
+pscSub.BackgroundTransparency = 1
+pscSub.Font = Enum.Font.GothamMedium
+pscSub.Text = "Place a Scout tower at the saved position."
+pscSub.TextSize = 11
+pscSub.TextColor3 = Color3.fromRGB(140, 150, 165)
+pscSub.TextXAlignment = Enum.TextXAlignment.Left
+pscSub.ZIndex = 6
+pscSub.Parent = placeScoutCard
 
-local smartSwitchBtn = Instance.new("TextButton")
-smartSwitchBtn.Name = "SmartSwitchBtn"
-smartSwitchBtn.AnchorPoint = Vector2.new(1, 0.5)
-smartSwitchBtn.Position = UDim2.new(1, -16, 0.5, 0)
-smartSwitchBtn.Size = UDim2.fromOffset(50, 26)
-smartSwitchBtn.BackgroundColor3 = Color3.fromRGB(11, 15, 24)
-smartSwitchBtn.BorderSizePixel = 0
-smartSwitchBtn.AutoButtonColor = false
-smartSwitchBtn.Active = true
-smartSwitchBtn.ZIndex = 10
-smartSwitchBtn.Text = ""
-smartSwitchBtn.Parent = smartToggleCard
+local placeScoutBtn = Instance.new("TextButton")
+placeScoutBtn.Name = "PlaceScoutBtn"
+placeScoutBtn.AnchorPoint = Vector2.new(1, 0.5)
+placeScoutBtn.Position = UDim2.new(1, -16, 0.5, 0)
+placeScoutBtn.Size = UDim2.fromOffset(90, 30)
+placeScoutBtn.BackgroundColor3 = Color3.fromRGB(14, 255, 0)
+placeScoutBtn.BorderSizePixel = 0
+placeScoutBtn.AutoButtonColor = false
+placeScoutBtn.Active = true
+placeScoutBtn.ZIndex = 10
+placeScoutBtn.Text = "PLACE"
+placeScoutBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+placeScoutBtn.Font = Enum.Font.GothamBold
+placeScoutBtn.TextSize = 13
+placeScoutBtn.Parent = placeScoutCard
 
-local smartSwCorner = Instance.new("UICorner")
-smartSwCorner.CornerRadius = UDim.new(1, 0)
-smartSwCorner.Parent = smartSwitchBtn
+local pscBtnCorner = Instance.new("UICorner")
+pscBtnCorner.CornerRadius = UDim.new(0, 8)
+pscBtnCorner.Parent = placeScoutBtn
 
-local smartSwStroke = Instance.new("UIStroke")
-smartSwStroke.Color = Color3.fromRGB(255, 255, 255)
-smartSwStroke.Thickness = 1.4
-smartSwStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-smartSwStroke.Parent = smartSwitchBtn
-attachRotatingOutline(smartSwStroke, 24, 135)
+local pscBtnStroke = Instance.new("UIStroke")
+pscBtnStroke.Color = Color3.fromRGB(255, 255, 255)
+pscBtnStroke.Thickness = 1.4
+pscBtnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+pscBtnStroke.Parent = placeScoutBtn
+attachRotatingOutline(pscBtnStroke, 24, 135)
 
-local smartSwKnob = Instance.new("Frame")
-smartSwKnob.Name = "Knob"
-smartSwKnob.Size = UDim2.fromOffset(20, 20)
-smartSwKnob.Position = UDim2.fromOffset(3, 3)
-smartSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
-smartSwKnob.BorderSizePixel = 0
-smartSwKnob.ZIndex = 11
-smartSwKnob.Parent = smartSwitchBtn
-
-local smartKnobCorner = Instance.new("UICorner")
-smartKnobCorner.CornerRadius = UDim.new(1, 0)
-smartKnobCorner.Parent = smartSwKnob
-
--- State Tracking
-placedScoutTower = false
-
-local function getTargetPlacementPosition()
-    local map = workspace:FindFirstChild("Map") or workspace:FindFirstChild("Stage")
-    if map then
-        local path = map:FindFirstChild("Path") or map:FindFirstChild("Nodes")
-        if path then
-            local nodes = path:GetChildren()
-            for _, node in ipairs(nodes) do
-                if node:IsA("BasePart") then
-                    local pos = node.Position
-                    if pos.X > 15 and pos.Z < -10 then
-                        return Vector3.new(pos.X + 8, pos.Y, pos.Z + 5)
-                    end
-                end
-            end
-        end
-    end
-    return Vector3.new(28.5, 4.2, -22.5)
-end
-
--- Verified Remote Scout Placement Function (Exact Cobalt Snippet)
-local function placeScout(targetPosition)
-    print("[Scout] Invoking exact Cobalt replay remote call...")
-    
-    local posVal
-    if typeof(vector) == "table" and typeof(vector.create) == "function" then
-        pcall(function()
-            posVal = vector.create(12.947556495666504, 1.0000064373016357, -9.138900756835938)
-        end)
-    end
-    if not posVal then
-        posVal = Vector3.new(12.947556495666504, 1.0000064373016357, -9.138900756835938)
-    end
-    
+placeScoutBtn.MouseButton1Click:Connect(function()
     local args = {
         "Troops",
         "Place",
         {
-            Rotation = CFrame.new(0, 0, 0, 1, -0, 0, 0, 1, -0, 0, 0, 1),
-            Position = posVal
+            Rotation = CFrame.new(0,0,0,1,0,0,0,1,0,0,0,1),
+            Position = Vector3.new(12.885271072387695, 1.0000064373016357, -8.871417045593262)
         },
         "Scout"
     }
-    
-    local ok, result = pcall(function()
-        return game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(args))
-    end)
-    
-    if ok then
-        print("[Scout] Placement succeeded. Return value:", tostring(result))
-        notifyDiag("Towers:", "Scout Tower Successfully Placed!")
-        return true
-    else
-        print("[Scout] Placement failed.")
-        warn("[Scout Error] " .. tostring(result))
-        return false
-    end
-end
-
--- Direct Toggle: fires placement EXACTLY ONCE every time toggled ON
-smartSwitchBtn.MouseButton1Click:Connect(function()
-    autoPlaceTowersSmart = not autoPlaceTowersSmart
-    
-    if autoPlaceTowersSmart then
-        smartSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
-        smartSwKnob.BackgroundColor3 = Color3.fromRGB(14, 255, 0)
-        notifyDiag("Towers:", "Auto Place Towers (Smart) ENABLED")
-        print("[Towers Toggle] ENABLED -> Executing Scout placement code ONE TIME")
-        
-        task.spawn(function()
-            local pos = getTargetPlacementPosition()
-            placeScout(pos)
-        end)
-    else
-        smartSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
-        smartSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
-        notifyDiag("Towers:", "Auto Place Towers (Smart) DISABLED")
-        print("[Towers Toggle] DISABLED")
-    end
+    game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(args))
 end)
 
 -- ============================================================
--- TOGGLE CONTROL: HIGHLIGHT ROAD
+-- FEATURE 2: HIGHLIGHT ROAD TOGGLE
 -- ============================================================
 highlightRoadEnabled = false
-local roadHighlightFolder = nil
-local roadMapWatcher = nil
+local _hlRoadHighlights = {}
+local _hlRoadMapWatcher = nil
 
--- Cleanup all existing road highlights
-local function cleanupRoadHighlights()
-    if roadHighlightFolder and roadHighlightFolder.Parent then
-        roadHighlightFolder:Destroy()
+local function hlRoadCleanup()
+    for _, h in ipairs(_hlRoadHighlights) do
+        if h and h.Parent then
+            h:Destroy()
+        end
     end
-    roadHighlightFolder = nil
+    _hlRoadHighlights = {}
 end
 
--- Find the road/path container in any map structure
-local function findRoadContainer()
-    -- TDS maps typically use workspace.Map or workspace.Stage with a "Path" child
+local function hlRoadFindPathContainer()
     local mapRoot = workspace:FindFirstChild("Map") or workspace:FindFirstChild("Stage")
     if not mapRoot then
-        -- Fallback: search workspace top-level for common path folder names
         for _, child in ipairs(workspace:GetChildren()) do
             if child:IsA("Model") or child:IsA("Folder") then
-                local p = child:FindFirstChild("Path") or child:FindFirstChild("Paths") or child:FindFirstChild("Road") or child:FindFirstChild("Track")
-                if p then return p, child end
-                -- Also check for Nodes
-                local n = child:FindFirstChild("Nodes") or child:FindFirstChild("Waypoints")
-                if n then return n, child end
+                for _, name in ipairs({"Path", "Paths", "Road", "Track", "Nodes", "Waypoints"}) do
+                    local found = child:FindFirstChild(name)
+                    if found then return found, child end
+                end
             end
         end
         return nil, nil
     end
-    
-    -- Search inside map root
-    local path = mapRoot:FindFirstChild("Path") or mapRoot:FindFirstChild("Paths") or mapRoot:FindFirstChild("Road") or mapRoot:FindFirstChild("Track")
-    if path then return path, mapRoot end
-    local nodes = mapRoot:FindFirstChild("Nodes") or mapRoot:FindFirstChild("Waypoints")
-    if nodes then return nodes, mapRoot end
-    
-    -- Deep search: find any child that contains multiple BaseParts arranged like a road
-    for _, child in ipairs(mapRoot:GetDescendants()) do
-        if (child:IsA("Model") or child:IsA("Folder")) and (string.lower(child.Name):find("path") or string.lower(child.Name):find("road") or string.lower(child.Name):find("track")) then
-            return child, mapRoot
+    for _, name in ipairs({"Path", "Paths", "Road", "Track", "Nodes", "Waypoints"}) do
+        local found = mapRoot:FindFirstChild(name)
+        if found then return found, mapRoot end
+    end
+    for _, desc in ipairs(mapRoot:GetDescendants()) do
+        if (desc:IsA("Model") or desc:IsA("Folder")) then
+            local n = string.lower(desc.Name)
+            if n:find("path") or n:find("road") or n:find("track") then
+                return desc, mapRoot
+            end
         end
     end
-    
     return nil, mapRoot
 end
 
--- Collect all road BaseParts from the path container
-local function collectRoadParts(pathContainer)
-    local parts = {}
-    if not pathContainer then return parts end
-    
-    for _, desc in ipairs(pathContainer:GetDescendants()) do
-        if desc:IsA("BasePart") then
-            table.insert(parts, desc)
-        end
-    end
-    
-    -- If the container itself is a BasePart
-    if pathContainer:IsA("BasePart") then
-        table.insert(parts, pathContainer)
-    end
-    
-    return parts
-end
-
--- Apply highlights to all road parts
-local function applyRoadHighlights()
-    cleanupRoadHighlights()
-    
+local function hlRoadApply()
+    hlRoadCleanup()
     if not highlightRoadEnabled then return end
-    
-    local pathContainer, mapRoot = findRoadContainer()
+
+    local pathContainer = hlRoadFindPathContainer()
     if not pathContainer then
-        print("[Highlight Road] No path container found in current map")
-        notifyDiag("Road:", "No path found in map")
+        print("[Highlight Road] No path container found")
+        notifyDiag("Road:", "No path found in current map")
         return
     end
-    
-    local roadParts = collectRoadParts(pathContainer)
+
+    local roadParts = {}
+    for _, desc in ipairs(pathContainer:GetDescendants()) do
+        if desc:IsA("BasePart") then
+            table.insert(roadParts, desc)
+        end
+    end
+    if pathContainer:IsA("BasePart") then
+        table.insert(roadParts, pathContainer)
+    end
+
     if #roadParts == 0 then
-        print("[Highlight Road] Path container found but contains no BaseParts")
+        print("[Highlight Road] No road BaseParts found")
         notifyDiag("Road:", "No road parts found")
         return
     end
-    
-    -- Create a folder to hold all highlight objects
-    roadHighlightFolder = Instance.new("Folder")
-    roadHighlightFolder.Name = "TDS_RoadHighlights"
-    roadHighlightFolder.Parent = workspace
-    
-    local highlightCount = 0
-    
+
+    local count = 0
     for _, part in ipairs(roadParts) do
-        -- Try Roblox Highlight instance first (works on Models and BaseParts)
-        local useHighlightInstance = false
-        
+        local ok = false
         pcall(function()
             local h = Instance.new("Highlight")
-            h.Name = "RoadHL_" .. part.Name
+            h.Name = "TDS_RoadHL"
             h.Adornee = part
-            h.FillColor = Color3.fromRGB(255, 30, 30)
-            h.FillTransparency = 0.55
+            h.FillColor = Color3.fromRGB(255, 0, 0)
             h.OutlineColor = Color3.fromRGB(255, 0, 0)
-            h.OutlineTransparency = 0.2
+            h.FillTransparency = 0.35
+            h.OutlineTransparency = 0
             h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            h.Parent = roadHighlightFolder
-            useHighlightInstance = true
-            highlightCount = highlightCount + 1
+            h.Parent = part
+            table.insert(_hlRoadHighlights, h)
+            ok = true
+            count = count + 1
         end)
-        
-        -- Fallback: create a thin neon overlay Part that covers the road piece
-        if not useHighlightInstance then
+        if not ok then
             pcall(function()
                 local overlay = Instance.new("Part")
-                overlay.Name = "RoadOverlay_" .. part.Name
+                overlay.Name = "TDS_RoadHL_Overlay"
                 overlay.Size = Vector3.new(part.Size.X + 0.1, 0.15, part.Size.Z + 0.1)
                 overlay.CFrame = CFrame.new(part.Position + Vector3.new(0, part.Size.Y / 2 + 0.08, 0)) * (part.CFrame - part.Position)
-                overlay.Color = Color3.fromRGB(255, 20, 20)
+                overlay.Color = Color3.fromRGB(255, 0, 0)
                 overlay.Material = Enum.Material.Neon
-                overlay.Transparency = 0.4
+                overlay.Transparency = 0.35
                 overlay.Anchored = true
                 overlay.CanCollide = false
                 overlay.CanQuery = false
                 overlay.CanTouch = false
                 overlay.CastShadow = false
-                overlay.Parent = roadHighlightFolder
-                highlightCount = highlightCount + 1
+                overlay.Parent = workspace
+                table.insert(_hlRoadHighlights, overlay)
+                count = count + 1
             end)
         end
     end
-    
-    print(string.format("[Highlight Road] Applied %d highlights to %d road parts", highlightCount, #roadParts))
-    notifyDiag("Road:", string.format("%d parts highlighted", highlightCount))
+
+    print("[Highlight Road] Highlighted " .. tostring(count) .. " road parts")
+    notifyDiag("Road:", tostring(count) .. " parts highlighted")
 end
 
--- Watch for map changes and re-apply highlights
-local function startMapWatcher()
-    if roadMapWatcher then return end
-    
-    roadMapWatcher = task.spawn(function()
-        local lastMapName = ""
+local function hlRoadStartWatcher()
+    if _hlRoadMapWatcher then return end
+    _hlRoadMapWatcher = task.spawn(function()
+        local lastMapKey = ""
         while highlightRoadEnabled do
             local mapRoot = workspace:FindFirstChild("Map") or workspace:FindFirstChild("Stage")
-            local currentMapName = mapRoot and mapRoot.Name or ""
-            
-            -- Also check child count as a proxy for map change
+            local mapName = mapRoot and mapRoot.Name or ""
             local childCount = 0
             if mapRoot then
                 pcall(function() childCount = #mapRoot:GetChildren() end)
             end
-            local mapKey = currentMapName .. "_" .. tostring(childCount)
-            
-            if mapKey ~= lastMapName and currentMapName ~= "" then
-                lastMapName = mapKey
-                print("[Highlight Road] Map change detected: " .. currentMapName)
-                task.wait(1.0) -- Wait for map to fully load
-                applyRoadHighlights()
+            local mapKey = mapName .. "_" .. tostring(childCount)
+            if mapKey ~= lastMapKey and mapName ~= "" then
+                lastMapKey = mapKey
+                task.wait(1.5)
+                hlRoadApply()
             end
-            
-            task.wait(3.0) -- Check every 3 seconds (low CPU)
+            task.wait(3)
         end
-        roadMapWatcher = nil
+        _hlRoadMapWatcher = nil
     end)
 end
 
-local function stopMapWatcher()
-    if roadMapWatcher then
-        task.cancel(roadMapWatcher)
-        roadMapWatcher = nil
+local function hlRoadStopWatcher()
+    if _hlRoadMapWatcher then
+        task.cancel(_hlRoadMapWatcher)
+        _hlRoadMapWatcher = nil
     end
 end
 
@@ -2687,25 +2576,23 @@ hlrKnobCorner.Parent = hlrSwKnob
 
 hlrSwitchBtn.MouseButton1Click:Connect(function()
     highlightRoadEnabled = not highlightRoadEnabled
-    
+
     if highlightRoadEnabled then
         hlrSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         hlrSwKnob.BackgroundColor3 = Color3.fromRGB(255, 30, 30)
         notifyDiag("Road:", "Highlight Road ENABLED")
         print("[Highlight Road] ENABLED")
-        
         task.spawn(function()
-            applyRoadHighlights()
+            hlRoadApply()
         end)
-        startMapWatcher()
+        hlRoadStartWatcher()
     else
         hlrSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         hlrSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
         notifyDiag("Road:", "Highlight Road DISABLED")
         print("[Highlight Road] DISABLED")
-        
-        stopMapWatcher()
-        cleanupRoadHighlights()
+        hlRoadStopWatcher()
+        hlRoadCleanup()
     end
 end)
 
