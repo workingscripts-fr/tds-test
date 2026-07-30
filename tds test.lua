@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Shotgunner Upgrade State Machine Update",
-        Text = "Sequential money-gated state machine for Shotgunner upgrades enabled",
+        Title = "Event-Driven Upgrade State Machine Update",
+        Text = "Event-driven money change upgrade state machine enabled",
         Duration = 5
     })
 end)
@@ -2404,7 +2404,8 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (SEQUENTIAL SHOTGUNNER UPGRADE STATE MACHINE)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (EVENT-DRIVEN MONEY CHANGE UPGRADE STATE MACHINE)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
@@ -2412,12 +2413,6 @@ scoutUpgraded = false
 scoutSold = false
 shotgunner1Placed = false
 shotgunner1Upgraded = false
-
--- Shotgunner #1 Sequential State Machine Flags
-local shotgunner1Upgrade1Started = false
-local shotgunner1Upgrade1Complete = false
-local shotgunner1Upgrade2Started = false
-local shotgunner1Upgrade2Complete = false
 
 -- Stored instance & TowerUID references for build sequence
 local scoutTower = nil
@@ -2548,55 +2543,6 @@ local function findTowerByUID(targetUID)
     return nil
 end
 
-local function runUpgradeBatch(modelRef, uid, targetLevel, cost)
-    local currentModel = modelRef
-    if not currentModel or not currentModel.Parent or currentModel.Parent ~= workspace:FindFirstChild("Towers") then
-        currentModel = findTowerByUID(uid)
-    end
-    if currentModel and getTowerLevel(currentModel) >= targetLevel then
-        return true
-    end
-
-    for attempt = 1, 10 do
-        if not autoPlaceEnabled then return false end
-
-        currentModel = findTowerByUID(uid)
-        if currentModel and currentModel.Parent then
-            local lvlBefore = getTowerLevel(currentModel)
-            if lvlBefore >= targetLevel then
-                return true
-            end
-
-            local notiTitle = string.format("Upgrade Lvl %d (Attempt %d/10)", targetLevel, attempt)
-            local notiDesc = string.format("Cash: $%d / $%d\nTowerUID: %s", currentTDSMoneyNumber, cost, tostring(uid))
-            sendInGameNotification(notiTitle, notiDesc)
-
-            local upgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = currentModel
-                }
-            }
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
-            end)
-
-            task.wait(0.30)
-
-            local lvlAfter = getTowerLevel(currentModel)
-            if lvlAfter >= targetLevel then
-                return true
-            end
-        else
-            task.wait(0.30)
-        end
-    end
-
-    return false
-end
-
 local autoPlaceCard = Instance.new("Frame")
 autoPlaceCard.Name = "ToggleCard_AutoPlaceTowers"
 autoPlaceCard.Size = UDim2.new(1, 0, 0, 72)
@@ -2634,7 +2580,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout ($1225 sell) -> Shotgunner #1 (State Machine: $640 -> $1550)"
+apcSub.Text = "Scout ($1225 sell) -> Shotgunner #1 (Money Change Event: $640 -> $1550)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2698,10 +2644,6 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         scoutSold = false
         shotgunner1Placed = false
         shotgunner1Upgraded = false
-        shotgunner1Upgrade1Started = false
-        shotgunner1Upgrade1Complete = false
-        shotgunner1Upgrade2Started = false
-        shotgunner1Upgrade2Complete = false
         scoutTower = nil
         shotgunner1Model, shotgunner1UID = nil, nil
 
@@ -2842,60 +2784,105 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                 shotgunner1Placed = true
 
                 -- ============================================================
-                -- SHOTGUNNER #1 SEQUENTIAL STATE MACHINE UPGRADES
+                -- EVENT / STATE-DRIVEN SHOTGUNNER #1 UPGRADE STATE MACHINE
                 -- ============================================================
-                
-                -- STAGE 1: Wait for $640 -> Upgrade 1
-                if autoPlaceEnabled and shotgunner1Placed and not shotgunner1Upgrade1Complete then
-                    if not shotgunner1Upgrade1Started then
-                        while autoPlaceEnabled and not shotgunner1Upgrade1Complete and currentTDSMoneyNumber < 640 do
-                            task.wait(0.1)
-                        end
+                local upgrade1Complete = false
+                local upgrade2Complete = false
+                local batchRunning = false
+                local lastMoneyBatch1 = -1
+                local lastMoneyBatch2 = -1
 
-                        if autoPlaceEnabled and currentTDSMoneyNumber >= 640 and not shotgunner1Upgrade1Started then
-                            shotgunner1Upgrade1Started = true
-                            sendInGameNotification("Upgrade 1 Gated", "Reached $640 - Starting Upgrade 1 Batch Loop")
+                local function runSingleTenAttemptBatch(targetLevel, cost)
+                    if batchRunning or not autoPlaceEnabled then return false end
+                    batchRunning = true
 
-                            while autoPlaceEnabled and not shotgunner1Upgrade1Complete do
-                                local success = runUpgradeBatch(shotgunner1Model, shotgunner1UID, 1, 640)
-                                if success then
-                                    shotgunner1Upgrade1Complete = true
-                                    sendInGameNotification("Shotgunner Upgrade 1 Complete", "Shotgunner #1 successfully reached Level 1!")
-                                    break
-                                else
-                                    sendInGameNotification("Upgrade 1 Batch Pause", "10 attempts completed. Retrying batch in 0.3s...")
-                                    task.wait(0.30)
-                                end
+                    local currentModel = findTowerByUID(shotgunner1UID) or shotgunner1Model
+                    if currentModel and getTowerLevel(currentModel) >= targetLevel then
+                        batchRunning = false
+                        return true
+                    end
+
+                    local success = false
+                    for attempt = 1, 10 do
+                        if not autoPlaceEnabled then break end
+
+                        -- Reacquire model before EVERY attempt
+                        currentModel = findTowerByUID(shotgunner1UID)
+                        if currentModel and currentModel.Parent then
+                            if getTowerLevel(currentModel) >= targetLevel then
+                                success = true
+                                break
                             end
+
+                            local notiTitle = string.format("Upgrade Lvl %d (Attempt %d/10)", targetLevel, attempt)
+                            local notiDesc = string.format("Cash: $%d / $%d\nTowerUID: %s", currentTDSMoneyNumber, cost, tostring(shotgunner1UID))
+                            sendInGameNotification(notiTitle, notiDesc)
+
+                            local upgradeArgs = {
+                                "Troops",
+                                "Upgrade",
+                                "Set",
+                                {
+                                    Troop = currentModel
+                                }
+                            }
+                            pcall(function()
+                                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                            end)
+
+                            task.wait(0.30)
+
+                            if getTowerLevel(currentModel) >= targetLevel then
+                                success = true
+                                break
+                            end
+                        else
+                            task.wait(0.30)
                         end
                     end
+
+                    batchRunning = false
+                    return success
                 end
 
-                -- STAGE 2: Wait for $1,550 -> Upgrade 2 (ONLY after Upgrade 1 completes)
-                if autoPlaceEnabled and shotgunner1Upgrade1Complete and not shotgunner1Upgrade2Complete then
-                    if not shotgunner1Upgrade2Started then
-                        while autoPlaceEnabled and shotgunner1Upgrade1Complete and not shotgunner1Upgrade2Complete and currentTDSMoneyNumber < 1550 do
-                            task.wait(0.1)
+                -- EVENT-DRIVEN MONEY MONITORING LOOP
+                while autoPlaceEnabled and shotgunner1Placed and not upgrade2Complete do
+                    local currentCash = currentTDSMoneyNumber
+
+                    -- STATE 1: Upgrade 1 (Requires $640)
+                    if not upgrade1Complete then
+                        if currentCash >= 640 and currentCash ~= lastMoneyBatch1 and not batchRunning then
+                            lastMoneyBatch1 = currentCash
+                            sendInGameNotification("Upgrade 1 Triggered", string.format("Cash $%d >= $640 - Executing 1 Batch", currentCash))
+
+                            local ok1 = runSingleTenAttemptBatch(1, 640)
+                            if ok1 then
+                                upgrade1Complete = true
+                                sendInGameNotification("Shotgunner Upgrade 1 Complete", "Shotgunner #1 successfully reached Level 1!")
+                            else
+                                sendInGameNotification("Batch 1 Unsuccessful", string.format("10 attempts done at $%d. Waiting for cash change...", currentCash))
+                            end
                         end
 
-                        if autoPlaceEnabled and currentTDSMoneyNumber >= 1550 and not shotgunner1Upgrade2Started then
-                            shotgunner1Upgrade2Started = true
-                            sendInGameNotification("Upgrade 2 Gated", "Reached $1,550 - Starting Upgrade 2 Batch Loop")
+                    -- STATE 2: Upgrade 2 (Requires $1550 - ONLY after Upgrade 1 completes)
+                    elseif upgrade1Complete and not upgrade2Complete then
+                        if currentCash >= 1550 and currentCash ~= lastMoneyBatch2 and not batchRunning then
+                            lastMoneyBatch2 = currentCash
+                            sendInGameNotification("Upgrade 2 Triggered", string.format("Cash $%d >= $1550 - Executing 1 Batch", currentCash))
 
-                            while autoPlaceEnabled and not shotgunner1Upgrade2Complete do
-                                local success = runUpgradeBatch(shotgunner1Model, shotgunner1UID, 2, 1550)
-                                if success then
-                                    shotgunner1Upgrade2Complete = true
-                                    shotgunner1Upgraded = true
-                                    sendInGameNotification("Shotgunner Upgrade 2 Complete", "Shotgunner #1 successfully reached Level 2!")
-                                    break
-                                else
-                                    sendInGameNotification("Upgrade 2 Batch Pause", "10 attempts completed. Retrying batch in 0.3s...")
-                                    task.wait(0.30)
-                                end
+                            local ok2 = runSingleTenAttemptBatch(2, 1550)
+                            if ok2 then
+                                upgrade2Complete = true
+                                shotgunner1Upgraded = true
+                                sendInGameNotification("Shotgunner Upgrade 2 Complete", "Shotgunner #1 successfully reached Level 2!")
+                                break
+                            else
+                                sendInGameNotification("Batch 2 Unsuccessful", string.format("10 attempts done at $%d. Waiting for cash change...", currentCash))
                             end
                         end
                     end
+
+                    task.wait(0.1)
                 end
             end
 
@@ -2911,10 +2898,6 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         scoutSold = false
         shotgunner1Placed = false
         shotgunner1Upgraded = false
-        shotgunner1Upgrade1Started = false
-        shotgunner1Upgrade1Complete = false
-        shotgunner1Upgrade2Started = false
-        shotgunner1Upgrade2Complete = false
         scoutTower = nil
         shotgunner1Model, shotgunner1UID = nil, nil
         stopAutoPlaceTask()
