@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Money Counter Update",
-        Text = "Money counter delay set to 5ms",
+        Title = "Towers Placement Update",
+        Text = "Auto Place Towers & Auto Sell updated",
         Duration = 5
     })
 end)
@@ -2359,100 +2359,172 @@ twPadding.Parent = twScroll
 tabPagesList["Towers"] = towersPage
 
 -- ============================================================
--- FEATURE 1: PLACE SCOUT BUTTON
 -- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (TOGGLE + AUTO SCOUT & SELL AT $1,225)
+-- ============================================================
+autoPlaceEnabled = false
+scoutPlaced = false
+scoutSold = false
+local _autoPlaceMonitorThread = nil
 
-local placeScoutCard = Instance.new("Frame")
-placeScoutCard.Name = "Card_PlaceScout"
-placeScoutCard.Size = UDim2.new(1, 0, 0, 72)
-placeScoutCard.BackgroundColor3 = Color3.fromRGB(16, 23, 34)
-placeScoutCard.BorderSizePixel = 0
-placeScoutCard.ZIndex = 5
-placeScoutCard.LayoutOrder = 1
-placeScoutCard.Parent = twScroll
+local autoPlaceCard = Instance.new("Frame")
+autoPlaceCard.Name = "ToggleCard_AutoPlaceTowers"
+autoPlaceCard.Size = UDim2.new(1, 0, 0, 72)
+autoPlaceCard.BackgroundColor3 = Color3.fromRGB(16, 23, 34)
+autoPlaceCard.BorderSizePixel = 0
+autoPlaceCard.ZIndex = 5
+autoPlaceCard.LayoutOrder = 1
+autoPlaceCard.Parent = twScroll
 
-local pscCorner = Instance.new("UICorner")
-pscCorner.CornerRadius = UDim.new(0, 12)
-pscCorner.Parent = placeScoutCard
+local apcCorner = Instance.new("UICorner")
+apcCorner.CornerRadius = UDim.new(0, 12)
+apcCorner.Parent = autoPlaceCard
 
-local pscStroke = Instance.new("UIStroke")
-pscStroke.Color = Color3.fromRGB(255, 255, 255)
-pscStroke.Thickness = 1.4
-pscStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-pscStroke.Parent = placeScoutCard
-attachRotatingOutline(pscStroke, 22, 45)
+local apcStroke = Instance.new("UIStroke")
+apcStroke.Color = Color3.fromRGB(255, 255, 255)
+apcStroke.Thickness = 1.4
+apcStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+apcStroke.Parent = autoPlaceCard
+attachRotatingOutline(apcStroke, 22, 45)
 
-local pscLabel = Instance.new("TextLabel")
-pscLabel.Position = UDim2.fromOffset(16, 14)
-pscLabel.Size = UDim2.new(0.55, 0, 0, 20)
-pscLabel.BackgroundTransparency = 1
-pscLabel.Font = Enum.Font.GothamBold
-pscLabel.Text = "Place Scout"
-pscLabel.TextSize = 14
-pscLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-pscLabel.TextXAlignment = Enum.TextXAlignment.Left
-pscLabel.ZIndex = 6
-pscLabel.Parent = placeScoutCard
+local apcLabel = Instance.new("TextLabel")
+apcLabel.Position = UDim2.fromOffset(16, 14)
+apcLabel.Size = UDim2.new(0.65, 0, 0, 20)
+apcLabel.BackgroundTransparency = 1
+apcLabel.Font = Enum.Font.GothamBold
+apcLabel.Text = "Auto Place Towers"
+apcLabel.TextSize = 14
+apcLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+apcLabel.TextXAlignment = Enum.TextXAlignment.Left
+apcLabel.ZIndex = 6
+apcLabel.Parent = autoPlaceCard
 
-local pscSub = Instance.new("TextLabel")
-pscSub.Position = UDim2.fromOffset(16, 36)
-pscSub.Size = UDim2.new(0.55, 0, 0, 20)
-pscSub.BackgroundTransparency = 1
-pscSub.Font = Enum.Font.GothamMedium
-pscSub.Text = "Place a Scout tower at the saved position."
-pscSub.TextSize = 11
-pscSub.TextColor3 = Color3.fromRGB(140, 150, 165)
-pscSub.TextXAlignment = Enum.TextXAlignment.Left
-pscSub.ZIndex = 6
-pscSub.Parent = placeScoutCard
+local apcSub = Instance.new("TextLabel")
+apcSub.Position = UDim2.fromOffset(16, 36)
+apcSub.Size = UDim2.new(0.65, 0, 0, 20)
+apcSub.BackgroundTransparency = 1
+apcSub.Font = Enum.Font.GothamMedium
+apcSub.Text = "Place Scout & auto sell at $1,225."
+apcSub.TextSize = 11
+apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
+apcSub.TextXAlignment = Enum.TextXAlignment.Left
+apcSub.ZIndex = 6
+apcSub.Parent = autoPlaceCard
 
-local placeScoutBtn = Instance.new("TextButton")
-placeScoutBtn.Name = "PlaceScoutBtn"
-placeScoutBtn.AnchorPoint = Vector2.new(1, 0.5)
-placeScoutBtn.Position = UDim2.new(1, -16, 0.5, 0)
-placeScoutBtn.Size = UDim2.fromOffset(90, 30)
-placeScoutBtn.BackgroundColor3 = Color3.fromRGB(14, 255, 0)
-placeScoutBtn.BorderSizePixel = 0
-placeScoutBtn.AutoButtonColor = false
-placeScoutBtn.Active = true
-placeScoutBtn.ZIndex = 10
-placeScoutBtn.Text = "PLACE"
-placeScoutBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
-placeScoutBtn.Font = Enum.Font.GothamBold
-placeScoutBtn.TextSize = 13
-placeScoutBtn.Parent = placeScoutCard
+local apcSwitchBtn = Instance.new("TextButton")
+apcSwitchBtn.Name = "AutoPlaceTowersSwitchBtn"
+apcSwitchBtn.AnchorPoint = Vector2.new(1, 0.5)
+apcSwitchBtn.Position = UDim2.new(1, -16, 0.5, 0)
+apcSwitchBtn.Size = UDim2.fromOffset(50, 26)
+apcSwitchBtn.BackgroundColor3 = Color3.fromRGB(11, 15, 24)
+apcSwitchBtn.BorderSizePixel = 0
+apcSwitchBtn.AutoButtonColor = false
+apcSwitchBtn.Active = true
+apcSwitchBtn.ZIndex = 10
+apcSwitchBtn.Text = ""
+apcSwitchBtn.Parent = autoPlaceCard
 
-local pscBtnCorner = Instance.new("UICorner")
-pscBtnCorner.CornerRadius = UDim.new(0, 8)
-pscBtnCorner.Parent = placeScoutBtn
+local apcSwCorner = Instance.new("UICorner")
+apcSwCorner.CornerRadius = UDim.new(1, 0)
+apcSwCorner.Parent = apcSwitchBtn
 
-local pscBtnStroke = Instance.new("UIStroke")
-pscBtnStroke.Color = Color3.fromRGB(255, 255, 255)
-pscBtnStroke.Thickness = 1.4
-pscBtnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-pscBtnStroke.Parent = placeScoutBtn
-attachRotatingOutline(pscBtnStroke, 24, 135)
+local apcSwStroke = Instance.new("UIStroke")
+apcSwStroke.Color = Color3.fromRGB(255, 255, 255)
+apcSwStroke.Thickness = 1.4
+apcSwStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+apcSwStroke.Parent = apcSwitchBtn
+attachRotatingOutline(apcSwStroke, 24, 135)
 
-placeScoutBtn.MouseButton1Click:Connect(function()
-    local args = {
-        "Troops",
-        "Place",
-        {
-            Rotation = CFrame.new(0,0,0,1,0,0,0,1,0,0,0,1),
-            Position = Vector3.new(12.885271072387695, 1.0000064373016357, -8.871417045593262)
-        },
-        "Scout"
-    }
-    game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(args))
+local apcSwKnob = Instance.new("Frame")
+apcSwKnob.Name = "Knob"
+apcSwKnob.Size = UDim2.fromOffset(20, 20)
+apcSwKnob.Position = UDim2.fromOffset(3, 3)
+apcSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+apcSwKnob.BorderSizePixel = 0
+apcSwKnob.ZIndex = 11
+apcSwKnob.Parent = apcSwitchBtn
+
+local apcKnobCorner = Instance.new("UICorner")
+apcKnobCorner.CornerRadius = UDim.new(1, 0)
+apcKnobCorner.Parent = apcSwKnob
+
+apcSwitchBtn.MouseButton1Click:Connect(function()
+    autoPlaceEnabled = not autoPlaceEnabled
+
+    if autoPlaceEnabled then
+        apcSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+        apcSwKnob.BackgroundColor3 = Color3.fromRGB(14, 255, 0)
+        
+        scoutPlaced = false
+        scoutSold = false
+
+        -- 1. Immediately place ONE Scout Tower using exact existing placement code
+        local placeArgs = {
+            "Troops",
+            "Place",
+            {
+                Rotation = CFrame.new(0,0,0,1,0,0,0,1,0,0,0,1),
+                Position = Vector3.new(12.885271072387695, 1.0000064373016357, -8.871417045593262)
+            },
+            "Scout"
+        }
+        
+        pcall(function()
+            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(placeArgs))
+        end)
+        
+        scoutPlaced = true
+        scoutSold = false
+
+        -- 2. Monitor existing money tracker for $1,225 sell threshold
+        if _autoPlaceMonitorThread then
+            pcall(function() task.cancel(_autoPlaceMonitorThread) end)
+            _autoPlaceMonitorThread = nil
+        end
+
+        _autoPlaceMonitorThread = task.spawn(function()
+            while autoPlaceEnabled and scoutPlaced and not scoutSold do
+                local rawCash = getTDSStatMoney()
+                local currentMoney = 0
+                if rawCash then
+                    local numStr = string.match(tostring(rawCash), "%d+")
+                    currentMoney = tonumber(numStr) or 0
+                end
+
+                if autoPlaceEnabled and scoutPlaced and not scoutSold and currentMoney >= 1225 then
+                    local sellArgs = {
+                        "Troops",
+                        "Sell",
+                        {
+                            Troop = workspace:WaitForChild("Towers"):WaitForChild("Intern")
+                        }
+                    }
+                    pcall(function()
+                        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(sellArgs))
+                    end)
+                    scoutSold = true
+                    break
+                end
+
+                task.wait(0.005)
+            end
+            _autoPlaceMonitorThread = nil
+        end)
+    else
+        apcSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+        apcSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+        
+        autoPlaceEnabled = false
+        scoutPlaced = false
+        scoutSold = false
+
+        if _autoPlaceMonitorThread then
+            pcall(function() task.cancel(_autoPlaceMonitorThread) end)
+            _autoPlaceMonitorThread = nil
+        end
+    end
 end)
 
--- ============================================================
--- ============================================================
--- ============================================================
--- ============================================================
--- ============================================================
--- ============================================================
--- ============================================================
 -- FEATURE 2: HIGHLIGHT ROAD TOGGLE (ROAD LINE BEAM OVERLAY)
 -- ============================================================
 highlightRoadEnabled = false
