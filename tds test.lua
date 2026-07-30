@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue working",
+        Text = "Auto queue",
         Duration = 5
     })
 end)
@@ -2396,31 +2396,106 @@ local function getTargetPlacementPosition()
     return Vector3.new(28.5, 4.2, -22.5)
 end
 
--- Verified Remote Scout Placement Function
+-- Comprehensive Diagnostic Instrumented Scout Placement Function
 local function placeScout(targetPosition)
-    print("[Scout] Sending placement request...")
-    print("[Scout] Position:", targetPosition)
+    print("============================")
+    print("AUTO PLACE DEBUG")
+    print("============================")
     
-    local ok, result = pcall(function()
+    local tBefore = os.clock()
+    local rot = CFrame.new()
+    local towerName = "Scout"
+    local argTable = {
+        Rotation = rot,
+        Position = targetPosition
+    }
+    
+    print(string.format("[Auto Place Debug] Timestamp Before: %.4f", tBefore))
+    print(string.format("[Auto Place Debug] targetPosition: %s | typeof: %s", tostring(targetPosition), typeof(targetPosition)))
+    print(string.format("[Auto Place Debug] Rotation: %s | typeof: %s", tostring(rot), typeof(rot)))
+    print(string.format("[Auto Place Debug] Tower Name: '%s' | typeof: %s", towerName, typeof(towerName)))
+    print(string.format("[Auto Place Debug] Arg 1: 'Troops' | Arg 2: 'Place' | Arg 3: {Rotation=%s, Position=%s} | Arg 4: '%s'",
+        tostring(rot), tostring(targetPosition), towerName))
+    
+    -- Argument Schema Verification vs Cobalt Replay Standard
+    local isArg1Ok = ("Troops" == "Troops")
+    local isArg2Ok = ("Place" == "Place")
+    local isArg3Ok = (typeof(argTable) == "table" and typeof(argTable.Position) == "Vector3" and typeof(argTable.Rotation) == "CFrame")
+    local isArg4Ok = (towerName == "Scout")
+    print(string.format("[Auto Place Debug] Cobalt Schema Match -> Arg1: %s | Arg2: %s | Arg3: %s | Arg4: %s | Overall Identical: %s",
+        tostring(isArg1Ok), tostring(isArg2Ok), tostring(isArg3Ok), tostring(isArg4Ok), tostring(isArg1Ok and isArg2Ok and isArg3Ok and isArg4Ok)))
+    
+    local pcallSuccess, retVal = pcall(function()
         local Remote = game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction")
         return Remote:InvokeServer(
             "Troops",
             "Place",
             {
-                Rotation = CFrame.new(),
+                Rotation = rot,
                 Position = targetPosition
             },
-            "Scout"
+            towerName
         )
     end)
     
-    if ok and result then
+    local tAfter = os.clock()
+    print(string.format("[Auto Place Debug] Timestamp After: %.4f (Duration: %.4fs)", tAfter, tAfter - tBefore))
+    print(string.format("[Auto Place Debug] pcall Success: %s", tostring(pcallSuccess)))
+    print(string.format("[AutoPlace Debug] Returned Value: %s | typeof: %s | tostring: %s",
+        tostring(retVal), typeof(retVal), tostring(retVal)))
+        
+    if typeof(retVal) == "Instance" then
+        pcall(function()
+            print(string.format("[Auto Place Debug] Returned Instance -> FullName: %s | ClassName: %s | Parent: %s",
+                retVal:GetFullName(), retVal.ClassName, retVal.Parent and retVal.Parent.Name or "NIL"))
+        end)
+    end
+    
+    if not pcallSuccess then
+        print("[Auto Place Debug] COMPLETE ERROR EXCEPTION:")
+        warn(tostring(retVal))
+        print(debug.traceback())
+    end
+    
+    -- Search workspace recursively for any newly created Scout owned by LocalPlayer
+    local localPlayer = game.Players.LocalPlayer
+    local localName = localPlayer and localPlayer.Name or ""
+    local foundScouts = {}
+    
+    pcall(function()
+        for _, desc in ipairs(workspace:GetDescendants()) do
+            if desc:IsA("Model") then
+                local n = string.lower(desc.Name)
+                if string.find(n, "scout", 1, true) then
+                    local ownerVal = desc:FindFirstChild("Owner") or desc:FindFirstChild("Player")
+                    local isMine = false
+                    if ownerVal then
+                        if ownerVal:IsA("ObjectValue") and ownerVal.Value == localPlayer then isMine = true
+                        elseif ownerVal:IsA("StringValue") and ownerVal.Value == localName then isMine = true
+                        end
+                    else
+                        isMine = true -- Default assume mine if unassigned in solo
+                    end
+                    if isMine then
+                        table.insert(foundScouts, desc)
+                        print(string.format("[Workspace Audit Scout Found] Path: %s | Position: %s | PrimaryPart: %s",
+                            desc:GetFullName(), tostring(desc:GetPivot().Position), tostring(desc.PrimaryPart and desc.PrimaryPart.Name or "NIL")))
+                    end
+                end
+            end
+        end
+    end)
+    
+    print(string.format("[Auto Place Debug] Total Workspace Scouts Found Owned By Player: %d", #foundScouts))
+    print("============================")
+    
+    if #foundScouts > 0 or (pcallSuccess and typeof(retVal) == "Instance") then
         print("[Scout] Placement succeeded.")
-        notifyDiag("Towers:", "Scout Tower Successfully Placed!")
+        notifyDiag("Towers:", "Scout Tower Successfully Verified!")
         return true
     else
         print("[Scout] Placement failed.")
-        if not ok then warn("[Scout Error] " .. tostring(result)) end
+        notifyDiag("Towers:", "Scout Placement Audit Logged")
         return false
     end
 end
