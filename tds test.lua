@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "hehehehe",
+        Text = "hahahaha",
         Duration = 5
     })
 end)
@@ -2437,56 +2437,151 @@ local function hlRoadApply()
     end
 
     -- ============================================================
-    -- PROXIMITY-BASED ROAD PATH RECONSTRUCTION ALGORITHM
+    -- GRAPH-BASED DIRECTIONAL ROAD PATH RECONSTRUCTION ALGORITHM
     -- ============================================================
     local orderedParts = {}
     local sortOk, sortErr = pcall(function()
-        -- 1. Find an endpoint of the road
-        local startIndex = 1
-        local maxSecondDist = -1
+        local numParts = #parts
+        if numParts <= 2 then
+            orderedParts = parts
+            return
+        end
 
-        for i = 1, #parts do
-            local dists = {}
-            for j = 1, #parts do
-                if i ~= j then
-                    local d = (parts[i].Position - parts[j].Position).Magnitude
-                    table.insert(dists, d)
-                end
-            end
-            table.sort(dists)
-            local score = dists[2] or dists[1] or 0
-            if score > maxSecondDist then
-                maxSecondDist = score
-                startIndex = i
+        -- 1. Compute pairwise distance matrix
+        local distMatrix = {}
+        for i = 1, numParts do
+            distMatrix[i] = {}
+        end
+        for i = 1, numParts do
+            for j = i + 1, numParts do
+                local d = (parts[i].Position - parts[j].Position).Magnitude
+                distMatrix[i][j] = d
+                distMatrix[j][i] = d
             end
         end
 
-        -- 2. Nearest Neighbor Traversal from startIndex
-        local unvisited = {}
-        for i, part in ipairs(parts) do
-            if i ~= startIndex then
-                table.insert(unvisited, part)
+        -- 2. Determine dynamic adjacency radius (2.2x median step size, min 12 studs)
+        local minDists = {}
+        for i = 1, numParts do
+            local minD = 999999
+            for j = 1, numParts do
+                if i ~= j and distMatrix[i][j] < minD then
+                    minD = distMatrix[i][j]
+                end
+            end
+            table.insert(minDists, minD)
+        end
+        table.sort(minDists)
+        local medianMinDist = minDists[math.ceil(#minDists / 2)] or 10
+        local adjRadius = math.max(medianMinDist * 2.2, 12)
+
+        -- 3. Build adjacency graph
+        local adj = {}
+        for i = 1, numParts do
+            adj[i] = {}
+            for j = 1, numParts do
+                if i ~= j and distMatrix[i][j] <= adjRadius then
+                    table.insert(adj[i], j)
+                end
             end
         end
 
-        orderedParts = { parts[startIndex] }
-        local currentPos = parts[startIndex].Position
+        -- 4. Find start endpoint (node with minimum degree and max secondary distance)
+        local startNode = 1
+        local minDeg = 999
+        local maxSecDist = -1
 
-        while #unvisited > 0 do
-            local closestIndex = 1
-            local minDistance = (currentPos - unvisited[1].Position).Magnitude
+        for i = 1, numParts do
+            local deg = #adj[i]
+            local sortedD = {}
+            for j = 1, numParts do
+                if i ~= j then table.insert(sortedD, distMatrix[i][j]) end
+            end
+            table.sort(sortedD)
+            local secD = sortedD[2] or sortedD[1] or 0
 
-            for i = 2, #unvisited do
-                local dist = (currentPos - unvisited[i].Position).Magnitude
-                if dist < minDistance then
-                    minDistance = dist
-                    closestIndex = i
+            if deg < minDeg or (deg == minDeg and secD > maxSecDist) then
+                minDeg = deg
+                maxSecDist = secD
+                startNode = i
+            end
+        end
+
+        -- 5. Directional Graph Traversal (Penalizes sharp turns / lane-jumping)
+        local visited = {}
+        visited[startNode] = true
+        orderedParts = { parts[startNode] }
+
+        local current = startNode
+        local currentPos = parts[startNode].Position
+        local previousDir = nil
+
+        for step = 2, numParts do
+            local bestNext = nil
+            local bestScore = 99999999
+
+            -- Prefer unvisited neighbors in the adjacency graph
+            local candidates = {}
+            for _, nbr in ipairs(adj[current]) do
+                if not visited[nbr] then
+                    table.insert(candidates, nbr)
                 end
             end
 
-            local nextPart = table.remove(unvisited, closestIndex)
-            table.insert(orderedParts, nextPart)
-            currentPos = nextPart.Position
+            -- If no unvisited adjacent neighbors, consider all remaining unvisited parts
+            if #candidates == 0 then
+                for idx = 1, numParts do
+                    if not visited[idx] then
+                        table.insert(candidates, idx)
+                    end
+                end
+            end
+
+            -- Evaluate candidates by distance & directional alignment
+            for _, cand in ipairs(candidates) do
+                local candPos = parts[cand].Position
+                local vec = candPos - currentPos
+                local dist = vec.Magnitude
+
+                if dist > 0.001 then
+                    local dir = vec.Unit
+                    local score = dist
+
+                    if previousDir then
+                        local dot = previousDir:Dot(dir)
+                        -- Heavy penalty for sharp turns / backward moves across lanes
+                        local alignmentFactor = math.max(0.05, (dot + 1.2) / 2.2)
+                        score = dist / alignmentFactor
+                    end
+
+                    if score < bestScore then
+                        bestScore = score
+                        bestNext = cand
+                    end
+                end
+            end
+
+            if not bestNext then
+                for idx = 1, numParts do
+                    if not visited[idx] then
+                        bestNext = idx
+                        break
+                    end
+                end
+            end
+
+            if bestNext then
+                visited[bestNext] = true
+                table.insert(orderedParts, parts[bestNext])
+
+                local newVec = parts[bestNext].Position - currentPos
+                if newVec.Magnitude > 0.001 then
+                    previousDir = newVec.Unit
+                end
+
+                current = bestNext
+                currentPos = parts[bestNext].Position
+            end
         end
     end)
 
@@ -2494,7 +2589,7 @@ local function hlRoadApply()
         sendDebugNotif("Path Order Error: " .. tostring(sortErr))
         orderedParts = parts
     else
-        sendDebugNotif("Road path ordered by proximity")
+        sendDebugNotif("Graph directional path ordered cleanly")
     end
 
     -- Create attachments at the center of each road part (raised 0.15 above)
