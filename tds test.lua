@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue working hehe",
+        Text = "Auto queue i need this speed",
         Duration = 5
     })
 end)
@@ -2428,6 +2428,287 @@ smartSwitchBtn.MouseButton1Click:Connect(function()
         print("[Towers Toggle] DISABLED")
     end
 end)
+
+-- ============================================================
+-- TOGGLE CONTROL: HIGHLIGHT ROAD
+-- ============================================================
+highlightRoadEnabled = false
+local roadHighlightFolder = nil
+local roadMapWatcher = nil
+
+-- Cleanup all existing road highlights
+local function cleanupRoadHighlights()
+    if roadHighlightFolder and roadHighlightFolder.Parent then
+        roadHighlightFolder:Destroy()
+    end
+    roadHighlightFolder = nil
+end
+
+-- Find the road/path container in any map structure
+local function findRoadContainer()
+    -- TDS maps typically use workspace.Map or workspace.Stage with a "Path" child
+    local mapRoot = workspace:FindFirstChild("Map") or workspace:FindFirstChild("Stage")
+    if not mapRoot then
+        -- Fallback: search workspace top-level for common path folder names
+        for _, child in ipairs(workspace:GetChildren()) do
+            if child:IsA("Model") or child:IsA("Folder") then
+                local p = child:FindFirstChild("Path") or child:FindFirstChild("Paths") or child:FindFirstChild("Road") or child:FindFirstChild("Track")
+                if p then return p, child end
+                -- Also check for Nodes
+                local n = child:FindFirstChild("Nodes") or child:FindFirstChild("Waypoints")
+                if n then return n, child end
+            end
+        end
+        return nil, nil
+    end
+    
+    -- Search inside map root
+    local path = mapRoot:FindFirstChild("Path") or mapRoot:FindFirstChild("Paths") or mapRoot:FindFirstChild("Road") or mapRoot:FindFirstChild("Track")
+    if path then return path, mapRoot end
+    local nodes = mapRoot:FindFirstChild("Nodes") or mapRoot:FindFirstChild("Waypoints")
+    if nodes then return nodes, mapRoot end
+    
+    -- Deep search: find any child that contains multiple BaseParts arranged like a road
+    for _, child in ipairs(mapRoot:GetDescendants()) do
+        if (child:IsA("Model") or child:IsA("Folder")) and (string.lower(child.Name):find("path") or string.lower(child.Name):find("road") or string.lower(child.Name):find("track")) then
+            return child, mapRoot
+        end
+    end
+    
+    return nil, mapRoot
+end
+
+-- Collect all road BaseParts from the path container
+local function collectRoadParts(pathContainer)
+    local parts = {}
+    if not pathContainer then return parts end
+    
+    for _, desc in ipairs(pathContainer:GetDescendants()) do
+        if desc:IsA("BasePart") then
+            table.insert(parts, desc)
+        end
+    end
+    
+    -- If the container itself is a BasePart
+    if pathContainer:IsA("BasePart") then
+        table.insert(parts, pathContainer)
+    end
+    
+    return parts
+end
+
+-- Apply highlights to all road parts
+local function applyRoadHighlights()
+    cleanupRoadHighlights()
+    
+    if not highlightRoadEnabled then return end
+    
+    local pathContainer, mapRoot = findRoadContainer()
+    if not pathContainer then
+        print("[Highlight Road] No path container found in current map")
+        notifyDiag("Road:", "No path found in map")
+        return
+    end
+    
+    local roadParts = collectRoadParts(pathContainer)
+    if #roadParts == 0 then
+        print("[Highlight Road] Path container found but contains no BaseParts")
+        notifyDiag("Road:", "No road parts found")
+        return
+    end
+    
+    -- Create a folder to hold all highlight objects
+    roadHighlightFolder = Instance.new("Folder")
+    roadHighlightFolder.Name = "TDS_RoadHighlights"
+    roadHighlightFolder.Parent = workspace
+    
+    local highlightCount = 0
+    
+    for _, part in ipairs(roadParts) do
+        -- Try Roblox Highlight instance first (works on Models and BaseParts)
+        local useHighlightInstance = false
+        
+        pcall(function()
+            local h = Instance.new("Highlight")
+            h.Name = "RoadHL_" .. part.Name
+            h.Adornee = part
+            h.FillColor = Color3.fromRGB(255, 30, 30)
+            h.FillTransparency = 0.55
+            h.OutlineColor = Color3.fromRGB(255, 0, 0)
+            h.OutlineTransparency = 0.2
+            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            h.Parent = roadHighlightFolder
+            useHighlightInstance = true
+            highlightCount = highlightCount + 1
+        end)
+        
+        -- Fallback: create a thin neon overlay Part that covers the road piece
+        if not useHighlightInstance then
+            pcall(function()
+                local overlay = Instance.new("Part")
+                overlay.Name = "RoadOverlay_" .. part.Name
+                overlay.Size = Vector3.new(part.Size.X + 0.1, 0.15, part.Size.Z + 0.1)
+                overlay.CFrame = CFrame.new(part.Position + Vector3.new(0, part.Size.Y / 2 + 0.08, 0)) * (part.CFrame - part.Position)
+                overlay.Color = Color3.fromRGB(255, 20, 20)
+                overlay.Material = Enum.Material.Neon
+                overlay.Transparency = 0.4
+                overlay.Anchored = true
+                overlay.CanCollide = false
+                overlay.CanQuery = false
+                overlay.CanTouch = false
+                overlay.CastShadow = false
+                overlay.Parent = roadHighlightFolder
+                highlightCount = highlightCount + 1
+            end)
+        end
+    end
+    
+    print(string.format("[Highlight Road] Applied %d highlights to %d road parts", highlightCount, #roadParts))
+    notifyDiag("Road:", string.format("%d parts highlighted", highlightCount))
+end
+
+-- Watch for map changes and re-apply highlights
+local function startMapWatcher()
+    if roadMapWatcher then return end
+    
+    roadMapWatcher = task.spawn(function()
+        local lastMapName = ""
+        while highlightRoadEnabled do
+            local mapRoot = workspace:FindFirstChild("Map") or workspace:FindFirstChild("Stage")
+            local currentMapName = mapRoot and mapRoot.Name or ""
+            
+            -- Also check child count as a proxy for map change
+            local childCount = 0
+            if mapRoot then
+                pcall(function() childCount = #mapRoot:GetChildren() end)
+            end
+            local mapKey = currentMapName .. "_" .. tostring(childCount)
+            
+            if mapKey ~= lastMapName and currentMapName ~= "" then
+                lastMapName = mapKey
+                print("[Highlight Road] Map change detected: " .. currentMapName)
+                task.wait(1.0) -- Wait for map to fully load
+                applyRoadHighlights()
+            end
+            
+            task.wait(3.0) -- Check every 3 seconds (low CPU)
+        end
+        roadMapWatcher = nil
+    end)
+end
+
+local function stopMapWatcher()
+    if roadMapWatcher then
+        task.cancel(roadMapWatcher)
+        roadMapWatcher = nil
+    end
+end
+
+-- HIGHLIGHT ROAD TOGGLE CARD UI
+local hlRoadCard = Instance.new("Frame")
+hlRoadCard.Name = "ToggleCard_HighlightRoad"
+hlRoadCard.Size = UDim2.new(1, 0, 0, 72)
+hlRoadCard.BackgroundColor3 = Color3.fromRGB(16, 23, 34)
+hlRoadCard.BorderSizePixel = 0
+hlRoadCard.LayoutOrder = 2
+hlRoadCard.Parent = twScroll
+
+local hlrCorner = Instance.new("UICorner")
+hlrCorner.CornerRadius = UDim.new(0, 12)
+hlrCorner.Parent = hlRoadCard
+
+local hlrStroke = Instance.new("UIStroke")
+hlrStroke.Color = Color3.fromRGB(255, 255, 255)
+hlrStroke.Thickness = 1.4
+hlrStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+hlrStroke.Parent = hlRoadCard
+attachRotatingOutline(hlrStroke, 22, 90)
+
+local hlrLabel = Instance.new("TextLabel")
+hlrLabel.Position = UDim2.fromOffset(16, 14)
+hlrLabel.Size = UDim2.new(0.65, 0, 0, 20)
+hlrLabel.BackgroundTransparency = 1
+hlrLabel.Font = Enum.Font.GothamBold
+hlrLabel.Text = "Highlight Road"
+hlrLabel.TextSize = 14
+hlrLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+hlrLabel.TextXAlignment = Enum.TextXAlignment.Left
+hlrLabel.ZIndex = 6
+hlrLabel.Parent = hlRoadCard
+
+local hlrSub = Instance.new("TextLabel")
+hlrSub.Position = UDim2.fromOffset(16, 36)
+hlrSub.Size = UDim2.new(0.65, 0, 0, 20)
+hlrSub.BackgroundTransparency = 1
+hlrSub.Font = Enum.Font.GothamMedium
+hlrSub.Text = "Render bright red overlay on the enemy path."
+hlrSub.TextSize = 11
+hlrSub.TextColor3 = Color3.fromRGB(140, 150, 165)
+hlrSub.TextXAlignment = Enum.TextXAlignment.Left
+hlrSub.ZIndex = 6
+hlrSub.Parent = hlRoadCard
+
+local hlrSwitchBtn = Instance.new("TextButton")
+hlrSwitchBtn.Name = "HighlightRoadSwitchBtn"
+hlrSwitchBtn.AnchorPoint = Vector2.new(1, 0.5)
+hlrSwitchBtn.Position = UDim2.new(1, -16, 0.5, 0)
+hlrSwitchBtn.Size = UDim2.fromOffset(50, 26)
+hlrSwitchBtn.BackgroundColor3 = Color3.fromRGB(11, 15, 24)
+hlrSwitchBtn.BorderSizePixel = 0
+hlrSwitchBtn.AutoButtonColor = false
+hlrSwitchBtn.Active = true
+hlrSwitchBtn.ZIndex = 10
+hlrSwitchBtn.Text = ""
+hlrSwitchBtn.Parent = hlRoadCard
+
+local hlrSwCorner = Instance.new("UICorner")
+hlrSwCorner.CornerRadius = UDim.new(1, 0)
+hlrSwCorner.Parent = hlrSwitchBtn
+
+local hlrSwStroke = Instance.new("UIStroke")
+hlrSwStroke.Color = Color3.fromRGB(255, 255, 255)
+hlrSwStroke.Thickness = 1.4
+hlrSwStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+hlrSwStroke.Parent = hlrSwitchBtn
+attachRotatingOutline(hlrSwStroke, 24, 180)
+
+local hlrSwKnob = Instance.new("Frame")
+hlrSwKnob.Name = "Knob"
+hlrSwKnob.Size = UDim2.fromOffset(20, 20)
+hlrSwKnob.Position = UDim2.fromOffset(3, 3)
+hlrSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+hlrSwKnob.BorderSizePixel = 0
+hlrSwKnob.ZIndex = 11
+hlrSwKnob.Parent = hlrSwitchBtn
+
+local hlrKnobCorner = Instance.new("UICorner")
+hlrKnobCorner.CornerRadius = UDim.new(1, 0)
+hlrKnobCorner.Parent = hlrSwKnob
+
+hlrSwitchBtn.MouseButton1Click:Connect(function()
+    highlightRoadEnabled = not highlightRoadEnabled
+    
+    if highlightRoadEnabled then
+        hlrSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+        hlrSwKnob.BackgroundColor3 = Color3.fromRGB(255, 30, 30)
+        notifyDiag("Road:", "Highlight Road ENABLED")
+        print("[Highlight Road] ENABLED")
+        
+        task.spawn(function()
+            applyRoadHighlights()
+        end)
+        startMapWatcher()
+    else
+        hlrSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+        hlrSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+        notifyDiag("Road:", "Highlight Road DISABLED")
+        print("[Highlight Road] DISABLED")
+        
+        stopMapWatcher()
+        cleanupRoadHighlights()
+    end
+end)
+
 end -- Page Towers scope
 
 -- ==========================================================
