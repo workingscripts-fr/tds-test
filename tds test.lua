@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue working blibing",
+        Text = "Auto queue hehe stinky",
         Duration = 5
     })
 end)
@@ -2352,7 +2352,8 @@ end)
 
 -- ============================================================
 -- ============================================================
--- FEATURE 2: HIGHLIGHT ROAD TOGGLE (TARGETED DIRECT MODIFICATION)
+-- ============================================================
+-- FEATURE 2: HIGHLIGHT ROAD TOGGLE (DIRECT MAP.ROAD.ROAD CHILDREN)
 -- ============================================================
 highlightRoadEnabled = false
 local _hlRoadSavedState = {}
@@ -2380,38 +2381,41 @@ local function hlRoadApply()
 
     local roadFolder = nil
     pcall(function()
-        local r1 = workspace:WaitForChild("Road", 5)
-        if r1 then
-            roadFolder = r1:WaitForChild("Road", 5) or r1
+        local map = workspace:WaitForChild("Map", 5)
+        if map then
+            local r1 = map:WaitForChild("Road", 5)
+            if r1 then
+                roadFolder = r1:WaitForChild("Road", 5) or r1
+            end
         end
     end)
 
     if not roadFolder then
-        print("[Highlight Road] Could not find workspace.Road.Road")
-        notifyDiag("Road:", "workspace.Road.Road not found")
+        print("[Highlight Road] Could not find workspace.Map.Road.Road")
+        notifyDiag("Road:", "workspace.Map.Road.Road not found")
         return
     end
 
     local count = 0
-    for _, desc in ipairs(roadFolder:GetDescendants()) do
-        if desc:IsA("BasePart") then
-            if not _hlRoadSavedState[desc] then
-                _hlRoadSavedState[desc] = {
-                    Material = desc.Material,
-                    Color = desc.Color,
-                    Transparency = desc.Transparency
+    for _, child in ipairs(roadFolder:GetChildren()) do
+        if child:IsA("BasePart") then
+            if not _hlRoadSavedState[child] then
+                _hlRoadSavedState[child] = {
+                    Material = child.Material,
+                    Color = child.Color,
+                    Transparency = child.Transparency
                 }
             end
             pcall(function()
-                desc.Material = Enum.Material.Neon
-                desc.Color = Color3.fromRGB(255, 0, 0)
-                desc.Transparency = 0.35
+                child.Material = Enum.Material.Neon
+                child.Color = Color3.fromRGB(255, 0, 0)
+                child.Transparency = 0.35
             end)
             count = count + 1
         end
     end
 
-    print("[Highlight Road] Highlighted " .. tostring(count) .. " parts in workspace.Road.Road")
+    print("[Highlight Road] Highlighted " .. tostring(count) .. " children in workspace.Map.Road.Road")
     notifyDiag("Road:", tostring(count) .. " parts highlighted")
 end
 
@@ -2422,9 +2426,12 @@ local function hlRoadStartWatcher()
         while highlightRoadEnabled do
             local currentRoad = nil
             pcall(function()
-                local r1 = workspace:FindFirstChild("Road")
-                if r1 then
-                    currentRoad = r1:FindFirstChild("Road") or r1
+                local map = workspace:FindFirstChild("Map")
+                if map then
+                    local r1 = map:FindFirstChild("Road")
+                    if r1 then
+                        currentRoad = r1:FindFirstChild("Road") or r1
+                    end
                 end
             end)
 
@@ -2485,7 +2492,7 @@ hlrSub.Position = UDim2.fromOffset(16, 36)
 hlrSub.Size = UDim2.new(0.65, 0, 0, 20)
 hlrSub.BackgroundTransparency = 1
 hlrSub.Font = Enum.Font.GothamMedium
-hlrSub.Text = "Highlight workspace.Road.Road parts in red neon."
+hlrSub.Text = "Highlight workspace.Map.Road.Road children in red neon."
 hlrSub.TextSize = 11
 hlrSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 hlrSub.TextXAlignment = Enum.TextXAlignment.Left
