@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue workinsdsdsg",
+        Text = "Auto queue working",
         Duration = 5
     })
 end)
@@ -2302,6 +2302,7 @@ smartToggleCard.Name = "ToggleCard_AutoPlaceTowersSmart"
 smartToggleCard.Size = UDim2.new(1, 0, 0, 72)
 smartToggleCard.BackgroundColor3 = Color3.fromRGB(16, 23, 34)
 smartToggleCard.BorderSizePixel = 0
+smartToggleCard.ZIndex = 5
 smartToggleCard.LayoutOrder = 1
 smartToggleCard.Parent = twScroll
 
@@ -2325,6 +2326,7 @@ stLabel.Text = "Auto Place Towers (Smart)"
 stLabel.TextSize = 14
 stLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 stLabel.TextXAlignment = Enum.TextXAlignment.Left
+stLabel.ZIndex = 6
 stLabel.Parent = smartToggleCard
 
 local stSub = Instance.new("TextLabel")
@@ -2336,6 +2338,7 @@ stSub.Text = "Automatically place towers at optimal tactical coordinates."
 stSub.TextSize = 11
 stSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 stSub.TextXAlignment = Enum.TextXAlignment.Left
+stSub.ZIndex = 6
 stSub.Parent = smartToggleCard
 
 local smartSwitchBtn = Instance.new("TextButton")
@@ -2346,6 +2349,8 @@ smartSwitchBtn.Size = UDim2.fromOffset(50, 26)
 smartSwitchBtn.BackgroundColor3 = Color3.fromRGB(11, 15, 24)
 smartSwitchBtn.BorderSizePixel = 0
 smartSwitchBtn.AutoButtonColor = false
+smartSwitchBtn.Active = true
+smartSwitchBtn.ZIndex = 10
 smartSwitchBtn.Text = ""
 smartSwitchBtn.Parent = smartToggleCard
 
@@ -2366,6 +2371,7 @@ smartSwKnob.Size = UDim2.fromOffset(20, 20)
 smartSwKnob.Position = UDim2.fromOffset(3, 3)
 smartSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
 smartSwKnob.BorderSizePixel = 0
+smartSwKnob.ZIndex = 11
 smartSwKnob.Parent = smartSwitchBtn
 
 local smartKnobCorner = Instance.new("UICorner")
@@ -2439,36 +2445,36 @@ end
 task.spawn(function()
     while true do
         if autoPlaceTowersSmart and not placedScoutTower then
+            print("[Towers Loop] Auto Place Enabled & Ready -> Executing placeScout()...")
             local pos = getTargetPlacementPosition()
             local success = placeScout(pos)
             if success then
                 placedScoutTower = true
+                print("[Towers Loop] Scout placement verified -> State locked until re-toggled")
+            else
+                print("[Towers Loop] Scout placement returned false -> Retrying in 1s...")
             end
-            task.wait(2.0)
-        else
             task.wait(1.0)
+        else
+            task.wait(0.4)
         end
     end
 end)
 
 smartSwitchBtn.MouseButton1Click:Connect(function()
     autoPlaceTowersSmart = not autoPlaceTowersSmart
+    placedScoutTower = false -- ALWAYS reset placement lock on ANY toggle switch interaction
+    
     if autoPlaceTowersSmart then
-        placedScoutTower = false -- Reset placement flag to allow 1 Scout tower placement
         smartSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         smartSwKnob.BackgroundColor3 = Color3.fromRGB(14, 255, 0)
         notifyDiag("Towers:", "Auto Place Towers (Smart) ENABLED")
-        task.spawn(function()
-            local pos = getTargetPlacementPosition()
-            local success = placeScout(pos)
-            if success then
-                placedScoutTower = true
-            end
-        end)
+        print("[Towers Toggle] ENABLED -> Placement lock reset (placedScoutTower = false)")
     else
         smartSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         smartSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
         notifyDiag("Towers:", "Auto Place Towers (Smart) DISABLED")
+        print("[Towers Toggle] DISABLED -> Placement lock reset")
     end
 end)
 
@@ -2919,7 +2925,7 @@ do
     local loaderGui = Instance.new("ScreenGui")
     loaderGui.Name = "TDSTestLoaderGui"
     loaderGui.IgnoreGuiInset = true
-    loaderGui.DisplayOrder = 9999
+    loaderGui.DisplayOrder = 10000
     loaderGui.Parent = parentContainer
     
     -- Screen Wrapper
