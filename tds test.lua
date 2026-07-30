@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue please",
+        Text = "Auto queue ughhh",
         Duration = 5
     })
 end)
@@ -1939,89 +1939,86 @@ function executeAutoQueueStepByStep()
             return
         end
         
-        ----------------------------------------------------
-        -- STEP 1: Verify Play button exists
-        ----------------------------------------------------
-        print("[AutoQueue Debug L5] Searching for Play button...")
-        local playBtn = findTargetButton("play")
-        local retries = 0
-        while not playBtn and retries < 5 and autoQueueEnabled do
-            retries = retries + 1
-            print(string.format("[AutoQueue Retry] Step 1: Searching for Play button (Attempt %d/5)...", retries))
-            tStatus.Text = string.format("Status: Waiting for Play (%d/5)...", retries)
-            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
-            task.wait(0.5)
-            playBtn = findTargetButton("play")
-        end
-        
-        if not playBtn then
-            print("[AutoQueue Exit] RETURN 4: Play button could not be found after 5 retries")
-            tStatus.Text = "Status: Play Button Not Found - Retrying..."
-            tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
-            return
-        end
-        
-        print("[AutoQueue] Found Play")
-        
-        ----------------------------------------------------
-        -- STEP 2: Click Play & Synchronize with Play Menu Load
-        ----------------------------------------------------
-        notifyDiag("Step 2 Started", "")
-        print("[AutoQueue Debug L6] Step 2: Clicking Play & synchronizing with Play menu load...")
-        
-        -- Helper: Dynamically wait for Play Menu container + clickable mode buttons to be fully loaded
-        local function waitForPlayMenuLoaded(timeoutSeconds)
-            timeoutSeconds = timeoutSeconds or 3.0
-            local startTime = os.clock()
+        -- Helper: Check if Play Menu container is open and visible with clickable gamemode buttons
+        local function isPlayMenuContainerVisible()
             local pg = getPlayerGui()
-            if not pg then return nil end
-            
-            while os.clock() - startTime < timeoutSeconds do
-                for _, desc in ipairs(pg:GetDescendants()) do
-                    if desc:IsA("GuiObject") and isGuiObjectTrulyVisible(desc) and not isExcludedContainer(desc) then
-                        local n = string.lower(desc.Name or "")
-                        if string.find(n, "play", 1, true) or string.find(n, "mode", 1, true) or string.find(n, "gamemode", 1, true) or string.find(n, "select", 1, true) or string.find(n, "card", 1, true) then
-                            -- Condition: Ensure the container contains AT LEAST ONE visible clickable button!
-                            for _, child in ipairs(desc:GetDescendants()) do
-                                if (child:IsA("GuiButton") or child:IsA("TextButton") or child:IsA("ImageButton")) and isGuiObjectTrulyVisible(child) then
-                                    return desc -- Play menu is FULLY LOADED
-                                end
+            if not pg then return false end
+            for _, desc in ipairs(pg:GetDescendants()) do
+                if desc:IsA("GuiObject") and isGuiObjectTrulyVisible(desc) and not isExcludedContainer(desc) then
+                    local n = string.lower(desc.Name or "")
+                    if (string.find(n, "playmenu", 1, true) or string.find(n, "gamemode", 1, true) or string.find(n, "modesmenu", 1, true) or string.find(n, "gamemodes", 1, true) or string.find(n, "modeselect", 1, true)) then
+                        for _, child in ipairs(desc:GetDescendants()) do
+                            if (child:IsA("GuiButton") or child:IsA("TextButton") or child:IsA("ImageButton")) and isGuiObjectTrulyVisible(child) then
+                                return true
                             end
                         end
                     end
                 end
-                task.wait(0.1)
             end
-            return nil
+            return false
         end
+
+        ----------------------------------------------------
+        -- STEP 1: Check Play Menu & Click Play if unopened
+        ----------------------------------------------------
+        print("[AutoQueue Debug L5] Step 1: Checking if Play menu is open...")
+        local playMenuOpen = isPlayMenuContainerVisible()
         
-        -- 1. Check if Play Menu is already open
-        local loadedMenu = waitForPlayMenuLoaded(0.3)
-        if not loadedMenu then
-            -- Trigger Play button click to open the menu
-            triggerAllSignals(playBtn)
-            notifyDiag("Searching for Survival...", "")
-            
-            -- Dynamically wait for Play menu container + clickable mode buttons to load (polling every 0.1s up to 3.0s)
-            loadedMenu = waitForPlayMenuLoaded(3.0)
-        end
-        
-        -- 2. Once Play Menu is fully loaded, find the Survival / Classic Tower Defense button
-        local survivalBtn = nil
-        if loadedMenu then
-            survivalBtn = findTargetButton("survival")
-        else
-            -- Retry clicking Play if menu did not load on first attempt
-            retries = 0
-            while not survivalBtn and retries < 5 and autoQueueEnabled do
+        if not playMenuOpen then
+            print("[AutoQueue Debug L5.1] Play menu is NOT open. Searching for Play button...")
+            local playBtn = findTargetButton("play")
+            local retries = 0
+            while not playBtn and retries < 5 and autoQueueEnabled do
                 retries = retries + 1
-                print(string.format("[AutoQueue] Retrying Play click (%d/5)", retries))
-                triggerAllSignals(playBtn)
-                loadedMenu = waitForPlayMenuLoaded(2.5)
-                if loadedMenu then
-                    survivalBtn = findTargetButton("survival")
-                end
+                print(string.format("[AutoQueue Retry] Step 1: Searching for Play button (Attempt %d/5)...", retries))
+                tStatus.Text = string.format("Status: Waiting for Play (%d/5)...", retries)
+                tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+                task.wait(0.5)
+                playBtn = findTargetButton("play")
             end
+            
+            if not playBtn then
+                print("[AutoQueue Exit] RETURN 4: Play button could not be found after 5 retries")
+                tStatus.Text = "Status: Play Button Not Found - Retrying..."
+                tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
+                return
+            end
+            
+            print("[AutoQueue] Found Play. Clicking Play to open menu...")
+            triggerAllSignals(playBtn)
+            
+            -- Wait dynamically until Play menu container actually becomes visible
+            local opened = waitForCondition(function()
+                return isPlayMenuContainerVisible()
+            end, 2.5, 0.1, "Play Menu Container Visibility")
+            
+            if not opened then
+                print("[AutoQueue Exit] RETURN 4.1: Play menu failed to open after clicking Play")
+                tStatus.Text = "Status: Play Menu Failed To Open - Retrying..."
+                tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
+                return
+            end
+        else
+            print("[AutoQueue Debug L5.2] Play menu is ALREADY open. Skipping Step 1 Play click.")
+        end
+
+        ----------------------------------------------------
+        -- STEP 2: Find & Click Survival Gamemode Button
+        ----------------------------------------------------
+        notifyDiag("Step 2 Started", "")
+        print("[AutoQueue Debug L6] Step 2: Searching for Survival in confirmed open Play menu...")
+        
+        notifyDiag("Searching for Survival...", "")
+        local survivalBtn = findTargetButton("survival")
+        local retries = 0
+        while not survivalBtn and retries < 5 and autoQueueEnabled do
+            retries = retries + 1
+            print(string.format("[AutoQueue] Retrying Survival search (Attempt %d/5)", retries))
+            tStatus.Text = string.format("Status: Searching Survival (%d/5)...", retries)
+            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+            
+            task.wait(0.5)
+            survivalBtn = findTargetButton("survival")
         end
         
         if survivalBtn then
