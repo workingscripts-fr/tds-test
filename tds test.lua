@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "hahahaha",
+        Text = "Auto queue working",
         Duration = 5
     })
 end)
@@ -2356,7 +2356,8 @@ end)
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 2: HIGHLIGHT ROAD TOGGLE (PROXIMITY ROAD PATH BEAMS)
+-- ============================================================
+-- FEATURE 2: HIGHLIGHT ROAD TOGGLE (ROAD LINE BEAM OVERLAY)
 -- ============================================================
 highlightRoadEnabled = false
 local _hlRoadCreatedBeams = {}
@@ -2412,193 +2413,36 @@ local function hlRoadApply()
     end
     sendDebugNotif("Found Road")
 
-    local roadFolder = road1:FindFirstChild("Road")
-    if not roadFolder then
-        sendDebugNotif("ERROR: workspace.Map.Road.Road missing (using road1)")
-        roadFolder = road1
-    else
-        sendDebugNotif("Found workspace.Map.Road.Road")
+    local roadLineFolder = road1:FindFirstChild("Road line") or road1:FindFirstChild("Road Line")
+    if not roadLineFolder then
+        sendDebugNotif("ERROR: workspace.Map.Road['Road line'] missing")
+        return
     end
+    sendDebugNotif("Found Road line")
 
-    local children = roadFolder:GetChildren()
+    local children = roadLineFolder:GetChildren()
     sendDebugNotif("Children count: " .. tostring(#children))
 
-    local parts = {}
+    local lineParts = {}
     for _, child in ipairs(children) do
         if child:IsA("BasePart") then
-            table.insert(parts, child)
+            table.insert(lineParts, child)
         end
     end
-    sendDebugNotif("BaseParts count: " .. tostring(#parts))
+    sendDebugNotif("Line BaseParts count: " .. tostring(#lineParts))
 
-    if #parts == 0 then
-        sendDebugNotif("ERROR: 0 BaseParts in children")
+    if #lineParts == 0 then
+        sendDebugNotif("ERROR: 0 BaseParts in Road line")
         return
     end
 
-    -- ============================================================
-    -- GRAPH-BASED DIRECTIONAL ROAD PATH RECONSTRUCTION ALGORITHM
-    -- ============================================================
-    local orderedParts = {}
-    local sortOk, sortErr = pcall(function()
-        local numParts = #parts
-        if numParts <= 2 then
-            orderedParts = parts
-            return
-        end
-
-        -- 1. Compute pairwise distance matrix
-        local distMatrix = {}
-        for i = 1, numParts do
-            distMatrix[i] = {}
-        end
-        for i = 1, numParts do
-            for j = i + 1, numParts do
-                local d = (parts[i].Position - parts[j].Position).Magnitude
-                distMatrix[i][j] = d
-                distMatrix[j][i] = d
-            end
-        end
-
-        -- 2. Determine dynamic adjacency radius (2.2x median step size, min 12 studs)
-        local minDists = {}
-        for i = 1, numParts do
-            local minD = 999999
-            for j = 1, numParts do
-                if i ~= j and distMatrix[i][j] < minD then
-                    minD = distMatrix[i][j]
-                end
-            end
-            table.insert(minDists, minD)
-        end
-        table.sort(minDists)
-        local medianMinDist = minDists[math.ceil(#minDists / 2)] or 10
-        local adjRadius = math.max(medianMinDist * 2.2, 12)
-
-        -- 3. Build adjacency graph
-        local adj = {}
-        for i = 1, numParts do
-            adj[i] = {}
-            for j = 1, numParts do
-                if i ~= j and distMatrix[i][j] <= adjRadius then
-                    table.insert(adj[i], j)
-                end
-            end
-        end
-
-        -- 4. Find start endpoint (node with minimum degree and max secondary distance)
-        local startNode = 1
-        local minDeg = 999
-        local maxSecDist = -1
-
-        for i = 1, numParts do
-            local deg = #adj[i]
-            local sortedD = {}
-            for j = 1, numParts do
-                if i ~= j then table.insert(sortedD, distMatrix[i][j]) end
-            end
-            table.sort(sortedD)
-            local secD = sortedD[2] or sortedD[1] or 0
-
-            if deg < minDeg or (deg == minDeg and secD > maxSecDist) then
-                minDeg = deg
-                maxSecDist = secD
-                startNode = i
-            end
-        end
-
-        -- 5. Directional Graph Traversal (Penalizes sharp turns / lane-jumping)
-        local visited = {}
-        visited[startNode] = true
-        orderedParts = { parts[startNode] }
-
-        local current = startNode
-        local currentPos = parts[startNode].Position
-        local previousDir = nil
-
-        for step = 2, numParts do
-            local bestNext = nil
-            local bestScore = 99999999
-
-            -- Prefer unvisited neighbors in the adjacency graph
-            local candidates = {}
-            for _, nbr in ipairs(adj[current]) do
-                if not visited[nbr] then
-                    table.insert(candidates, nbr)
-                end
-            end
-
-            -- If no unvisited adjacent neighbors, consider all remaining unvisited parts
-            if #candidates == 0 then
-                for idx = 1, numParts do
-                    if not visited[idx] then
-                        table.insert(candidates, idx)
-                    end
-                end
-            end
-
-            -- Evaluate candidates by distance & directional alignment
-            for _, cand in ipairs(candidates) do
-                local candPos = parts[cand].Position
-                local vec = candPos - currentPos
-                local dist = vec.Magnitude
-
-                if dist > 0.001 then
-                    local dir = vec.Unit
-                    local score = dist
-
-                    if previousDir then
-                        local dot = previousDir:Dot(dir)
-                        -- Heavy penalty for sharp turns / backward moves across lanes
-                        local alignmentFactor = math.max(0.05, (dot + 1.2) / 2.2)
-                        score = dist / alignmentFactor
-                    end
-
-                    if score < bestScore then
-                        bestScore = score
-                        bestNext = cand
-                    end
-                end
-            end
-
-            if not bestNext then
-                for idx = 1, numParts do
-                    if not visited[idx] then
-                        bestNext = idx
-                        break
-                    end
-                end
-            end
-
-            if bestNext then
-                visited[bestNext] = true
-                table.insert(orderedParts, parts[bestNext])
-
-                local newVec = parts[bestNext].Position - currentPos
-                if newVec.Magnitude > 0.001 then
-                    previousDir = newVec.Unit
-                end
-
-                current = bestNext
-                currentPos = parts[bestNext].Position
-            end
-        end
-    end)
-
-    if not sortOk or #orderedParts == 0 then
-        sendDebugNotif("Path Order Error: " .. tostring(sortErr))
-        orderedParts = parts
-    else
-        sendDebugNotif("Graph directional path ordered cleanly")
-    end
-
-    -- Create attachments at the center of each road part (raised 0.15 above)
+    -- Create attachments at center of each Line part in exact order returned by GetChildren()
     local attachmentsList = {}
-    for i, part in ipairs(orderedParts) do
+    for i, part in ipairs(lineParts) do
         local attOk, attErr = pcall(function()
             local att = Instance.new("Attachment")
             att.Name = "TDS_RoadBeamAtt"
-            att.Position = Vector3.new(0, 0.15, 0)
+            att.CFrame = CFrame.new(0, 0, 0)
             att.Parent = part
             table.insert(attachmentsList, att)
             table.insert(_hlRoadCreatedAttachments, att)
@@ -2610,7 +2454,7 @@ local function hlRoadApply()
 
     sendDebugNotif("Attachments created: " .. tostring(#attachmentsList))
 
-    -- Create Beams connecting consecutive attachments (width 5)
+    -- Create Beams connecting consecutive attachments (width 4)
     local beamsCount = 0
     for i = 1, #attachmentsList - 1 do
         local beamOk, beamErr = pcall(function()
@@ -2619,8 +2463,8 @@ local function hlRoadApply()
             beam.Attachment0 = attachmentsList[i]
             beam.Attachment1 = attachmentsList[i + 1]
             beam.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0))
-            beam.Width0 = 5
-            beam.Width1 = 5
+            beam.Width0 = 4
+            beam.Width1 = 4
             beam.LightEmission = 1
             beam.FaceCamera = true
             beam.Transparency = NumberSequence.new(0)
@@ -2649,7 +2493,7 @@ local function hlRoadStartWatcher()
                 if map then
                     local r1 = map:FindFirstChild("Road")
                     if r1 then
-                        currentRoad = r1:FindFirstChild("Road") or r1
+                        currentRoad = r1:FindFirstChild("Road line") or r1:FindFirstChild("Road Line") or r1
                     end
                 end
             end)
