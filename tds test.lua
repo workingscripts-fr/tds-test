@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "TowerUID Detection Update",
-        Text = "Shotgunner #1 TowerUID identification & reacquisition enabled",
+        Title = "Shotgunner Level 2 Retry Loop Update",
+        Text = "Shotgunner #1 retry-until-Level-2 loop enabled",
         Duration = 5
     })
 end)
@@ -2401,7 +2401,8 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (TOWERUID IDENTIFICATION & REACQUISITION)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (RETRY UNTIL LEVEL 2 UPGRADE LOOP)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
@@ -2479,6 +2480,50 @@ local function getTowerUID(model)
     return uid and tostring(uid) or "Unknown_UID"
 end
 
+local function getTowerLevel(model)
+    if not model then return 0 end
+    local level = nil
+
+    pcall(function()
+        local upg = model:FindFirstChild("Upgrades")
+        if upg then
+            if upg:IsA("ValueBase") then level = upg.Value
+            else level = tonumber(upg) end
+        end
+    end)
+
+    if level == nil then
+        pcall(function()
+            local lvl = model:FindFirstChild("Level")
+            if lvl and lvl:IsA("ValueBase") then level = lvl.Value end
+        end)
+    end
+
+    if level == nil then
+        pcall(function() level = model:GetAttribute("Level") end)
+    end
+
+    if level == nil then
+        pcall(function() level = model:GetAttribute("Upgrade") end)
+    end
+
+    if level == nil then
+        pcall(function()
+            local u = model:FindFirstChild("Upgrade", true)
+            if u and u:IsA("ValueBase") then level = u.Value end
+        end)
+    end
+
+    if level == nil then
+        pcall(function()
+            local u = model:FindFirstChild("Upgrades", true)
+            if u and u:IsA("ValueBase") then level = u.Value end
+        end)
+    end
+
+    return tonumber(level) or 0
+end
+
 local function findTowerByUID(targetUID)
     if not targetUID then return nil end
     local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
@@ -2532,7 +2577,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout (2x upg, sell $1225) -> Shotgunner #1 (TowerUID & 2x upg)"
+apcSub.Text = "Scout (2x upg, sell $1225) -> Shotgunner #1 (TowerUID & Level 2 retry loop)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2735,57 +2780,72 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
                 shotgunner1Placed = true
 
-                -- Upgrade helper using stored TowerUID & Model reacquisition
-                local function upgradeShotgunnerStep()
-                    if not autoPlaceEnabled then return false end
+                -- 5. REPEATED UPGRADE LOOP UNTIL SHOTGUNNER #1 REACHES LEVEL 2
+                local currentLevel = getTowerLevel(shotgunner1Model)
 
-                    -- Reacquire if model no longer exists or parented to nil
-                    if not shotgunner1Model or not shotgunner1Model.Parent or shotgunner1Model.Parent ~= workspace:FindFirstChild("Towers") then
-                        local reacquired = findTowerByUID(shotgunner1UID)
-                        if reacquired then
-                            shotgunner1Model = reacquired
+                if currentLevel >= 2 then
+                    shotgunner1Upgraded = true
+                    sendInGameNotification("Shotgunner Level 2 Reached", "Shotgunner #1 successfully upgraded to Level 2")
+                else
+                    for attempt = 1, 50 do
+                        if not autoPlaceEnabled then break end
+
+                        -- 1. Reacquire model before every attempt
+                        if not shotgunner1Model or not shotgunner1Model.Parent or shotgunner1Model.Parent ~= workspace:FindFirstChild("Towers") then
+                            local reacquired = findTowerByUID(shotgunner1UID)
+                            if reacquired then
+                                shotgunner1Model = reacquired
+                            else
+                                sendInGameNotification("Shotgunner Upgrade Retry", "TowerUID reacquisition pending...")
+                            end
+                        end
+
+                        if shotgunner1Model and shotgunner1Model.Parent then
+                            -- Check current level before sending remote
+                            local lvlBefore = getTowerLevel(shotgunner1Model)
+                            if lvlBefore >= 2 then
+                                shotgunner1Upgraded = true
+                                sendInGameNotification("Shotgunner Level 2 Reached", "Shotgunner #1 successfully upgraded to Level 2")
+                                break
+                            end
+
+                            -- Notification for attempt
+                            local upgDescText = string.format(
+                                "Attempt %d | Current Level: %d\nTowerUID: %s\nName: %s",
+                                attempt,
+                                lvlBefore,
+                                tostring(shotgunner1UID),
+                                tostring(shotgunner1Model.Name)
+                            )
+                            sendInGameNotification("Shotgunner Upgrade Attempt " .. attempt, upgDescText)
+
+                            -- Send exact RemoteFunction payload
+                            local upgradeArgs = {
+                                "Troops",
+                                "Upgrade",
+                                "Set",
+                                {
+                                    Troop = shotgunner1Model
+                                }
+                            }
+
+                            pcall(function()
+                                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                            end)
+
+                            task.wait(0.25)
+
+                            -- Check level after remote call
+                            local lvlAfter = getTowerLevel(shotgunner1Model)
+                            if lvlAfter >= 2 then
+                                shotgunner1Upgraded = true
+                                sendInGameNotification("Shotgunner Level 2 Reached", "Shotgunner #1 successfully upgraded to Level 2")
+                                break
+                            end
                         else
-                            sendInGameNotification("Shotgunner Upgrade Error", "TowerUID mismatch or model no longer exists")
-                            return false
+                            task.wait(0.25)
                         end
                     end
-
-                    -- Notification immediately before upgrade
-                    local upgDescText = string.format(
-                        "TowerUID: %s\nName: %s\nFullName: %s\nParent: %s",
-                        tostring(shotgunner1UID),
-                        tostring(shotgunner1Model.Name),
-                        tostring(shotgunner1Model:GetFullName()),
-                        tostring(shotgunner1Model.Parent and shotgunner1Model.Parent.Name or "nil")
-                    )
-                    sendInGameNotification("Shotgunner Upgrade", upgDescText)
-
-                    -- Execute exact RemoteFunction payload
-                    local upgradeArgs = {
-                        "Troops",
-                        "Upgrade",
-                        "Set",
-                        {
-                            Troop = shotgunner1Model
-                        }
-                    }
-
-                    local success = false
-                    pcall(function()
-                        success = game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
-                    end)
-
-                    return success
-                end
-
-                -- Perform Upgrade 1 & Upgrade 2
-                task.wait(0.35)
-                upgradeShotgunnerStep()
-
-                task.wait(0.35)
-                if autoPlaceEnabled then
-                    upgradeShotgunnerStep()
-                    shotgunner1Upgraded = true
                 end
             end
 
