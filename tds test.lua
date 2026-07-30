@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue ughhh",
+        Text = "Auto queue hdhudg",
         Duration = 5
     })
 end)
@@ -1939,33 +1939,16 @@ function executeAutoQueueStepByStep()
             return
         end
         
-        -- Helper: Check if Play Menu container is open and visible with clickable gamemode buttons
-        local function isPlayMenuContainerVisible()
-            local pg = getPlayerGui()
-            if not pg then return false end
-            for _, desc in ipairs(pg:GetDescendants()) do
-                if desc:IsA("GuiObject") and isGuiObjectTrulyVisible(desc) and not isExcludedContainer(desc) then
-                    local n = string.lower(desc.Name or "")
-                    if (string.find(n, "playmenu", 1, true) or string.find(n, "gamemode", 1, true) or string.find(n, "modesmenu", 1, true) or string.find(n, "gamemodes", 1, true) or string.find(n, "modeselect", 1, true)) then
-                        for _, child in ipairs(desc:GetDescendants()) do
-                            if (child:IsA("GuiButton") or child:IsA("TextButton") or child:IsA("ImageButton")) and isGuiObjectTrulyVisible(child) then
-                                return true
-                            end
-                        end
-                    end
-                end
-            end
-            return false
-        end
-
         ----------------------------------------------------
-        -- STEP 1: Check Play Menu & Click Play if unopened
+        -- STEP 1 & STEP 2: Synchronized Play -> Survival Flow
         ----------------------------------------------------
-        print("[AutoQueue Debug L5] Step 1: Checking if Play menu is open...")
-        local playMenuOpen = isPlayMenuContainerVisible()
+        print("[AutoQueue Debug L5] Step 1: Checking for Survival button or searching Play button...")
         
-        if not playMenuOpen then
-            print("[AutoQueue Debug L5.1] Play menu is NOT open. Searching for Play button...")
+        -- Check if Survival button is ALREADY visible (Play menu already open)
+        local survivalBtn = findTargetButton("survival")
+        
+        if not survivalBtn then
+            print("[AutoQueue Debug L5.1] Play menu closed. Searching for Play button...")
             local playBtn = findTargetButton("play")
             local retries = 0
             while not playBtn and retries < 5 and autoQueueEnabled do
@@ -1987,39 +1970,35 @@ function executeAutoQueueStepByStep()
             print("[AutoQueue] Found Play. Clicking Play to open menu...")
             triggerAllSignals(playBtn)
             
-            -- Wait dynamically until Play menu container actually becomes visible
-            local opened = waitForCondition(function()
-                return isPlayMenuContainerVisible()
-            end, 2.5, 0.1, "Play Menu Container Visibility")
+            -- Wait for actual Survival button to exist as menu animation finishes (polling every 0.1s up to 5.0s)
+            notifyDiag("Searching for Survival...", "")
+            survivalBtn = waitForCondition(function()
+                return findTargetButton("survival")
+            end, 5.0, 0.1, "Survival Button Post-Animation Visibility")
             
-            if not opened then
-                print("[AutoQueue Exit] RETURN 4.1: Play menu failed to open after clicking Play")
-                tStatus.Text = "Status: Play Menu Failed To Open - Retrying..."
-                tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
-                return
+            -- If Survival button is still not found after 5.0s animation window, retry clicking Play
+            local playRetries = 0
+            while not survivalBtn and playRetries < 5 and autoQueueEnabled do
+                playRetries = playRetries + 1
+                print(string.format("[AutoQueue] Retrying Play click to trigger menu (%d/5)...", playRetries))
+                tStatus.Text = string.format("Status: Retrying Play Click (%d/5)...", playRetries)
+                tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+                
+                triggerAllSignals(playBtn)
+                notifyDiag("Searching for Survival...", "")
+                survivalBtn = waitForCondition(function()
+                    return findTargetButton("survival")
+                end, 5.0, 0.1, "Survival Button Post-Animation Visibility")
             end
         else
-            print("[AutoQueue Debug L5.2] Play menu is ALREADY open. Skipping Step 1 Play click.")
+            print("[AutoQueue Debug L5.2] Play menu is ALREADY open. Survival button detected.")
         end
 
         ----------------------------------------------------
-        -- STEP 2: Find & Click Survival Gamemode Button
+        -- STEP 2 Execution: Click Survival Button
         ----------------------------------------------------
         notifyDiag("Step 2 Started", "")
-        print("[AutoQueue Debug L6] Step 2: Searching for Survival in confirmed open Play menu...")
-        
-        notifyDiag("Searching for Survival...", "")
-        local survivalBtn = findTargetButton("survival")
-        local retries = 0
-        while not survivalBtn and retries < 5 and autoQueueEnabled do
-            retries = retries + 1
-            print(string.format("[AutoQueue] Retrying Survival search (Attempt %d/5)", retries))
-            tStatus.Text = string.format("Status: Searching Survival (%d/5)...", retries)
-            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
-            
-            task.wait(0.5)
-            survivalBtn = findTargetButton("survival")
-        end
+        print("[AutoQueue Debug L6] Step 2: Proceeding to click Survival...")
         
         if survivalBtn then
             notifyDiag("SUCCESS:", "Survival Found")
@@ -2034,7 +2013,7 @@ function executeAutoQueueStepByStep()
             end
         else
             notifyDiag("FAILED:", "No Survival Button Found")
-            print("[AutoQueue Exit] RETURN 5: Survival menu failed to appear after retries. Restarting sequence...")
+            print("[AutoQueue Exit] RETURN 5: Survival button failed to appear after retries. Restarting sequence...")
             tStatus.Text = "Status: Survival Menu Not Found - Restarting..."
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
             return
