@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue workinggggggg",
+        Text = "Auto queue working hehe",
         Duration = 5
     })
 end)
@@ -2346,7 +2346,7 @@ local smartKnobCorner = Instance.new("UICorner")
 smartKnobCorner.CornerRadius = UDim.new(1, 0)
 smartKnobCorner.Parent = smartSwKnob
 
--- State Tracking: Ensure ONLY 1 Scout tower is placed
+-- State Tracking
 placedScoutTower = false
 
 local function getTargetPlacementPosition()
@@ -2365,11 +2365,9 @@ local function getTargetPlacementPosition()
             end
         end
     end
-    -- Fallback target coordinates for red circle on U-Turn map
     return Vector3.new(28.5, 4.2, -22.5)
 end
 
--- Comprehensive Diagnostic Instrumented Scout Placement Function
 -- Verified Remote Scout Placement Function (Exact Cobalt Snippet)
 local function placeScout(targetPosition)
     print("[Scout] Invoking exact Cobalt replay remote call...")
@@ -2409,46 +2407,7 @@ local function placeScout(targetPosition)
     end
 end
 
--- Verified Remote Scout Placement Function (Exact Cobalt Snippet)
-local function placeScout(targetPosition)
-    print("[Scout] Invoking exact Cobalt replay remote call...")
-    
-    local posVal
-    if typeof(vector) == "table" and typeof(vector.create) == "function" then
-        pcall(function()
-            posVal = vector.create(12.947556495666504, 1.0000064373016357, -9.138900756835938)
-        end)
-    end
-    if not posVal then
-        posVal = Vector3.new(12.947556495666504, 1.0000064373016357, -9.138900756835938)
-    end
-    
-    local args = {
-        "Troops",
-        "Place",
-        {
-            Rotation = CFrame.new(0, 0, 0, 1, -0, 0, 0, 1, -0, 0, 0, 1),
-            Position = posVal
-        },
-        "Scout"
-    }
-    
-    local ok, result = pcall(function()
-        return game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(args))
-    end)
-    
-    if ok then
-        print("[Scout] Placement succeeded. Return value:", tostring(result))
-        notifyDiag("Towers:", "Scout Tower Successfully Placed!")
-        return true
-    else
-        print("[Scout] Placement failed.")
-        warn("[Scout Error] " .. tostring(result))
-        return false
-    end
-end
-
--- Direct Toggle Execution (Fires placement code EXACTLY ONCE every time toggled ON)
+-- Direct Toggle: fires placement EXACTLY ONCE every time toggled ON
 smartSwitchBtn.MouseButton1Click:Connect(function()
     autoPlaceTowersSmart = not autoPlaceTowersSmart
     
@@ -2469,8 +2428,7 @@ smartSwitchBtn.MouseButton1Click:Connect(function()
         print("[Towers Toggle] DISABLED")
     end
 end)
-end)
-
+end -- Page Towers scope
 
 -- ==========================================================
 -- PAGE 2: MENU SETTINGS TAB
