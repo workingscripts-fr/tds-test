@@ -13,6 +13,57 @@ end)
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+
+-- Safe Top-Level PlayerGui Resolver
+function getPlayerGui()
+    local lp = Players.LocalPlayer
+    if not lp then
+        pcall(function()
+            if workspace.CurrentCamera and workspace.CurrentCamera.CameraSubject then
+                lp = Players:GetPlayerFromCharacter(workspace.CurrentCamera.CameraSubject.Parent)
+            end
+        end)
+    end
+    if lp then
+        local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
+        if pg then return pg end
+    end
+    return nil
+end
+
+-- Safe Top-Level PlayerGui Resolver
+function getPlayerGui()
+    local lp = Players.LocalPlayer
+    if not lp then
+        pcall(function()
+            if workspace.CurrentCamera and workspace.CurrentCamera.CameraSubject then
+                lp = Players:GetPlayerFromCharacter(workspace.CurrentCamera.CameraSubject.Parent)
+            end
+        end)
+    end
+    if lp then
+        local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
+        if pg then return pg end
+    end
+    return nil
+end
+
+-- Safe Top-Level PlayerGui Resolver
+function getPlayerGui()
+    local lp = Players.LocalPlayer
+    if not lp then
+        pcall(function()
+            if workspace.CurrentCamera and workspace.CurrentCamera.CameraSubject then
+                lp = Players:GetPlayerFromCharacter(workspace.CurrentCamera.CameraSubject.Parent)
+            end
+        end)
+    end
+    if lp then
+        local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
+        if pg then return pg end
+    end
+    return nil
+end
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1644,6 +1695,27 @@ function findTargetButton(targetKeyword)
         pcall(function()
             local cg = game:GetService("CoreGui")
             if cg then table.insert(containers, cg) end
+        end)
+        pcall(function()
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "getPlayerGui Audit",
+                Text = "type(getPlayerGui): " .. tostring(type(getPlayerGui)),
+                Duration = 2
+            })
+        end)
+        pcall(function()
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "getPlayerGui Audit",
+                Text = "type(getPlayerGui): " .. tostring(type(getPlayerGui)),
+                Duration = 2
+            })
+        end)
+        pcall(function()
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "getPlayerGui Audit",
+                Text = "type(getPlayerGui): " .. tostring(type(getPlayerGui)),
+                Duration = 2
+            })
         end)
         local pg = getPlayerGui()
         if pg then table.insert(containers, pg) end
