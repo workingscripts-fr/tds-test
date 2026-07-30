@@ -5,7 +5,7 @@
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "TDS Test",
-        Text = "Auto queue hehe",
+        Text = "Auto queue please",
         Duration = 5
     })
 end)
@@ -1964,30 +1964,63 @@ function executeAutoQueueStepByStep()
         print("[AutoQueue] Found Play")
         
         ----------------------------------------------------
-        -- STEP 2: Click Play & Verify Survival menu appears
+        -- STEP 2: Click Play & Synchronize with Play Menu Load
         ----------------------------------------------------
         notifyDiag("Step 2 Started", "")
-        print("[AutoQueue Debug L6] Step 2: Clicking Play & waiting for Survival...")
+        print("[AutoQueue Debug L6] Step 2: Clicking Play & synchronizing with Play menu load...")
         
-        notifyDiag("Searching for Survival...", "")
-        local survivalBtn = findTargetButton("survival")
-        retries = 0
-        while not survivalBtn and retries < 5 and autoQueueEnabled do
-            retries = retries + 1
-            print(string.format("[AutoQueue] Clicking Play (Attempt %d/5)", retries))
-            tStatus.Text = string.format("Status: Clicking Play (%d/5)...", retries)
-            tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+        -- Helper: Dynamically wait for Play Menu container + clickable mode buttons to be fully loaded
+        local function waitForPlayMenuLoaded(timeoutSeconds)
+            timeoutSeconds = timeoutSeconds or 3.0
+            local startTime = os.clock()
+            local pg = getPlayerGui()
+            if not pg then return nil end
             
+            while os.clock() - startTime < timeoutSeconds do
+                for _, desc in ipairs(pg:GetDescendants()) do
+                    if desc:IsA("GuiObject") and isGuiObjectTrulyVisible(desc) and not isExcludedContainer(desc) then
+                        local n = string.lower(desc.Name or "")
+                        if string.find(n, "play", 1, true) or string.find(n, "mode", 1, true) or string.find(n, "gamemode", 1, true) or string.find(n, "select", 1, true) or string.find(n, "card", 1, true) then
+                            -- Condition: Ensure the container contains AT LEAST ONE visible clickable button!
+                            for _, child in ipairs(desc:GetDescendants()) do
+                                if (child:IsA("GuiButton") or child:IsA("TextButton") or child:IsA("ImageButton")) and isGuiObjectTrulyVisible(child) then
+                                    return desc -- Play menu is FULLY LOADED
+                                end
+                            end
+                        end
+                    end
+                end
+                task.wait(0.1)
+            end
+            return nil
+        end
+        
+        -- 1. Check if Play Menu is already open
+        local loadedMenu = waitForPlayMenuLoaded(0.3)
+        if not loadedMenu then
+            -- Trigger Play button click to open the menu
             triggerAllSignals(playBtn)
-            
             notifyDiag("Searching for Survival...", "")
-            survivalBtn = waitForCondition(function()
-                return findTargetButton("survival")
-            end, 1.2, 0.15, "Survival Menu Visibility")
             
-            if not survivalBtn then
-                print(string.format("[AutoQueue Retry Notice] Survival not visible after attempt %d/5, re-verifying Play button", retries))
-                playBtn = findTargetButton("play") or playBtn
+            -- Dynamically wait for Play menu container + clickable mode buttons to load (polling every 0.1s up to 3.0s)
+            loadedMenu = waitForPlayMenuLoaded(3.0)
+        end
+        
+        -- 2. Once Play Menu is fully loaded, find the Survival / Classic Tower Defense button
+        local survivalBtn = nil
+        if loadedMenu then
+            survivalBtn = findTargetButton("survival")
+        else
+            -- Retry clicking Play if menu did not load on first attempt
+            retries = 0
+            while not survivalBtn and retries < 5 and autoQueueEnabled do
+                retries = retries + 1
+                print(string.format("[AutoQueue] Retrying Play click (%d/5)", retries))
+                triggerAllSignals(playBtn)
+                loadedMenu = waitForPlayMenuLoaded(2.5)
+                if loadedMenu then
+                    survivalBtn = findTargetButton("survival")
+                end
             end
         end
         
@@ -1998,13 +2031,13 @@ function executeAutoQueueStepByStep()
             
             local diffCheck = waitForCondition(function()
                 return findTargetButton(selectedDifficulty)
-            end, 1.0, 0.1, "Difficulty Menu")
+            end, 1.5, 0.1, "Difficulty Menu")
             if diffCheck then
                 notifyDiag("Difficulty Menu Detected", "")
             end
         else
             notifyDiag("FAILED:", "No Survival Button Found")
-            print("[AutoQueue Exit] RETURN 5: Survival menu failed to appear after 5 retries. Restarting sequence...")
+            print("[AutoQueue Exit] RETURN 5: Survival menu failed to appear after retries. Restarting sequence...")
             tStatus.Text = "Status: Survival Menu Not Found - Restarting..."
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
             return
