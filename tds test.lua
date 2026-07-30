@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Scout Upgrade Sequence Update hello",
-        Text = "Auto Scout place, 2x upgrade & $1,225 auto sell enabled.",
+        Title = "Shotgunner Placement Update",
+        Text = "First Shotgunner auto placement sequence added",
         Duration = 5
     })
 end)
@@ -2394,12 +2394,14 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (TOGGLE + SCOUT PLACE & UPGRADE x2 & AUTO SELL AT $1,225)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (SCOUT PHASE + SHOTGUNNER 1 PHASE)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
 scoutUpgraded = false
 scoutSold = false
+shotgunner1Placed = false
 local _autoPlaceTask = nil
 
 local autoPlaceCard = Instance.new("Frame")
@@ -2439,7 +2441,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Place & upgrade Scout x2, auto sell at $1,225."
+apcSub.Text = "Scout (2x upgrade, sell at $1,225) -> Shotgunner #1"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2501,6 +2503,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         scoutPlaced = false
         scoutUpgraded = false
         scoutSold = false
+        shotgunner1Placed = false
 
         _autoPlaceTask = task.spawn(function()
             -- 1. Execute Scout Placement remote
@@ -2569,10 +2572,39 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                         game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(sellArgs))
                     end)
                     scoutSold = true
-                    break -- End Scout phase completely
+                    break -- End Scout phase
                 end
                 task.wait(0.05)
             end
+
+            if not autoPlaceEnabled or not scoutSold then return end
+
+            task.wait(0.3) -- Brief propagation delay before placing Shotgunner
+
+            -- 4. Place First Shotgunner exactly once
+            if autoPlaceEnabled and scoutSold and not shotgunner1Placed then
+                local vectorPos = Vector3.new(12.490434646606445, 1.0000064373016357, -10.304333686828613)
+                if vector and vector.create then
+                    pcall(function() vectorPos = vector.create(12.490434646606445, 1.0000064373016357, -10.304333686828613) end)
+                end
+
+                local shotgunnerPlaceArgs = {
+                    "Troops",
+                    "Place",
+                    {
+                        Rotation = CFrame.new(0, 0, 0, 1, -0, 0, 0, 1, -0, 0, 0, 1),
+                        Position = vectorPos
+                    },
+                    "Shotgunner"
+                }
+
+                pcall(function()
+                    game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerPlaceArgs))
+                end)
+
+                shotgunner1Placed = true
+            end
+
             _autoPlaceTask = nil
         end)
     else
@@ -2583,6 +2615,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         scoutPlaced = false
         scoutUpgraded = false
         scoutSold = false
+        shotgunner1Placed = false
         stopAutoPlaceTask()
     end
 end)
