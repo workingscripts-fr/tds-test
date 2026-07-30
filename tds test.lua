@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Shotgunner Model Detection Update",
-        Text = "0.3s stability model detection & 2x upgrade execution enabled",
+        Title = "TowerUID Detection Update",
+        Text = "Shotgunner #1 TowerUID identification & reacquisition enabled",
         Duration = 5
     })
 end)
@@ -2399,7 +2399,8 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (SCOUT PHASE + SHOTGUNNER #1 0.3s STABILITY MODEL DETECTION & 2x UPGRADE)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (SCOUT PHASE + SHOTGUNNER #1 TowerUID IDENTIFICATION & REACQUISITION)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
@@ -2408,60 +2409,81 @@ scoutSold = false
 shotgunner1Placed = false
 shotgunner1Upgraded = false
 
--- Stored instance references for build sequence
+-- Stored instance & UID references for build sequence
 local scoutTower = nil
 local shotgunner1 = nil
+local shotgunner1UID = nil
 local shotgunner2 = nil
+local shotgunner2UID = nil
 local shotgunner3 = nil
+local shotgunner3UID = nil
 local shotgunner4 = nil
+local shotgunner4UID = nil
 local shotgunner5 = nil
+local shotgunner5UID = nil
 local shotgunner6 = nil
+local shotgunner6UID = nil
 local shotgunner7 = nil
+local shotgunner7UID = nil
 local shotgunner8 = nil
+local shotgunner8UID = nil
 local shotgunner9 = nil
+local shotgunner9UID = nil
 
 local _autoPlaceTask = nil
 
-local function detectShotgunnerCandidate(towersFolder, preMap)
-    local startWait = tick()
-    local maxWait = 10.0
+local function getTowerUID(tower)
+    if not tower or not tower.Parent then return nil end
 
-    for attempt = 1, 10 do
-        if not autoPlaceEnabled then return nil end
-        if (tick() - startWait) >= maxWait then break end
+    local uid = nil
+    pcall(function()
+        for _, childName in ipairs({"TowerUID", "UID", "TowerId", "Id", "TowerID", "id"}) do
+            local obj = tower:FindFirstChild(childName)
+            if obj then
+                local val = obj.Value or obj
+                if val ~= nil and tostring(val) ~= "" then
+                    uid = tostring(val)
+                    return
+                end
+            end
+        end
 
-        local foundCandidate = nil
+        for _, attrName in ipairs({"TowerUID", "UID", "TowerId", "Id", "TowerID", "id"}) do
+            local attr = tower:GetAttribute(attrName)
+            if attr ~= nil and tostring(attr) ~= "" then
+                uid = tostring(attr)
+                return
+            end
+        end
 
-        for _, child in ipairs(towersFolder:GetChildren()) do
-            if not preMap[child] 
-            and child:IsA("Model") 
-            and child.Parent == towersFolder then
-                
-                -- Stability Check: Must remain inside workspace.Towers for at least 0.3s continuously
-                local stable = true
-                local checkStart = tick()
-                while (tick() - checkStart) < 0.3 do
-                    if not child or child.Parent ~= towersFolder or not child:IsDescendantOf(towersFolder) then
-                        stable = false
-                        break
+        for _, desc in ipairs(tower:GetDescendants()) do
+            if desc:IsA("StringValue") or desc:IsA("IntValue") or desc:IsA("NumberValue") then
+                local dName = string.lower(desc.Name)
+                if string.find(dName, "uid") or string.find(dName, "id") then
+                    if desc.Value ~= nil and tostring(desc.Value) ~= "" then
+                        uid = tostring(desc.Value)
+                        return
                     end
-                    task.wait(0.05)
-                end
-
-                if stable then
-                    foundCandidate = child
-                    break
                 end
             end
         end
+    end)
 
-        if foundCandidate then
-            if foundCandidate and foundCandidate.Parent == towersFolder and foundCandidate:IsDescendantOf(towersFolder) then
-                return foundCandidate
+    return uid
+end
+
+local function reacquireTowerByUID(targetUID)
+    if not targetUID or targetUID == "" then return nil end
+    local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
+    if not towersFolder then return nil end
+
+    for _, child in ipairs(towersFolder:GetChildren()) do
+        if child:IsA("Model") and child.Parent == towersFolder then
+            local uid = getTowerUID(child)
+            if uid and uid == targetUID then
+                return child
             end
         end
-
-        task.wait(0.05)
     end
 
     return nil
@@ -2570,14 +2592,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         shotgunner1Upgraded = false
         scoutTower = nil
         shotgunner1 = nil
-        shotgunner2 = nil
-        shotgunner3 = nil
-        shotgunner4 = nil
-        shotgunner5 = nil
-        shotgunner6 = nil
-        shotgunner7 = nil
-        shotgunner8 = nil
-        shotgunner9 = nil
+        shotgunner1UID = nil
 
         _autoPlaceTask = task.spawn(function()
             local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
@@ -2666,17 +2681,20 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
             task.wait(0.3) -- Propagation delay
 
-            -- 4. Place First Shotgunner & Perform 0.3s Stability Model Candidate Detection
+            -- 4. Place First Shotgunner & Identify via unique TowerUID
             if autoPlaceEnabled and scoutSold and not shotgunner1Placed then
+                -- STEP 1: Save every child currently inside workspace.Towers into preMap
                 local preChildren = towersFolder and towersFolder:GetChildren() or {}
                 local preMap = {}
                 for _, t in ipairs(preChildren) do preMap[t] = true end
+                local oldCount = #preChildren
 
                 local vectorPos = Vector3.new(12.490434646606445, 1.0000064373016357, -10.304333686828613)
                 if vector and vector.create then
                     pcall(function() vectorPos = vector.create(12.490434646606445, 1.0000064373016357, -10.304333686828613) end)
                 end
 
+                -- STEP 2: Send the Place remote
                 local shotgunnerPlaceArgs = {
                     "Troops",
                     "Place",
@@ -2693,50 +2711,64 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
                 print("[AutoPlace] Placed Shotgunner Remote Sent")
 
-                -- Detect Candidate Model with 0.3s Stability Check
-                local candidate = detectShotgunnerCandidate(towersFolder, preMap)
+                -- STEP 3: Wait until a new child appears
+                local startWait = tick()
+                while (#towersFolder:GetChildren() <= oldCount) and (tick() - startWait) < 6.0 do
+                    task.wait(0.05)
+                end
 
-                if not candidate or candidate.Parent ~= towersFolder or not candidate:IsDescendantOf(towersFolder) then
-                    print("[AutoPlace] ERROR: Shotgunner #1 candidate detection failed")
+                -- STEP 4 & 5: Find newly added Model & read its TowerUID
+                local newModel = nil
+                local detectedUID = nil
+
+                for _, child in ipairs(towersFolder:GetChildren()) do
+                    if not preMap[child] and child:IsA("Model") then
+                        newModel = child
+                        detectedUID = getTowerUID(child)
+                        if not detectedUID or detectedUID == "" then
+                            pcall(function() detectedUID = tostring(child:GetDebugId()) end)
+                        end
+                        break
+                    end
+                end
+
+                -- STEP 6: Store BOTH Model instance and TowerUID
+                if newModel and newModel.Parent == towersFolder then
+                    shotgunner1 = newModel
+                    shotgunner1UID = detectedUID or ("UID_" .. tostring(newModel:GetFullName()))
+
+                    -- STEP 7: Print info
+                    print("Tower Name:", tostring(shotgunner1.Name))
+                    print("TowerUID:", tostring(shotgunner1UID))
+                    print("FullName:", tostring(shotgunner1:GetFullName()))
+                    print("Parent:", tostring(shotgunner1.Parent))
+                else
+                    print("[AutoPlace] ERROR: Shotgunner #1 placement failed or new model not found")
                     return
                 end
 
-                -- Candidate Found Print
-                print("===== CANDIDATE FOUND =====")
-                print("Name:", candidate.Name)
-                print("FullName:", candidate:GetFullName())
-                print("ClassName:", candidate.ClassName)
-                pcall(function() print("DebugId:", candidate:GetDebugId()) end)
-                print("Parent:", candidate.Parent)
-                print("Attributes:")
-                pcall(function()
-                    for k, v in pairs(candidate:GetAttributes()) do print("  ", k, "=", v) end
-                end)
-                print("Children:")
-                pcall(function()
-                    for _, ch in ipairs(candidate:GetChildren()) do print("  ", ch.Name, "(", ch.ClassName, ")") end
-                end)
-                print("===========================")
-
-                shotgunner1 = candidate
                 shotgunner1Placed = true
 
                 -- UPGRADE 1
-                if candidate and candidate.Parent == towersFolder and candidate:IsDescendantOf(towersFolder) then
-                    print("===== UPGRADE REQUEST =====")
-                    print("Tower:", candidate)
-                    print("Name:", candidate.Name)
-                    print("FullName:", candidate:GetFullName())
-                    print("Parent:", candidate.Parent)
-                    print("Class:", candidate.ClassName)
-                    print("===========================")
+                local currentTarget = shotgunner1
+                if not currentTarget or currentTarget.Parent ~= towersFolder or (shotgunner1UID and getTowerUID(currentTarget) ~= shotgunner1UID) then
+                    currentTarget = reacquireTowerByUID(shotgunner1UID) or shotgunner1
+                end
+
+                if currentTarget and currentTarget.Parent == towersFolder then
+                    print("===== UPGRADE =====")
+                    print("TowerUID:", tostring(shotgunner1UID))
+                    print("Name:", tostring(currentTarget.Name))
+                    print("FullName:", tostring(currentTarget:GetFullName()))
+                    print("Parent:", tostring(currentTarget.Parent))
+                    print("===================")
 
                     local upgradeArgs1 = {
                         "Troops",
                         "Upgrade",
                         "Set",
                         {
-                            Troop = candidate
+                            Troop = currentTarget
                         }
                     }
 
@@ -2744,28 +2776,32 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                         game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs1))
                     end)
                 else
-                    print("[AutoPlace] Verification check failed before Upgrade 1!")
+                    print("[AutoPlace] ERROR: Reacquisition failed before Upgrade 1!")
                     return
                 end
 
                 task.wait(0.35)
 
                 -- UPGRADE 2
-                if candidate and candidate.Parent == towersFolder and candidate:IsDescendantOf(towersFolder) then
-                    print("===== UPGRADE REQUEST =====")
-                    print("Tower:", candidate)
-                    print("Name:", candidate.Name)
-                    print("FullName:", candidate:GetFullName())
-                    print("Parent:", candidate.Parent)
-                    print("Class:", candidate.ClassName)
-                    print("===========================")
+                currentTarget = shotgunner1
+                if not currentTarget or currentTarget.Parent ~= towersFolder or (shotgunner1UID and getTowerUID(currentTarget) ~= shotgunner1UID) then
+                    currentTarget = reacquireTowerByUID(shotgunner1UID) or shotgunner1
+                end
+
+                if currentTarget and currentTarget.Parent == towersFolder then
+                    print("===== UPGRADE =====")
+                    print("TowerUID:", tostring(shotgunner1UID))
+                    print("Name:", tostring(currentTarget.Name))
+                    print("FullName:", tostring(currentTarget:GetFullName()))
+                    print("Parent:", tostring(currentTarget.Parent))
+                    print("===================")
 
                     local upgradeArgs2 = {
                         "Troops",
                         "Upgrade",
                         "Set",
                         {
-                            Troop = candidate
+                            Troop = currentTarget
                         }
                     }
 
@@ -2775,7 +2811,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
                     shotgunner1Upgraded = true
                 else
-                    print("[AutoPlace] Verification check failed before Upgrade 2!")
+                    print("[AutoPlace] ERROR: Reacquisition failed before Upgrade 2!")
                     return
                 end
             end
@@ -2794,14 +2830,7 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         shotgunner1Upgraded = false
         scoutTower = nil
         shotgunner1 = nil
-        shotgunner2 = nil
-        shotgunner3 = nil
-        shotgunner4 = nil
-        shotgunner5 = nil
-        shotgunner6 = nil
-        shotgunner7 = nil
-        shotgunner8 = nil
-        shotgunner9 = nil
+        shotgunner1UID = nil
         stopAutoPlaceTask()
     end
 end)
