@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Shared Scanner Level Detection Update",
-        Text = "Auto Place integrated with Ultimate Tower Scanner level detection",
+        Title = "5 Shotgunners Build Sequence Update",
+        Text = "Auto Place 5 Shotgunners scanner-confirmed upgrade sequence enabled",
         Duration = 5
     })
 end)
@@ -2406,7 +2406,8 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (SCANNER-CONFIRMED SILENT MONEY UPGRADE SYSTEM)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (5 SHOTGUNNERS BUILD SEQUENCE)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
@@ -2417,8 +2418,15 @@ shotgunner1Upgraded = false
 
 -- Stored instance & TowerUID references for build sequence
 local scoutTower = nil
-local shotgunner1Model = nil
-local shotgunner1UID = nil
+local shotgunner1Model, shotgunner1UID = nil, nil
+local shotgunner2Model, shotgunner2UID = nil, nil
+local shotgunner3Model, shotgunner3UID = nil, nil
+local shotgunner4Model, shotgunner4UID = nil, nil
+local shotgunner5Model, shotgunner5UID = nil, nil
+local shotgunner6Model, shotgunner6UID = nil, nil
+local shotgunner7Model, shotgunner7UID = nil, nil
+local shotgunner8Model, shotgunner8UID = nil, nil
+local shotgunner9Model, shotgunner9UID = nil, nil
 
 local _autoPlaceTask = nil
 
@@ -2442,15 +2450,6 @@ local function getTowerUID(model)
 
     if not uid then
         pcall(function()
-            local rep = model:FindFirstChild("TowerReplicator")
-            if rep then
-                uid = rep:GetAttribute("UID") or rep:GetAttribute("TowerUID")
-            end
-        end)
-    end
-
-    if not uid then
-        pcall(function()
             local v = model:FindFirstChild("TowerUID") or model:FindFirstChild("UID") or model:FindFirstChild("ID")
             if v then uid = v.Value end
         end)
@@ -2468,17 +2467,28 @@ local function getTowerUID(model)
     end
 
     if not uid then
+        pcall(function()
+            for _, child in ipairs(model:GetChildren()) do
+                if child:IsA("ValueBase") and (string.find(string.lower(child.Name), "uid") or string.find(string.lower(child.Name), "id")) then
+                    uid = child.Value
+                    break
+                end
+            end
+        end)
+    end
+
+    if not uid then
         pcall(function() uid = model:GetDebugId() end)
     end
 
     return uid and tostring(uid) or "Unknown_UID"
 end
 
+-- Shared Upgrade Level Detection (Uses Scanner logic)
 local function getTowerLevel(model)
     if not model then return 0 end
     local level = nil
 
-    -- Primary Scanner/Watch detection: TowerReplicator Upgrade attribute
     pcall(function()
         local rep = model:FindFirstChild("TowerReplicator")
         if rep then
@@ -2537,6 +2547,114 @@ local function findTowerByUID(targetUID)
     return nil
 end
 
+-- Reusable Placement & Scanner-Confirmed Upgrade Helper for Shotgunners
+local function placeAndUpgradeShotgunner(shotgunnerIndex, positionVector)
+    if not autoPlaceEnabled then return nil, nil, false end
+
+    local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
+    local preChildren = towersFolder and towersFolder:GetChildren() or {}
+    local preMap = {}
+    for _, t in ipairs(preChildren) do preMap[t] = true end
+    local oldCount = #preChildren
+
+    local shotgunnerPlaceArgs = {
+        "Troops",
+        "Place",
+        {
+            Rotation = CFrame.new(0, 0, 0, 1, -0, 0, 0, 1, -0, 0, 0, 1),
+            Position = positionVector
+        },
+        "Shotgunner"
+    }
+
+    pcall(function()
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerPlaceArgs))
+    end)
+
+    -- Wait until a new child appears inside workspace.Towers
+    local startWait = tick()
+    while (#towersFolder:GetChildren() < oldCount + 1) and (tick() - startWait) < 5.0 do
+        task.wait(0.05)
+    end
+
+    -- Find newly added Model
+    local newModel = nil
+    for _, child in ipairs(towersFolder:GetChildren()) do
+        if not preMap[child] then
+            newModel = child
+            break
+        end
+    end
+
+    if not newModel or not autoPlaceEnabled then
+        return nil, nil, false
+    end
+
+    local uid = getTowerUID(newModel)
+
+    -- UPGRADE 1 PIPELINE ($640)
+    while autoPlaceEnabled and currentTDSMoneyNumber < 640 do
+        task.wait(0.1)
+    end
+
+    while autoPlaceEnabled do
+        local currentModel = findTowerByUID(uid) or newModel
+        if currentModel and getTowerLevel(currentModel) >= 1 then
+            break
+        end
+
+        if currentModel and currentModel.Parent then
+            local upgradeArgs = {
+                "Troops",
+                "Upgrade",
+                "Set",
+                {
+                    Troop = currentModel
+                }
+            }
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+            end)
+        end
+
+        task.wait(0.20)
+    end
+
+    if not autoPlaceEnabled then return newModel, uid, false end
+
+    -- UPGRADE 2 PIPELINE ($1550)
+    while autoPlaceEnabled and currentTDSMoneyNumber < 1550 do
+        task.wait(0.1)
+    end
+
+    local upgradedSuccess = false
+    while autoPlaceEnabled do
+        local currentModel = findTowerByUID(uid) or newModel
+        if currentModel and getTowerLevel(currentModel) >= 2 then
+            upgradedSuccess = true
+            break
+        end
+
+        if currentModel and currentModel.Parent then
+            local upgradeArgs = {
+                "Troops",
+                "Upgrade",
+                "Set",
+                {
+                    Troop = currentModel
+                }
+            }
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+            end)
+        end
+
+        task.wait(0.20)
+    end
+
+    return newModel, uid, upgradedSuccess
+end
+
 local autoPlaceCard = Instance.new("Frame")
 autoPlaceCard.Name = "ToggleCard_AutoPlaceTowers"
 autoPlaceCard.Size = UDim2.new(1, 0, 0, 72)
@@ -2574,7 +2692,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout ($1225 sell) -> Shotgunner #1 (Money Gated: $640 -> $1550)"
+apcSub.Text = "Scout ($1225 sell) -> 5 Shotgunners (Lvl 2 Upgrade Sequence)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2647,6 +2765,10 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         shotgunner1Upgraded = false
         scoutTower = nil
         shotgunner1Model, shotgunner1UID = nil, nil
+        shotgunner2Model, shotgunner2UID = nil, nil
+        shotgunner3Model, shotgunner3UID = nil, nil
+        shotgunner4Model, shotgunner4UID = nil, nil
+        shotgunner5Model, shotgunner5UID = nil, nil
 
         _autoPlaceTask = task.spawn(function()
             local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
@@ -2722,125 +2844,45 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
             task.wait(0.3) -- Propagation delay
 
-            -- 4. Place First Shotgunner, Store Model & TowerUID
-            if autoPlaceEnabled and scoutSold and not shotgunner1Placed then
-                local preChildren = towersFolder and towersFolder:GetChildren() or {}
-                local preMap = {}
-                for _, t in ipairs(preChildren) do preMap[t] = true end
-                local oldCount = #preChildren
+            -- Position Vectors for Shotgunners #1 to #5
+            local p1 = Vector3.new(12.490434646606445, 1.0000064373016357, -10.304333686828613)
+            local p2 = Vector3.new(12.487998962402344, 1.0000064373016357, -8.301471710205078)
+            local p3 = Vector3.new(12.300650596618652, 1.0000064373016357, -6.279729843139648)
+            local p4 = Vector3.new(12.210693359375, 1.0000064373016357, -4.2749176025390625)
+            local p5 = Vector3.new(12.139368057250977, 1.0000064373016357, -2.2711424827575684)
 
-                local vectorPos = Vector3.new(12.490434646606445, 1.0000064373016357, -10.304333686828613)
-                if vector and vector.create then
-                    pcall(function() vectorPos = vector.create(12.490434646606445, 1.0000064373016357, -10.304333686828613) end)
-                end
-
-                local shotgunnerPlaceArgs = {
-                    "Troops",
-                    "Place",
-                    {
-                        Rotation = CFrame.new(0, 0, 0, 1, -0, 0, 0, 1, -0, 0, 0, 1),
-                        Position = vectorPos
-                    },
-                    "Shotgunner"
-                }
-
+            if vector and vector.create then
                 pcall(function()
-                    game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerPlaceArgs))
+                    p1 = vector.create(12.490434646606445, 1.0000064373016357, -10.304333686828613)
+                    p2 = vector.create(12.487998962402344, 1.0000064373016357, -8.301471710205078)
+                    p3 = vector.create(12.300650596618652, 1.0000064373016357, -6.279729843139648)
+                    p4 = vector.create(12.210693359375, 1.0000064373016357, -4.2749176025390625)
+                    p5 = vector.create(12.139368057250977, 1.0000064373016357, -2.2711424827575684)
                 end)
+            end
 
-                -- Wait until a new child appears
-                local startWait = tick()
-                while (#towersFolder:GetChildren() < oldCount + 1) and (tick() - startWait) < 5.0 do
-                    task.wait(0.05)
-                end
+            -- 4. Execute 5 Shotgunners Build Sequence
+            if autoPlaceEnabled and scoutSold then
+                shotgunner1Model, shotgunner1UID, shotgunner1Upgraded = placeAndUpgradeShotgunner(1, p1)
+            end
 
-                -- Find the newly added Model
-                local newModel = nil
-                for _, child in ipairs(towersFolder:GetChildren()) do
-                    if not preMap[child] then
-                        newModel = child
-                        break
-                    end
-                end
+            if autoPlaceEnabled then
+                shotgunner2Model, shotgunner2UID = placeAndUpgradeShotgunner(2, p2)
+            end
 
-                if not newModel then
-                    return
-                end
+            if autoPlaceEnabled then
+                shotgunner3Model, shotgunner3UID = placeAndUpgradeShotgunner(3, p3)
+            end
 
-                -- Store BOTH Model instance and TowerUID
-                shotgunner1Model = newModel
-                shotgunner1UID = getTowerUID(newModel)
-                shotgunner1Placed = true
+            if autoPlaceEnabled then
+                shotgunner4Model, shotgunner4UID = placeAndUpgradeShotgunner(4, p4)
+            end
 
-                -- ============================================================
-                -- SCANNER-CONFIRMED SILENT SHOTGUNNER UPGRADE PIPELINE
-                -- ============================================================
+            if autoPlaceEnabled then
+                local sg5Model, sg5UID, sg5Success = placeAndUpgradeShotgunner(5, p5)
+                shotgunner5Model, shotgunner5UID = sg5Model, sg5UID
 
-                -- UPGRADE 1 PIPELINE
-                -- 1. Silently wait until player money >= $640
-                while autoPlaceEnabled and currentTDSMoneyNumber < 640 do
-                    task.wait(0.1)
-                end
-
-                -- 2. Spam upgrade remote until scanner/watch logic confirms level >= 1
-                while autoPlaceEnabled do
-                    local currentModel = findTowerByUID(shotgunner1UID) or shotgunner1Model
-                    if currentModel and getTowerLevel(currentModel) >= 1 then
-                        break
-                    end
-
-                    if currentModel and currentModel.Parent then
-                        local upgradeArgs = {
-                            "Troops",
-                            "Upgrade",
-                            "Set",
-                            {
-                                Troop = currentModel
-                            }
-                        }
-                        pcall(function()
-                            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
-                        end)
-                    end
-
-                    task.wait(0.20)
-                end
-
-                if not autoPlaceEnabled then return end
-
-                -- UPGRADE 2 PIPELINE
-                -- 1. Silently wait until player money >= $1550
-                while autoPlaceEnabled and currentTDSMoneyNumber < 1550 do
-                    task.wait(0.1)
-                end
-
-                -- 2. Spam upgrade remote until scanner/watch logic confirms level >= 2
-                while autoPlaceEnabled do
-                    local currentModel = findTowerByUID(shotgunner1UID) or shotgunner1Model
-                    if currentModel and getTowerLevel(currentModel) >= 2 then
-                        shotgunner1Upgraded = true
-                        break
-                    end
-
-                    if currentModel and currentModel.Parent then
-                        local upgradeArgs = {
-                            "Troops",
-                            "Upgrade",
-                            "Set",
-                            {
-                                Troop = currentModel
-                            }
-                        }
-                        pcall(function()
-                            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
-                        end)
-                    end
-
-                    task.wait(0.20)
-                end
-
-                -- UPGRADE 2 COMPLETED SUCCESSFULLY
-                if autoPlaceEnabled and shotgunner1Upgraded then
+                if autoPlaceEnabled and sg5Success then
                     -- Turn OFF the Auto Place Towers toggle automatically
                     turnOffAutoPlaceToggle()
 
