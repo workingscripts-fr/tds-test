@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Strict UID Tower Lookup Update",
-        Text = "Removed stale-reference fallback in upgrade loops",
+        Title = "Auto Place Towers Reliability Update",
+        Text = "Enhanced tower placement & UID fallback detection enabled",
         Duration = 5
     })
 end)
@@ -2606,10 +2606,6 @@ local function processScoutPlacement()
     local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
     if not towersFolder then return false end
 
-    local preChildren = towersFolder:GetChildren()
-    local preMap = {}
-    for _, t in ipairs(preChildren) do preMap[t] = true end
-
     local scoutPlaceArgs = {
         "Troops",
         "Place",
@@ -2625,15 +2621,37 @@ local function processScoutPlacement()
     end)
 
     local newTower = nil
-    local startWait = tick()
-    while autoPlaceEnabled and not newTower and (tick() - startWait) < 5.0 do
+    local scoutDetectStart = tick()
+
+    while autoPlaceEnabled and (tick() - scoutDetectStart) < 5 do
         for _, child in ipairs(towersFolder:GetChildren()) do
-            if not preMap[child] and (child:IsA("Model") or child:IsA("Folder")) then
-                newTower = child
-                break
+            if child:IsA("Model") then
+                if not getTowerUID(child) then
+                    continue
+                end
+
+                if getTowerReplicatorLevel(child) == 0 then
+                    local alreadyUsed =
+                        child == scoutTower or
+                        child == shotgunner1Model or
+                        child == shotgunner2Model or
+                        child == shotgunner3Model or
+                        child == shotgunner4Model or
+                        child == shotgunner5Model
+
+                    if not alreadyUsed then
+                        newTower = child
+                        break
+                    end
+                end
             end
         end
-        if not newTower then task.wait(0.05) end
+
+        if newTower then
+            break
+        end
+
+        task.wait(0.05)
     end
 
     if not newTower or not autoPlaceEnabled then
@@ -2641,6 +2659,8 @@ local function processScoutPlacement()
         sendInGameNotification("Auto Place Aborted", "Scout placement verification timed out.")
         return false
     end
+
+    task.wait(0.25)
 
     scoutTower = newTower
     scoutPlaced = true
@@ -2702,12 +2722,11 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
     local placedModel = nil
     local uid = nil
 
-    for attempt = 1, 3 do
-        if not autoPlaceEnabled then return false end
+    local attempt = 0
+    local placePipelineStart = tick()
 
-        local preChildren = towersFolder:GetChildren()
-        local preMap = {}
-        for _, t in ipairs(preChildren) do preMap[t] = true end
+    while autoPlaceEnabled and (tick() - placePipelineStart) < 45.0 do
+        attempt += 1
 
         local shotgunnerPlaceArgs = {
             "Troops",
@@ -2723,47 +2742,71 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
             game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerPlaceArgs))
         end)
 
-        local startWait = tick()
-        while autoPlaceEnabled and not placedModel and (tick() - startWait) < 5.0 do
+        placedModel = nil
+        local detectStart = tick()
+
+        while autoPlaceEnabled and (tick() - detectStart) < 5 do
             for _, child in ipairs(towersFolder:GetChildren()) do
-                if not preMap[child] and (child:IsA("Model") or child:IsA("Folder")) then
-                    placedModel = child
-                    break
+                if child:IsA("Model") then
+                    if not getTowerUID(child) then
+                        continue
+                    end
+
+                    if getTowerReplicatorLevel(child) == 0 then
+                        local alreadyUsed =
+                            child == scoutTower or
+                            child == shotgunner1Model or
+                            child == shotgunner2Model or
+                            child == shotgunner3Model or
+                            child == shotgunner4Model or
+                            child == shotgunner5Model
+
+                        if not alreadyUsed then
+                            placedModel = child
+                            break
+                        end
+                    end
                 end
             end
-            if not placedModel then task.wait(0.05) end
-        end
 
-        if placedModel then
-    -- Wait for the TowerReplicator UID to replicate
-    local uidStart = tick()
-
-    while autoPlaceEnabled and not uid and (tick() - uidStart) < 5.0 do
-        uid = getTowerUID(placedModel)
-        task.wait(0.05)
-    end
-
-    -- Verify the tower can actually be found by its UID before continuing
-    if uid then
-        local verifyStart = tick()
-
-        while autoPlaceEnabled and (tick() - verifyStart) < 5.0 do
-            if findTowerByUID(uid) then
+            if placedModel then
                 break
             end
+
             task.wait(0.05)
         end
 
-     local verified = findTowerByUID(uid)
+        if placedModel then
+            task.wait(0.25)
 
-if verified then
-    placedModel = verified
-    break
-end
-    end
-end
+            -- Wait for the TowerReplicator UID to replicate
+            local uidStart = tick()
 
-task.wait(0.20)
+            while autoPlaceEnabled and not uid and (tick() - uidStart) < 5.0 do
+                uid = getTowerUID(placedModel)
+                task.wait(0.05)
+            end
+
+            -- Verify the tower can actually be found by its UID before continuing
+            if uid then
+                local verifyStart = tick()
+
+                while autoPlaceEnabled and (tick() - verifyStart) < 5.0 do
+                    if findTowerByUID(uid) then
+                        break
+                    end
+                    task.wait(0.05)
+                end
+
+                local verified = findTowerByUID(uid)
+                if verified then
+                    placedModel = verified
+                    break
+                end
+            end
+        end
+
+        task.wait(0.20)
     end
 
     if not placedModel or not uid or not autoPlaceEnabled then
@@ -2791,9 +2834,15 @@ while autoPlaceEnabled and (tick() - upgStart1) < 45.0 do
         local targetModel = findTowerByUID(uid)
 
         if not targetModel then
+            targetModel = placedModel
+        end
+
+        if not targetModel then
             task.wait(0.10)
             continue
         end
+
+        placedModel = targetModel
 
         if targetModel and getTowerReplicatorLevel(targetModel) >= 1 then
             level1Confirmed = true
@@ -2841,9 +2890,15 @@ while autoPlaceEnabled and (tick() - upgStart2) < 45.0 do
         local targetModel = findTowerByUID(uid)
 
         if not targetModel then
+            targetModel = placedModel
+        end
+
+        if not targetModel then
             task.wait(0.10)
             continue
         end
+
+        placedModel = targetModel
 
         if targetModel and getTowerReplicatorLevel(targetModel) >= 2 then
             level2Confirmed = true
