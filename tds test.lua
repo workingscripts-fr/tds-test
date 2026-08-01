@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Event-Driven Upgrade State Machine Update",
-        Text = "Event-driven money change upgrade state machine enabled",
+        Title = "Shared Scanner Level Detection Update",
+        Text = "Auto Place integrated with Ultimate Tower Scanner level detection",
         Duration = 5
     })
 end)
@@ -2405,7 +2405,8 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (EVENT-DRIVEN MONEY CHANGE UPGRADE STATE MACHINE)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (SCANNER-CONFIRMED SILENT MONEY UPGRADE SYSTEM)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
@@ -2418,14 +2419,6 @@ shotgunner1Upgraded = false
 local scoutTower = nil
 local shotgunner1Model = nil
 local shotgunner1UID = nil
-local shotgunner2Model, shotgunner2UID = nil, nil
-local shotgunner3Model, shotgunner3UID = nil, nil
-local shotgunner4Model, shotgunner4UID = nil, nil
-local shotgunner5Model, shotgunner5UID = nil, nil
-local shotgunner6Model, shotgunner6UID = nil, nil
-local shotgunner7Model, shotgunner7UID = nil, nil
-local shotgunner8Model, shotgunner8UID = nil, nil
-local shotgunner9Model, shotgunner9UID = nil, nil
 
 local _autoPlaceTask = nil
 
@@ -2449,6 +2442,15 @@ local function getTowerUID(model)
 
     if not uid then
         pcall(function()
+            local rep = model:FindFirstChild("TowerReplicator")
+            if rep then
+                uid = rep:GetAttribute("UID") or rep:GetAttribute("TowerUID")
+            end
+        end)
+    end
+
+    if not uid then
+        pcall(function()
             local v = model:FindFirstChild("TowerUID") or model:FindFirstChild("UID") or model:FindFirstChild("ID")
             if v then uid = v.Value end
         end)
@@ -2466,17 +2468,6 @@ local function getTowerUID(model)
     end
 
     if not uid then
-        pcall(function()
-            for _, child in ipairs(model:GetChildren()) do
-                if child:IsA("ValueBase") and (string.find(string.lower(child.Name), "uid") or string.find(string.lower(child.Name), "id")) then
-                    uid = child.Value
-                    break
-                end
-            end
-        end)
-    end
-
-    if not uid then
         pcall(function() uid = model:GetDebugId() end)
     end
 
@@ -2487,13 +2478,23 @@ local function getTowerLevel(model)
     if not model then return 0 end
     local level = nil
 
+    -- Primary Scanner/Watch detection: TowerReplicator Upgrade attribute
     pcall(function()
-        local upg = model:FindFirstChild("Upgrades")
-        if upg then
-            if upg:IsA("ValueBase") then level = upg.Value
-            else level = tonumber(upg) end
+        local rep = model:FindFirstChild("TowerReplicator")
+        if rep then
+            level = rep:GetAttribute("Upgrade") or rep:GetAttribute("Level")
         end
     end)
+
+    if level == nil then
+        pcall(function()
+            local upg = model:FindFirstChild("Upgrades")
+            if upg then
+                if upg:IsA("ValueBase") then level = upg.Value
+                else level = tonumber(upg) end
+            end
+        end)
+    end
 
     if level == nil then
         pcall(function()
@@ -2513,13 +2514,6 @@ local function getTowerLevel(model)
     if level == nil then
         pcall(function()
             local u = model:FindFirstChild("Upgrade", true)
-            if u and u:IsA("ValueBase") then level = u.Value end
-        end)
-    end
-
-    if level == nil then
-        pcall(function()
-            local u = model:FindFirstChild("Upgrades", true)
             if u and u:IsA("ValueBase") then level = u.Value end
         end)
     end
@@ -2580,7 +2574,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout ($1225 sell) -> Shotgunner #1 (Money Change Event: $640 -> $1550)"
+apcSub.Text = "Scout ($1225 sell) -> Shotgunner #1 (Money Gated: $640 -> $1550)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2629,6 +2623,13 @@ local function stopAutoPlaceTask()
         pcall(function() task.cancel(_autoPlaceTask) end)
         _autoPlaceTask = nil
     end
+end
+
+local function turnOffAutoPlaceToggle()
+    autoPlaceEnabled = false
+    apcSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+    apcSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+    stopAutoPlaceTask()
 end
 
 apcSwitchBtn.MouseButton1Click:Connect(function()
@@ -2763,144 +2764,95 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                 end
 
                 if not newModel then
-                    sendInGameNotification("Shotgunner Error", "Failed to detect newly placed Shotgunner model")
                     return
                 end
 
                 -- Store BOTH Model instance and TowerUID
                 shotgunner1Model = newModel
                 shotgunner1UID = getTowerUID(newModel)
-
-                -- Display in-game notification
-                local descText = string.format(
-                    "Tower Name: %s\nTowerUID: %s\nFullName: %s\nParent: %s",
-                    tostring(shotgunner1Model.Name),
-                    tostring(shotgunner1UID),
-                    tostring(shotgunner1Model:GetFullName()),
-                    tostring(shotgunner1Model.Parent and shotgunner1Model.Parent.Name or "nil")
-                )
-                sendInGameNotification("Shotgunner Detected", descText)
-
                 shotgunner1Placed = true
 
                 -- ============================================================
-                -- EVENT / STATE-DRIVEN SHOTGUNNER #1 UPGRADE STATE MACHINE
+                -- SCANNER-CONFIRMED SILENT SHOTGUNNER UPGRADE PIPELINE
                 -- ============================================================
-                local upgrade1Complete = false
-                local upgrade2Complete = false
-                local batchRunning = false
-                local lastMoneyBatch1 = -1
-                local lastMoneyBatch2 = -1
 
-                local function runSingleTenAttemptBatch(targetLevel, cost)
-                    if batchRunning or not autoPlaceEnabled then return false end
-                    batchRunning = true
-
-                    local currentModel = findTowerByUID(shotgunner1UID) or shotgunner1Model
-                    if currentModel and getTowerLevel(currentModel) >= targetLevel then
-                        batchRunning = false
-                        return true
-                    end
-
-                    local success = false
-                    for attempt = 1, 10 do
-                        if not autoPlaceEnabled then break end
-
-                        -- Reacquire model before EVERY attempt
-                        currentModel = findTowerByUID(shotgunner1UID)
-                        if currentModel and currentModel.Parent then
-                            if getTowerLevel(currentModel) >= targetLevel then
-                                success = true
-                                break
-                            end
-
-                            local notiTitle = string.format("Upgrade Lvl %d (Attempt %d/10)", targetLevel, attempt)
-                            local notiDesc = string.format("Cash: $%d / $%d\nTowerUID: %s", currentTDSMoneyNumber, cost, tostring(shotgunner1UID))
-                            sendInGameNotification(notiTitle, notiDesc)
-
-                            local upgradeArgs = {
-                                "Troops",
-                                "Upgrade",
-                                "Set",
-                                {
-                                    Troop = currentModel
-                                }
-                            }
-                            pcall(function()
-                                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
-                            end)
-
-                            task.wait(0.30)
-
-                            if getTowerLevel(currentModel) >= targetLevel then
-                                success = true
-                                break
-                            end
-                        else
-                            task.wait(0.30)
-                        end
-                    end
-
-                    batchRunning = false
-                    return success
+                -- UPGRADE 1 PIPELINE
+                -- 1. Silently wait until player money >= $640
+                while autoPlaceEnabled and currentTDSMoneyNumber < 640 do
+                    task.wait(0.1)
                 end
 
-                -- EVENT-DRIVEN MONEY MONITORING LOOP
-                while autoPlaceEnabled and shotgunner1Placed and not upgrade2Complete do
-                    local currentCash = currentTDSMoneyNumber
-
-                    -- STATE 1: Upgrade 1 (Requires $640)
-                    if not upgrade1Complete then
-                        if currentCash >= 640 and currentCash ~= lastMoneyBatch1 and not batchRunning then
-                            lastMoneyBatch1 = currentCash
-                            sendInGameNotification("Upgrade 1 Triggered", string.format("Cash $%d >= $640 - Executing 1 Batch", currentCash))
-
-                            local ok1 = runSingleTenAttemptBatch(1, 640)
-                            if ok1 then
-                                upgrade1Complete = true
-                                sendInGameNotification("Shotgunner Upgrade 1 Complete", "Shotgunner #1 successfully reached Level 1!")
-                            else
-                                sendInGameNotification("Batch 1 Unsuccessful", string.format("10 attempts done at $%d. Waiting for cash change...", currentCash))
-                            end
-                        end
-
-                    -- STATE 2: Upgrade 2 (Requires $1550 - ONLY after Upgrade 1 completes)
-                    elseif upgrade1Complete and not upgrade2Complete then
-                        if currentCash >= 1550 and currentCash ~= lastMoneyBatch2 and not batchRunning then
-                            lastMoneyBatch2 = currentCash
-                            sendInGameNotification("Upgrade 2 Triggered", string.format("Cash $%d >= $1550 - Executing 1 Batch", currentCash))
-
-                            local ok2 = runSingleTenAttemptBatch(2, 1550)
-                            if ok2 then
-                                upgrade2Complete = true
-                                shotgunner1Upgraded = true
-                                sendInGameNotification("Shotgunner Upgrade 2 Complete", "Shotgunner #1 successfully reached Level 2!")
-                                break
-                            else
-                                sendInGameNotification("Batch 2 Unsuccessful", string.format("10 attempts done at $%d. Waiting for cash change...", currentCash))
-                            end
-                        end
+                -- 2. Spam upgrade remote until scanner/watch logic confirms level >= 1
+                while autoPlaceEnabled do
+                    local currentModel = findTowerByUID(shotgunner1UID) or shotgunner1Model
+                    if currentModel and getTowerLevel(currentModel) >= 1 then
+                        break
                     end
 
+                    if currentModel and currentModel.Parent then
+                        local upgradeArgs = {
+                            "Troops",
+                            "Upgrade",
+                            "Set",
+                            {
+                                Troop = currentModel
+                            }
+                        }
+                        pcall(function()
+                            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                        end)
+                    end
+
+                    task.wait(0.20)
+                end
+
+                if not autoPlaceEnabled then return end
+
+                -- UPGRADE 2 PIPELINE
+                -- 1. Silently wait until player money >= $1550
+                while autoPlaceEnabled and currentTDSMoneyNumber < 1550 do
                     task.wait(0.1)
+                end
+
+                -- 2. Spam upgrade remote until scanner/watch logic confirms level >= 2
+                while autoPlaceEnabled do
+                    local currentModel = findTowerByUID(shotgunner1UID) or shotgunner1Model
+                    if currentModel and getTowerLevel(currentModel) >= 2 then
+                        shotgunner1Upgraded = true
+                        break
+                    end
+
+                    if currentModel and currentModel.Parent then
+                        local upgradeArgs = {
+                            "Troops",
+                            "Upgrade",
+                            "Set",
+                            {
+                                Troop = currentModel
+                            }
+                        }
+                        pcall(function()
+                            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                        end)
+                    end
+
+                    task.wait(0.20)
+                end
+
+                -- UPGRADE 2 COMPLETED SUCCESSFULLY
+                if autoPlaceEnabled and shotgunner1Upgraded then
+                    -- Turn OFF the Auto Place Towers toggle automatically
+                    turnOffAutoPlaceToggle()
+
+                    -- Send ONE notification only
+                    sendInGameNotification("Towers Placement Update", "Finished placing towers.")
                 end
             end
 
             _autoPlaceTask = nil
         end)
     else
-        apcSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
-        apcSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
-        
-        autoPlaceEnabled = false
-        scoutPlaced = false
-        scoutUpgraded = false
-        scoutSold = false
-        shotgunner1Placed = false
-        shotgunner1Upgraded = false
-        scoutTower = nil
-        shotgunner1Model, shotgunner1UID = nil, nil
-        stopAutoPlaceTask()
+        turnOffAutoPlaceToggle()
     end
 end)
 
