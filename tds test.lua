@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Auto Place Towers Reliability Update",
-        Text = "Enhanced tower placement & UID fallback detection enabled",
+        Title = "9 Shotgunners Build Sequence Update",
+        Text = "Expanded deterministic pipeline to 9 Shotgunners",
         Duration = 5
     })
 end)
@@ -2539,7 +2539,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout ($1225 sell) -> 5 Shotgunners (Deterministic Pipeline)"
+apcSub.Text = "Scout ($1225 sell) -> 9 Shotgunners (Deterministic Pipeline)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2637,7 +2637,15 @@ local function processScoutPlacement()
                         child == shotgunner2Model or
                         child == shotgunner3Model or
                         child == shotgunner4Model or
-                        child == shotgunner5Model
+                        child == shotgunner5Model or
+                        child == shotgunner6Model or
+                        child == shotgunner7Model or
+                        child == shotgunner8Model or
+                        child == shotgunner9Model or
+                        child == shotgunner6Model or
+                        child == shotgunner7Model or
+                        child == shotgunner8Model or
+                        child == shotgunner9Model
 
                     if not alreadyUsed then
                         newTower = child
@@ -2933,6 +2941,10 @@ while autoPlaceEnabled and (tick() - upgStart2) < 45.0 do
     elseif shotgunnerIndex == 3 then shotgunner3Model, shotgunner3UID = placedModel, uid
     elseif shotgunnerIndex == 4 then shotgunner4Model, shotgunner4UID = placedModel, uid
     elseif shotgunnerIndex == 5 then shotgunner5Model, shotgunner5UID = placedModel, uid
+    elseif shotgunnerIndex == 6 then shotgunner6Model, shotgunner6UID = placedModel, uid
+    elseif shotgunnerIndex == 7 then shotgunner7Model, shotgunner7UID = placedModel, uid
+    elseif shotgunnerIndex == 8 then shotgunner8Model, shotgunner8UID = placedModel, uid
+    elseif shotgunnerIndex == 9 then shotgunner9Model, shotgunner9UID = placedModel, uid
     end
 
     return true
@@ -2958,6 +2970,10 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         shotgunner3Model, shotgunner3UID = nil, nil
         shotgunner4Model, shotgunner4UID = nil, nil
         shotgunner5Model, shotgunner5UID = nil, nil
+        shotgunner6Model, shotgunner6UID = nil, nil
+        shotgunner7Model, shotgunner7UID = nil, nil
+        shotgunner8Model, shotgunner8UID = nil, nil
+        shotgunner9Model, shotgunner9UID = nil, nil
 
         _autoPlaceTask = task.spawn(function()
             -- Step 1: Scout Placement & Double Upgrade
@@ -2968,12 +2984,16 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                 ok = processScoutSell()
             end
 
-            -- Step 3: Exact Shotgunner Position Vectors
+            -- Step 3: Exact Shotgunner Position Vectors (Shotgunners #1 to #9)
             local p1 = Vector3.new(12.490434646606445, 1.0000064373016357, -10.304333686828613)
             local p2 = Vector3.new(12.487998962402344, 1.0000064373016357, -8.301471710205078)
             local p3 = Vector3.new(12.300650596618652, 1.0000064373016357, -6.279729843139648)
             local p4 = Vector3.new(12.210693359375, 1.0000064373016357, -4.2749176025390625)
             local p5 = Vector3.new(12.139368057250977, 1.0000064373016357, -2.2711424827575684)
+            local p6 = Vector3.new(12.086908340454102, 1.0000064373016357, -0.2654876708984375)
+            local p7 = Vector3.new(12.142791748046875, 1.0000064373016357, 1.7478370666503906)
+            local p8 = Vector3.new(12.14875602722168, 1.0000064373016357, 3.7485179901123047)
+            local p9 = Vector3.new(12.177484512329102, 1.0000064373016357, 5.752628326416016)
 
             if vector and vector.create then
                 pcall(function()
@@ -2982,14 +3002,18 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                     p3 = vector.create(12.300650596618652, 1.0000064373016357, -6.279729843139648)
                     p4 = vector.create(12.210693359375, 1.0000064373016357, -4.2749176025390625)
                     p5 = vector.create(12.139368057250977, 1.0000064373016357, -2.2711424827575684)
+                    p6 = vector.create(12.086908340454102, 1.0000064373016357, -0.2654876708984375)
+                    p7 = vector.create(12.142791748046875, 1.0000064373016357, 1.7478370666503906)
+                    p8 = vector.create(12.14875602722168, 1.0000064373016357, 3.7485179901123047)
+                    p9 = vector.create(12.177484512329102, 1.0000064373016357, 5.752628326416016)
                 end)
             end
 
-            local positions = { p1, p2, p3, p4, p5 }
+            local positions = { p1, p2, p3, p4, p5, p6, p7, p8, p9 }
 
-            -- Step 4: Strict Deterministic Sequential Pipeline for 5 Shotgunners
+            -- Step 4: Strict Deterministic Sequential Pipeline for 9 Shotgunners
             if ok and autoPlaceEnabled then
-                for i = 1, 5 do
+                for i = 1, 9 do
                     if not autoPlaceEnabled then
                         ok = false
                         break
