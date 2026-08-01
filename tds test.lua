@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "5 Shotgunners Build Sequence Update",
-        Text = "Auto Place 5 Shotgunners scanner-confirmed upgrade sequence enabled",
+        Title = "5 Shotgunners Sequential Fix Update",
+        Text = "Strict 5-Shotgunner sequential placement & TowerUID lock enabled",
         Duration = 5
     })
 end)
@@ -2407,7 +2407,8 @@ tabPagesList["Towers"] = towersPage
 -- ============================================================
 -- ============================================================
 -- ============================================================
--- FEATURE 1: AUTO PLACE TOWERS (5 SHOTGUNNERS BUILD SEQUENCE)
+-- ============================================================
+-- FEATURE 1: AUTO PLACE TOWERS (STRICT 5 SHOTGUNNERS SEQUENTIAL PIPELINE)
 -- ============================================================
 autoPlaceEnabled = false
 scoutPlaced = false
@@ -2547,7 +2548,7 @@ local function findTowerByUID(targetUID)
     return nil
 end
 
--- Reusable Placement & Scanner-Confirmed Upgrade Helper for Shotgunners
+-- Reusable Strict Placement & TowerUID-Locked Scanner Upgrade Helper for Shotgunners
 local function placeAndUpgradeShotgunner(shotgunnerIndex, positionVector)
     if not autoPlaceEnabled then return nil, nil, false end
 
@@ -2555,7 +2556,6 @@ local function placeAndUpgradeShotgunner(shotgunnerIndex, positionVector)
     local preChildren = towersFolder and towersFolder:GetChildren() or {}
     local preMap = {}
     for _, t in ipairs(preChildren) do preMap[t] = true end
-    local oldCount = #preChildren
 
     local shotgunnerPlaceArgs = {
         "Troops",
@@ -2571,26 +2571,28 @@ local function placeAndUpgradeShotgunner(shotgunnerIndex, positionVector)
         game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerPlaceArgs))
     end)
 
-    -- Wait until a new child appears inside workspace.Towers
-    local startWait = tick()
-    while (#towersFolder:GetChildren() < oldCount + 1) and (tick() - startWait) < 5.0 do
-        task.wait(0.05)
-    end
-
-    -- Find newly added Model
+    -- Wait until a NEW model appears inside workspace.Towers that was not in preMap
     local newModel = nil
-    for _, child in ipairs(towersFolder:GetChildren()) do
-        if not preMap[child] then
-            newModel = child
-            break
+    local startWait = tick()
+    while autoPlaceEnabled and not newModel and (tick() - startWait) < 6.0 do
+        if towersFolder then
+            for _, child in ipairs(towersFolder:GetChildren()) do
+                if not preMap[child] and (child:IsA("Model") or child:IsA("Folder")) then
+                    newModel = child
+                    break
+                end
+            end
         end
+        if not newModel then task.wait(0.05) end
     end
 
     if not newModel or not autoPlaceEnabled then
         return nil, nil, false
     end
 
+    -- Read and lock TowerUID
     local uid = getTowerUID(newModel)
+    if not uid then return newModel, nil, false end
 
     -- UPGRADE 1 PIPELINE ($640)
     while autoPlaceEnabled and currentTDSMoneyNumber < 640 do
@@ -2598,18 +2600,18 @@ local function placeAndUpgradeShotgunner(shotgunnerIndex, positionVector)
     end
 
     while autoPlaceEnabled do
-        local currentModel = findTowerByUID(uid) or newModel
-        if currentModel and getTowerLevel(currentModel) >= 1 then
+        local targetModel = findTowerByUID(uid)
+        if targetModel and getTowerLevel(targetModel) >= 1 then
             break
         end
 
-        if currentModel and currentModel.Parent then
+        if targetModel and targetModel.Parent then
             local upgradeArgs = {
                 "Troops",
                 "Upgrade",
                 "Set",
                 {
-                    Troop = currentModel
+                    Troop = targetModel
                 }
             }
             pcall(function()
@@ -2629,19 +2631,19 @@ local function placeAndUpgradeShotgunner(shotgunnerIndex, positionVector)
 
     local upgradedSuccess = false
     while autoPlaceEnabled do
-        local currentModel = findTowerByUID(uid) or newModel
-        if currentModel and getTowerLevel(currentModel) >= 2 then
+        local targetModel = findTowerByUID(uid)
+        if targetModel and getTowerLevel(targetModel) >= 2 then
             upgradedSuccess = true
             break
         end
 
-        if currentModel and currentModel.Parent then
+        if targetModel and targetModel.Parent then
             local upgradeArgs = {
                 "Troops",
                 "Upgrade",
                 "Set",
                 {
-                    Troop = currentModel
+                    Troop = targetModel
                 }
             }
             pcall(function()
@@ -2692,7 +2694,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout ($1225 sell) -> 5 Shotgunners (Lvl 2 Upgrade Sequence)"
+apcSub.Text = "Scout ($1225 sell) -> 5 Shotgunners (Strict Sequential Level 2)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2861,33 +2863,37 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                 end)
             end
 
-            -- 4. Execute 5 Shotgunners Build Sequence
+            -- 4. Execute Strict 5-Shotgunner Sequential Pipeline
             if autoPlaceEnabled and scoutSold then
-                shotgunner1Model, shotgunner1UID, shotgunner1Upgraded = placeAndUpgradeShotgunner(1, p1)
-            end
+                local m1, u1, ok1 = placeAndUpgradeShotgunner(1, p1)
+                shotgunner1Model, shotgunner1UID = m1, u1
 
-            if autoPlaceEnabled then
-                shotgunner2Model, shotgunner2UID = placeAndUpgradeShotgunner(2, p2)
-            end
+                if autoPlaceEnabled and ok1 then
+                    local m2, u2, ok2 = placeAndUpgradeShotgunner(2, p2)
+                    shotgunner2Model, shotgunner2UID = m2, u2
 
-            if autoPlaceEnabled then
-                shotgunner3Model, shotgunner3UID = placeAndUpgradeShotgunner(3, p3)
-            end
+                    if autoPlaceEnabled and ok2 then
+                        local m3, u3, ok3 = placeAndUpgradeShotgunner(3, p3)
+                        shotgunner3Model, shotgunner3UID = m3, u3
 
-            if autoPlaceEnabled then
-                shotgunner4Model, shotgunner4UID = placeAndUpgradeShotgunner(4, p4)
-            end
+                        if autoPlaceEnabled and ok3 then
+                            local m4, u4, ok4 = placeAndUpgradeShotgunner(4, p4)
+                            shotgunner4Model, shotgunner4UID = m4, u4
 
-            if autoPlaceEnabled then
-                local sg5Model, sg5UID, sg5Success = placeAndUpgradeShotgunner(5, p5)
-                shotgunner5Model, shotgunner5UID = sg5Model, sg5UID
+                            if autoPlaceEnabled and ok4 then
+                                local m5, u5, ok5 = placeAndUpgradeShotgunner(5, p5)
+                                shotgunner5Model, shotgunner5UID = m5, u5
 
-                if autoPlaceEnabled and sg5Success then
-                    -- Turn OFF the Auto Place Towers toggle automatically
-                    turnOffAutoPlaceToggle()
+                                if autoPlaceEnabled and ok5 then
+                                    -- Turn OFF the Auto Place Towers toggle automatically
+                                    turnOffAutoPlaceToggle()
 
-                    -- Send ONE notification only
-                    sendInGameNotification("Towers Placement Update", "Finished placing towers.")
+                                    -- Send ONE notification only
+                                    sendInGameNotification("Towers Placement Update", "Finished placing towers.")
+                                end
+                            end
+                        end
+                    end
                 end
             end
 
