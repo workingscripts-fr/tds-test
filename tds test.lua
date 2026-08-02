@@ -313,53 +313,55 @@ end)
 -- ----------------------------------------------------
 
 -- ============================================================
--- DETERMINISTIC GAME / LOBBY LOADING SCREEN WAITER
+-- SAFE & DETERMINISTIC GAME / LOBBY LOADING SCREEN WAITER
 -- ============================================================
 local function waitForGameLoad()
-    -- 1. Wait for game engine loading to complete
-    if not game:IsLoaded() then
-        pcall(function() game.Loaded:Wait() end)
-    end
-
-    -- 2. Wait for LocalPlayer and PlayerGui to be available
-    local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
-    if not lp then
-        pcall(function()
-            lp = Players:WaitForChild("LocalPlayer", 10) or Players:FindFirstChildOfClass("Player")
-        end)
-    end
-
-    if lp then
-        local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
-        if not pg then
-            pcall(function() pg = lp:WaitForChild("PlayerGui", 10) end)
-        end
-
-        -- 3. Deterministically wait until any active TDS loading screen GUI disappears
-        if pg then
-            local startWait = os.clock()
-            while (os.clock() - startWait) < 120 do
-                local isLoadingActive = false
-
-                for _, child in ipairs(pg:GetChildren()) do
-                    if child:IsA("ScreenGui") and child.Enabled then
-                        local nameLower = string.lower(child.Name)
-                        if string.find(nameLower, "loading") or string.find(nameLower, "loadscreen") or string.find(nameLower, "maploading") then
-                            isLoadingActive = true
-                            break
-                        end
-                    end
-                end
-
-                if not isLoadingActive then
-                    break
-                end
-
-                task.wait(0.25)
+    pcall(function()
+        -- 1. Non-blocking check for game engine loading
+        if not game:IsLoaded() then
+            local startEngineWait = os.clock()
+            while not game:IsLoaded() and (os.clock() - startEngineWait) < 10.0 do
+                task.wait(0.1)
             end
         end
-    end
-    task.wait(0.5) -- Final settle delay to ensure game rendering is complete
+
+        -- 2. LocalPlayer and PlayerGui resolution
+        local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
+        if not lp then
+            lp = Players:FindFirstChildOfClass("Player")
+        end
+
+        if lp then
+            local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
+            if not pg then
+                pcall(function() pg = lp:WaitForChild("PlayerGui", 3) end)
+            end
+
+            -- 3. Wait ONLY for active main loading screen GUIs (max 10s wait, fast exit if none)
+            if pg then
+                local startWait = os.clock()
+                while (os.clock() - startWait) < 10.0 do
+                    local isLoadingActive = false
+
+                    for _, child in ipairs(pg:GetChildren()) do
+                        if child:IsA("ScreenGui") and child.Enabled then
+                            local nameExact = child.Name
+                            if nameExact == "Loading" or nameExact == "LoadingGui" or nameExact == "MapLoading" or nameExact == "LoadScreen" then
+                                isLoadingActive = true
+                                break
+                            end
+                        end
+                    end
+
+                    if not isLoadingActive then
+                        break
+                    end
+
+                    task.wait(0.1)
+                end
+            end
+        end
+    end)
 end
 
 -- Wait until loading screen is completely finished before creating or showing any GUI
