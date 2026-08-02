@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Auto Place Towers Full Script Update",
-        Text = "9-Shotgunner Lvl 4 complete pipeline deployed to tds test.lua",
+        Title = "TDS Test 5 Sync Update",
+        Text = "Synchronized script with tds_test_5 contents",
         Duration = 5
     })
 end)
@@ -317,51 +317,84 @@ end)
 -- ============================================================
 local function waitForGameLoad()
     pcall(function()
-        -- 1. Non-blocking check for game engine loading
-        if not game:IsLoaded() then
-            local startEngineWait = os.clock()
-            while not game:IsLoaded() and (os.clock() - startEngineWait) < 10.0 do
+        local startTotalWait = os.clock()
+
+        -- 1. Initial grace period: wait up to 3.0s for game engine & loading GUIs to initialize
+        local initStart = os.clock()
+        while (os.clock() - initStart) < 3.0 do
+            if not game:IsLoaded() then
                 task.wait(0.1)
-            end
-        end
-
-        -- 2. LocalPlayer and PlayerGui resolution
-        local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
-        if not lp then
-            lp = Players:FindFirstChildOfClass("Player")
-        end
-
-        if lp then
-            local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
-            if not pg then
-                pcall(function() pg = lp:WaitForChild("PlayerGui", 3) end)
-            end
-
-            -- 3. Wait ONLY for active main loading screen GUIs (max 10s wait, fast exit if none)
-            if pg then
-                local startWait = os.clock()
-                while (os.clock() - startWait) < 10.0 do
-                    local isLoadingActive = false
-
-                    for _, child in ipairs(pg:GetChildren()) do
+            else
+                -- Check if a loading GUI has spawned in PlayerGui
+                local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
+                local pg = lp and (lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui"))
+                if pg then
+                    local foundLoading = false
+                    for _, child in ipairs(pg:GetDescendants()) do
                         if child:IsA("ScreenGui") and child.Enabled then
-                            local nameExact = child.Name
-                            if nameExact == "Loading" or nameExact == "LoadingGui" or nameExact == "MapLoading" or nameExact == "LoadScreen" then
-                                isLoadingActive = true
+                            local nameLower = string.lower(child.Name)
+                            local looksLikeLoading =
+                                string.find(nameLower, "loading")
+                                or string.find(nameLower, "loadscreen")
+                                or string.find(nameLower, "startup")
+                                or string.find(nameLower, "boot")
+                                or string.find(nameLower, "transition")
+                                or string.find(nameLower, "teleport")
+
+                            if looksLikeLoading then
+                                foundLoading = true
                                 break
                             end
                         end
                     end
-
-                    if not isLoadingActive then
-                        break
+                    if foundLoading then
+                        break -- Loading GUI has appeared, proceed to active wait loop
                     end
-
-                    task.wait(0.1)
                 end
+                task.wait(0.1)
             end
         end
+
+        -- 2. Active wait loop: Stay visible while game is loading OR loading GUI is active
+        while (os.clock() - startTotalWait) < 120.0 do
+            local isEngineLoading = not game:IsLoaded()
+            local isGuiLoading = false
+
+            local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
+            local pg = lp and (lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui"))
+            if pg then
+                for _, child in ipairs(pg:GetDescendants()) do
+                    if child:IsA("ScreenGui") and child.Enabled then
+                        local nameLower = string.lower(child.Name)
+                        local looksLikeLoading =
+                            string.find(nameLower, "loading")
+                            or string.find(nameLower, "loadscreen")
+                            or string.find(nameLower, "startup")
+                            or string.find(nameLower, "boot")
+                            or string.find(nameLower, "transition")
+                            or string.find(nameLower, "teleport")
+
+                        if looksLikeLoading then
+                            isGuiLoading = true
+                            break
+                        end
+                    end
+                end
+            end
+
+            -- Exit condition: Engine is loaded AND no loading GUI is active
+            if not isEngineLoading and not isGuiLoading then
+                break
+            end
+
+            task.wait(0.2)
+        end
     end)
+
+    local RunService = game:GetService("RunService")
+    for i = 1, 5 do
+        RunService.RenderStepped:Wait()
+    end
 end
 
 -- ============================================================
@@ -469,9 +502,19 @@ end)
 -- Wait until loading screen is completely finished before creating or showing any GUI
 waitForGameLoad()
 
--- Loading finished: tear down the custom loading screen before the real menu begins
+-- Loading finished: smooth 0.25s tween teardown of custom loading screen before main menu
 loadingSpinning = false
-pcall(function() loadingGui:Destroy() end)
+pcall(function()
+    local ts = game:GetService("TweenService")
+    local ti = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    ts:Create(loadingRoot, ti, { BackgroundTransparency = 1 }):Play()
+    ts:Create(loadingLabel, ti, { TextTransparency = 1 }):Play()
+    ts:Create(loadingSub, ti, { TextTransparency = 1 }):Play()
+    ts:Create(loadingStroke, ti, { Transparency = 1 }):Play()
+    ts:Create(spinnerStroke, ti, { Transparency = 1 }):Play()
+    task.wait(0.25)
+    loadingGui:Destroy()
+end)
 
 pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "Creating GUI...", Duration = 3 }) end)
 local screenGui = Instance.new("ScreenGui")
@@ -2699,9 +2742,10 @@ local function getTowerReplicatorLevel(model)
     local level = nil
     pcall(function()
         local rep = model:FindFirstChild("TowerReplicator")
-        if rep then
-            level = rep:GetAttribute("Upgrade")
+        if not rep then
+            return nil
         end
+        level = rep:GetAttribute("Upgrade")
     end)
     return tonumber(level) or 0
 end
@@ -2712,9 +2756,10 @@ local function getTowerUID(model)
 
     pcall(function()
         local rep = model:FindFirstChild("TowerReplicator")
-        if rep then
-            uid = rep:GetAttribute("UID") or rep:GetAttribute("TowerUID") or rep:GetAttribute("ID")
+        if not rep then
+            return nil
         end
+        uid = rep:GetAttribute("UID") or rep:GetAttribute("TowerUID") or rep:GetAttribute("ID")
     end)
 
     if not uid then
@@ -2851,6 +2896,106 @@ local function turnOffAutoPlaceToggle()
     stopAutoPlaceTask()
 end
 
+-- PATCH 8: Unified Upgrade Helper (Reuses exact scanner, money-gating, UID re-acquisition & diagnostic notifications)
+local function UpgradeTowerToLevel(uid, placedModel, requiredMoney, targetLevel, timeout, towerNameOrIndex)
+    if not autoPlaceEnabled or not uid then return false, placedModel end
+
+    -- Money Wait Stage
+    local moneyWaitStart = tick()
+    while autoPlaceEnabled and currentTDSMoneyNumber < requiredMoney and (tick() - moneyWaitStart) < 180.0 do
+        task.wait(0.1)
+    end
+
+    local targetModel = (uid and findTowerByUID(uid)) or placedModel
+
+    if not autoPlaceEnabled or currentTDSMoneyNumber < requiredMoney then
+        turnOffAutoPlaceToggle()
+        sendInGameNotification(
+            "Auto Place Aborted",
+            string.format(
+                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
+                tostring(towerNameOrIndex or "Tower"),
+                tostring(uid),
+                tostring(currentTDSMoneyNumber),
+                targetModel and getTowerReplicatorLevel(targetModel) or -1
+            )
+        )
+        return false, placedModel
+    end
+
+    local levelConfirmed = false
+    local upgStart = tick()
+
+    while autoPlaceEnabled and (tick() - upgStart) < (timeout or 45.0) do
+        -- PATCH 1: Reacquire live model using findTowerByUID before every verification & remote call
+        local liveTower = findTowerByUID(uid)
+        if liveTower then
+            placedModel = liveTower
+        else
+            placedModel = targetModel
+        end
+
+        targetModel = placedModel
+
+        if not targetModel then
+            task.wait(0.10)
+            continue
+        end
+
+        -- PATCH 2: Double-check verification via live tower scanner
+        if targetModel and getTowerReplicatorLevel(targetModel) >= targetLevel then
+            local doubleCheckLive = findTowerByUID(uid)
+            if not doubleCheckLive then
+                task.wait(0.05)
+            else
+                placedModel = doubleCheckLive
+                if getTowerReplicatorLevel(doubleCheckLive) >= targetLevel then
+                    levelConfirmed = true
+                    break
+                end
+            end
+        end
+
+        if targetModel and targetModel.Parent then
+            local upgradeArgs = {
+                "Troops",
+                "Upgrade",
+                "Set",
+                {
+                    Troop = targetModel
+                }
+            }
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
+            end)
+        end
+        task.wait(0.20)
+    end
+
+    if not levelConfirmed or not autoPlaceEnabled then
+        turnOffAutoPlaceToggle()
+        sendInGameNotification(
+            "Auto Place Aborted",
+            string.format(
+                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
+                tostring(towerNameOrIndex or "Tower"),
+                tostring(uid),
+                tostring(currentTDSMoneyNumber),
+                targetModel and getTowerReplicatorLevel(targetModel) or -1
+            )
+        )
+        return false, placedModel
+    end
+
+    -- PATCH 6: Refresh live reference immediately before returning true
+    local finalLive = findTowerByUID(uid)
+    if finalLive then
+        placedModel = finalLive
+    end
+
+    return true, placedModel
+end
+
 -- DETERMINISTIC STATE MACHINE PIPELINE FUNCTIONS
 
 -- 1. Scout Placement & Double Upgrade (Deterministic UID & Money Gated)
@@ -2912,7 +3057,16 @@ local function processScoutPlacement()
 
     if not newTower or not autoPlaceEnabled then
         turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", "Scout placement verification timed out.")
+        sendInGameNotification(
+            "Auto Place Aborted",
+            string.format(
+                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
+                "Scout Placement",
+                tostring(scoutUID or "nil"),
+                tostring(currentTDSMoneyNumber),
+                newTower and getTowerReplicatorLevel(newTower) or -1
+            )
+        )
         return false
     end
 
@@ -2944,91 +3098,24 @@ local function processScoutPlacement()
     scoutTower = newTower
     scoutPlaced = true
 
-    -- SCOUT UPGRADE 1 PIPELINE (Wait Money >= $50 & Confirm Level 1 via Scanner)
-    local moneyWait1 = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < 50 and (tick() - moneyWait1) < 180.0 do
-        task.wait(0.1)
-    end
+    -- SCOUT UPGRADE 1 ($50 -> Level 1)
+    local ok1, updated1 = UpgradeTowerToLevel(scoutUID, scoutTower, 50, 1, 45.0, "Scout Upgrade 1")
+    if not ok1 then return false end
+    scoutTower = updated1
 
-    if not autoPlaceEnabled or currentTDSMoneyNumber < 50 then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", "Money wait ($50) timed out for Scout Upgrade 1.")
-        return false
-    end
-
-    local scoutLvl1Confirmed = false
-    local upgStart1 = tick()
-    while autoPlaceEnabled and (tick() - upgStart1) < 45.0 do
-        local targetModel = (scoutUID and findTowerByUID(scoutUID)) or scoutTower
-        if not targetModel then
-            targetModel = scoutTower
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-        end
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= 1 then
-            scoutLvl1Confirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local scoutUpgArgs = { "Troops", "Upgrade", "Set", { Troop = targetModel } }
-            pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(scoutUpgArgs)) end)
-        end
-        task.wait(0.20)
-    end
-
-    if not scoutLvl1Confirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", "Scanner Upgrade 1 verification timed out for Scout.")
-        return false
-    end
-
-    -- SCOUT UPGRADE 2 PIPELINE (Wait Money >= $375 & Confirm Level 2 via Scanner)
-    local moneyWait2 = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < 375 and (tick() - moneyWait2) < 180.0 do
-        task.wait(0.1)
-    end
-
-    if not autoPlaceEnabled or currentTDSMoneyNumber < 375 then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", "Money wait ($375) timed out for Scout Upgrade 2.")
-        return false
-    end
-
-    local scoutLvl2Confirmed = false
-    local upgStart2 = tick()
-    while autoPlaceEnabled and (tick() - upgStart2) < 45.0 do
-        local targetModel = (scoutUID and findTowerByUID(scoutUID)) or scoutTower
-        if not targetModel then
-            targetModel = scoutTower
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-        end
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= 2 then
-            scoutLvl2Confirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local scoutUpgArgs = { "Troops", "Upgrade", "Set", { Troop = targetModel } }
-            pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(scoutUpgArgs)) end)
-        end
-        task.wait(0.20)
-    end
-
-    if not scoutLvl2Confirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", "Scanner Upgrade 2 verification timed out for Scout.")
-        return false
-    end
+    -- SCOUT UPGRADE 2 ($375 -> Level 2)
+    local ok2, updated2 = UpgradeTowerToLevel(scoutUID, scoutTower, 375, 2, 45.0, "Scout Upgrade 2")
+    if not ok2 then return false end
+    scoutTower = updated2
 
     scoutUpgraded = true
+
+    -- PATCH 6: Refresh live reference before returning true
+    local liveTower = findTowerByUID(scoutUID)
+    if liveTower then
+        scoutTower = liveTower
+    end
+
     return true
 end
 
@@ -3078,6 +3165,15 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
     local placePipelineStart = tick()
 
     while autoPlaceEnabled and (tick() - placePipelineStart) < 45.0 do
+        -- PATCH 4: Check existing tower by UID before placement retry to prevent duplicates
+        if uid then
+            local existing = findTowerByUID(uid)
+            if existing then
+                placedModel = existing
+                break
+            end
+        end
+
         attempt = attempt + 1
 
         local shotgunnerPlaceArgs = {
@@ -3107,11 +3203,10 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
                     if getTowerReplicatorLevel(child) == 0 then
                         local alreadyUsed =
                             child == scoutTower or
-                            child == shotgunner1Model or
-                            child == shotgunner2Model or
-                            child == shotgunner3Model or
-                            child == shotgunner4Model or
-                            child == shotgunner5Model
+                            child == shotgunner1Model or child == shotgunner2Model or child == shotgunner3Model or
+                            child == shotgunner4Model or child == shotgunner5Model or child == shotgunner6Model or
+                            child == shotgunner7Model or child == shotgunner8Model or child == shotgunner9Model or
+                            isKnownMinigunnerModel(child)
 
                         if not alreadyUsed then
                             placedModel = child
@@ -3153,7 +3248,14 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
                 local verified = findTowerByUID(uid)
                 if verified then
                     placedModel = verified
-                    break
+
+                    -- PATCH 3: Validate PrimaryPart distance from target placement position
+                    if (verified.PrimaryPart and (verified.PrimaryPart.Position - positionVector).Magnitude > 0.5) then
+                        placedModel = nil
+                        uid = nil
+                    else
+                        break
+                    end
                 end
             end
         end
@@ -3163,232 +3265,43 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
 
     if not placedModel or not uid or not autoPlaceEnabled then
         turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Placement verification failed for Shotgunner #%d.", shotgunnerIndex))
+        sendInGameNotification(
+            "Auto Place Aborted",
+            string.format(
+                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
+                string.format("Shotgunner #%d Placement", shotgunnerIndex),
+                tostring(uid or "nil"),
+                tostring(currentTDSMoneyNumber),
+                placedModel and getTowerReplicatorLevel(placedModel) or -1
+            )
+        )
         return false
     end
 
     -- STEP B: WAIT FOR $640 & UPGRADE TO LEVEL 1
-    local moneyWaitStart1 = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < 640 and (tick() - moneyWaitStart1) < 180.0 do
-        task.wait(0.1)
-    end
-
-    if not autoPlaceEnabled or currentTDSMoneyNumber < 640 then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Money wait ($640) timed out for Shotgunner #%d.", shotgunnerIndex))
-        return false
-    end
-
-    local level1Confirmed = false
-    local upgStart1 = tick()
-
-while autoPlaceEnabled and (tick() - upgStart1) < 45.0 do
-        local targetModel = findTowerByUID(uid)
-
-        if not targetModel then
-            targetModel = placedModel
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-            --continue--
-        end
-
-        placedModel = targetModel
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= 1 then
-            level1Confirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local upgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = targetModel
-                }
-            }
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
-            end)
-        end
-        task.wait(0.20)
-    end
-
-    if not level1Confirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Scanner Upgrade 1 verification timed out for Shotgunner #%d.", shotgunnerIndex))
-        return false
-    end
+    local ok1, m1 = UpgradeTowerToLevel(uid, placedModel, 640, 1, 45.0, string.format("Shotgunner #%d Upgrade 1", shotgunnerIndex))
+    if not ok1 then return false end
+    placedModel = m1
 
     -- STEP C: WAIT FOR $1550 & UPGRADE TO LEVEL 2
-    local moneyWaitStart2 = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < 1550 and (tick() - moneyWaitStart2) < 180.0 do
-        task.wait(0.1)
-    end
-
-    if not autoPlaceEnabled or currentTDSMoneyNumber < 1550 then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Money wait ($1550) timed out for Shotgunner #%d.", shotgunnerIndex))
-        return false
-    end
-
-    local level2Confirmed = false
-    local upgStart2 = tick()
-
-while autoPlaceEnabled and (tick() - upgStart2) < 45.0 do
-        local targetModel = findTowerByUID(uid)
-
-        if not targetModel then
-            targetModel = placedModel
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-            --continue--
-        end
-
-        placedModel = targetModel
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= 2 then
-            level2Confirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local upgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = targetModel
-                }
-            }
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
-            end)
-        end
-        task.wait(0.20)
-    end
-
-    if not level2Confirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Scanner Upgrade 2 verification timed out for Shotgunner #%d.", shotgunnerIndex))
-        return false
-    end
+    local ok2, m2 = UpgradeTowerToLevel(uid, placedModel, 1550, 2, 45.0, string.format("Shotgunner #%d Upgrade 2", shotgunnerIndex))
+    if not ok2 then return false end
+    placedModel = m2
 
     -- STEP D: WAIT FOR $6000 & UPGRADE TO LEVEL 3
-    local moneyWaitStart3 = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < 6000 and (tick() - moneyWaitStart3) < 180.0 do
-        task.wait(0.1)
-    end
-
-    if not autoPlaceEnabled or currentTDSMoneyNumber < 6000 then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Money wait ($6000) timed out for Shotgunner #%d.", shotgunnerIndex))
-        return false
-    end
-
-    local level3Confirmed = false
-    local upgStart3 = tick()
-
-    while autoPlaceEnabled and (tick() - upgStart3) < 45.0 do
-        local targetModel = findTowerByUID(uid)
-
-        if not targetModel then
-            targetModel = placedModel
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-            --continue--
-        end
-
-        placedModel = targetModel
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= 3 then
-            level3Confirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local upgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = targetModel
-                }
-            }
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
-            end)
-        end
-        task.wait(0.20)
-    end
-
-    if not level3Confirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Scanner Upgrade 3 verification timed out for Shotgunner #%d.", shotgunnerIndex))
-        return false
-    end
+    local ok3, m3 = UpgradeTowerToLevel(uid, placedModel, 6000, 3, 45.0, string.format("Shotgunner #%d Upgrade 3", shotgunnerIndex))
+    if not ok3 then return false end
+    placedModel = m3
 
     -- STEP E: WAIT FOR $18500 & UPGRADE TO LEVEL 4 (MAX)
-    local moneyWaitStart4 = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < 18500 and (tick() - moneyWaitStart4) < 180.0 do
-        task.wait(0.1)
-    end
+    local ok4, m4 = UpgradeTowerToLevel(uid, placedModel, 18500, 4, 45.0, string.format("Shotgunner #%d Upgrade 4", shotgunnerIndex))
+    if not ok4 then return false end
+    placedModel = m4
 
-    if not autoPlaceEnabled or currentTDSMoneyNumber < 18500 then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Money wait ($18500) timed out for Shotgunner #%d.", shotgunnerIndex))
-        return false
-    end
-
-    local level4Confirmed = false
-    local upgStart4 = tick()
-
-    while autoPlaceEnabled and (tick() - upgStart4) < 45.0 do
-        local targetModel = findTowerByUID(uid)
-
-        if not targetModel then
-            targetModel = placedModel
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-            --continue--
-        end
-
-        placedModel = targetModel
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= 4 then
-            level4Confirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local upgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = targetModel
-                }
-            }
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
-            end)
-        end
-        task.wait(0.20)
-    end
-
-    if not level4Confirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Scanner Upgrade 4 (Max) verification timed out for Shotgunner #%d.", shotgunnerIndex))
-        return false
+    -- PATCH 6: Refresh live reference immediately before returning true
+    local liveTower = findTowerByUID(uid)
+    if liveTower then
+        placedModel = liveTower
     end
 
     -- Store reference based on index
@@ -3421,6 +3334,15 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
     local placePipelineStart = tick()
 
     while autoPlaceEnabled and (tick() - placePipelineStart) < 45.0 do
+        -- PATCH 4: Check existing tower by UID before placement retry to prevent duplicates
+        if uid then
+            local existing = findTowerByUID(uid)
+            if existing then
+                placedModel = existing
+                break
+            end
+        end
+
         attempt = attempt + 1
 
         local minigunnerPlaceArgs = {
@@ -3495,7 +3417,14 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
                 local verified = findTowerByUID(uid)
                 if verified then
                     placedModel = verified
-                    break
+
+                    -- PATCH 3: Validate PrimaryPart distance from target placement position
+                    if (verified.PrimaryPart and (verified.PrimaryPart.Position - positionVector).Magnitude > 0.5) then
+                        placedModel = nil
+                        uid = nil
+                    else
+                        break
+                    end
                 end
             end
         end
@@ -3505,176 +3434,38 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
 
     if not placedModel or not uid or not autoPlaceEnabled then
         turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Placement verification failed for Minigunner #%d.", minigunnerIndex))
+        sendInGameNotification(
+            "Auto Place Aborted",
+            string.format(
+                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
+                string.format("Minigunner #%d Placement", minigunnerIndex),
+                tostring(uid or "nil"),
+                tostring(currentTDSMoneyNumber),
+                placedModel and getTowerReplicatorLevel(placedModel) or -1
+            )
+        )
         return false
     end
 
     -- STEP B: WAIT FOR $350 & UPGRADE TO LEVEL 1
-    local moneyWaitStart1 = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < 350 and (tick() - moneyWaitStart1) < 180.0 do
-        task.wait(0.1)
-    end
-
-    if not autoPlaceEnabled or currentTDSMoneyNumber < 350 then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Money wait ($350) timed out for Minigunner #%d.", minigunnerIndex))
-        return false
-    end
-
-    local level1Confirmed = false
-    local upgStart1 = tick()
-
-    while autoPlaceEnabled and (tick() - upgStart1) < 45.0 do
-        local targetModel = findTowerByUID(uid)
-
-        if not targetModel then
-            targetModel = placedModel
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-            --continue--
-        end
-
-        placedModel = targetModel
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= 1 then
-            level1Confirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local upgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = targetModel
-                }
-            }
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
-            end)
-        end
-        task.wait(0.20)
-    end
-
-    if not level1Confirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Scanner Upgrade 1 verification timed out for Minigunner #%d.", minigunnerIndex))
-        return false
-    end
+    local ok1, m1 = UpgradeTowerToLevel(uid, placedModel, 350, 1, 45.0, string.format("Minigunner #%d Upgrade 1", minigunnerIndex))
+    if not ok1 then return false end
+    placedModel = m1
 
     -- STEP C: WAIT FOR $1500 & UPGRADE TO LEVEL 2
-    local moneyWaitStart2 = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < 1500 and (tick() - moneyWaitStart2) < 180.0 do
-        task.wait(0.1)
-    end
-
-    if not autoPlaceEnabled or currentTDSMoneyNumber < 1500 then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Money wait ($1500) timed out for Minigunner #%d.", minigunnerIndex))
-        return false
-    end
-
-    local level2Confirmed = false
-    local upgStart2 = tick()
-
-    while autoPlaceEnabled and (tick() - upgStart2) < 45.0 do
-        local targetModel = findTowerByUID(uid)
-
-        if not targetModel then
-            targetModel = placedModel
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-            --continue--
-        end
-
-        placedModel = targetModel
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= 2 then
-            level2Confirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local upgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = targetModel
-                }
-            }
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
-            end)
-        end
-        task.wait(0.20)
-    end
-
-    if not level2Confirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Scanner Upgrade 2 verification timed out for Minigunner #%d.", minigunnerIndex))
-        return false
-    end
+    local ok2, m2 = UpgradeTowerToLevel(uid, placedModel, 1500, 2, 45.0, string.format("Minigunner #%d Upgrade 2", minigunnerIndex))
+    if not ok2 then return false end
+    placedModel = m2
 
     -- STEP D: WAIT FOR $6500 & UPGRADE TO LEVEL 3
-    local moneyWaitStart3 = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < 6500 and (tick() - moneyWaitStart3) < 180.0 do
-        task.wait(0.1)
-    end
+    local ok3, m3 = UpgradeTowerToLevel(uid, placedModel, 6500, 3, 45.0, string.format("Minigunner #%d Upgrade 3", minigunnerIndex))
+    if not ok3 then return false end
+    placedModel = m3
 
-    if not autoPlaceEnabled or currentTDSMoneyNumber < 6500 then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Money wait ($6500) timed out for Minigunner #%d.", minigunnerIndex))
-        return false
-    end
-
-    local level3Confirmed = false
-    local upgStart3 = tick()
-
-    while autoPlaceEnabled and (tick() - upgStart3) < 45.0 do
-        local targetModel = findTowerByUID(uid)
-
-        if not targetModel then
-            targetModel = placedModel
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-            --continue--
-        end
-
-        placedModel = targetModel
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= 3 then
-            level3Confirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local upgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = targetModel
-                }
-            }
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
-            end)
-        end
-        task.wait(0.20)
-    end
-
-    if not level3Confirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Scanner Upgrade 3 verification timed out for Minigunner #%d.", minigunnerIndex))
-        return false
+    -- PATCH 6: Refresh live reference immediately before returning true
+    local liveTower = findTowerByUID(uid)
+    if liveTower then
+        placedModel = liveTower
     end
 
     -- Store reference based on index
@@ -3684,9 +3475,6 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
 end
 
 -- Dedicated Helper for Minigunner Level 3 -> Level 4 (Max) Upgrade Pass
--- Runs AFTER all 28 Minigunners have been placed and verified at Level 3.
--- Reuses the exact same detection (findTowerByUID / getTowerReplicatorLevel)
--- and money-gating (currentTDSMoneyNumber) logic as every other upgrade step.
 local function UpgradeMinigunnerToMax(minigunnerIndex)
     if not autoPlaceEnabled then return false end
 
@@ -3695,7 +3483,16 @@ local function UpgradeMinigunnerToMax(minigunnerIndex)
 
     if not uid or not placedModel then
         turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Missing tower reference for Minigunner #%d Max Upgrade.", minigunnerIndex))
+        sendInGameNotification(
+            "Auto Place Aborted",
+            string.format(
+                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
+                string.format("Minigunner #%d Max", minigunnerIndex),
+                tostring(uid or "nil"),
+                tostring(currentTDSMoneyNumber),
+                placedModel and getTowerReplicatorLevel(placedModel) or -1
+            )
+        )
         return false
     end
 
@@ -3705,60 +3502,15 @@ local function UpgradeMinigunnerToMax(minigunnerIndex)
         return true
     end
 
-    -- WAIT FOR $21500 & UPGRADE TO LEVEL 4 (MAX)
-    local moneyWaitStart = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < 21500 and (tick() - moneyWaitStart) < 180.0 do
-        task.wait(0.1)
-    end
+    -- STEP E: WAIT FOR $21500 & UPGRADE TO LEVEL 4 (MAX)
+    local ok4, m4 = UpgradeTowerToLevel(uid, placedModel, 21500, 4, 45.0, string.format("Minigunner #%d Upgrade 4 (Max)", minigunnerIndex))
+    if not ok4 then return false end
+    placedModel = m4
 
-    if not autoPlaceEnabled or currentTDSMoneyNumber < 21500 then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Money wait ($21500) timed out for Minigunner #%d.", minigunnerIndex))
-        return false
-    end
-
-    local level4Confirmed = false
-    local upgStart = tick()
-
-    while autoPlaceEnabled and (tick() - upgStart) < 45.0 do
-        local targetModel = findTowerByUID(uid)
-
-        if not targetModel then
-            targetModel = placedModel
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-            --continue--
-        end
-
-        placedModel = targetModel
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= 4 then
-            level4Confirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local upgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = targetModel
-                }
-            }
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
-            end)
-        end
-        task.wait(0.20)
-    end
-
-    if not level4Confirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Scanner Upgrade 4 (Max) verification timed out for Minigunner #%d.", minigunnerIndex))
-        return false
+    -- PATCH 6: Refresh live reference immediately before returning true
+    local liveTower = findTowerByUID(uid)
+    if liveTower then
+        placedModel = liveTower
     end
 
     minigunnerModels[minigunnerIndex], minigunnerUIDs[minigunnerIndex] = placedModel, uid
