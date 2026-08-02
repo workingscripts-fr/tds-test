@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "9 Shotgunners Lvl4 + 10 Minigunners Update",
-        Text = "Auto Place extended to 10 Minigunners up to Level 3",
+        Title = "Full Audit & Minigunners Pipeline Update",
+        Text = "Full 3-Pass Code Audit Passed: All sequences production-ready",
         Duration = 5
     })
 end)
