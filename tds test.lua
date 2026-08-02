@@ -1012,12 +1012,19 @@ createSidebarTabButton("Towers")
 createSidebarTabButton("Menu Settings")
 
 
+-- Precise Target Element Finder (with scoring, screen bounds, ImageButton support, and own-menu exclusion)
+local function notifyDiag(titleText, bodyText)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = string.sub(tostring(titleText or "Diagnostic"), 1, 35),
+            Text = string.sub(tostring(bodyText or ""), 1, 85),
+            Duration = 4
+        })
+    end)
+end
+
 -- Forward declarations for cross-section variables
 local tStatus
-autoQueueEnabled = false
-isPlayerQueuedState = false
-local switchBtn, swKnob
-local isGuiObjectTrulyVisible, sendHardwareClick, triggerAllSignals, findTargetButton, executeAutoQueueStepByStep, isQueueRunning
 autoQueueEnabled = false
 isPlayerQueuedState = false
 local switchBtn, swKnob
@@ -1840,17 +1847,6 @@ function triggerAllSignals(gui)
     return success
 end
 
--- Precise Target Element Finder (with scoring, screen bounds, ImageButton support, and own-menu exclusion)
-local function notifyDiag(titleText, bodyText)
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = string.sub(tostring(titleText or "Diagnostic"), 1, 35),
-            Text = string.sub(tostring(bodyText or ""), 1, 85),
-            Duration = 4
-        })
-    end)
-end
-
 -- Helper: Check if element or parent chain belongs to SoundGui or our custom UI
 local function isExcludedContainer(gui)
     local cur = gui
@@ -2030,6 +2026,8 @@ function executeAutoQueueStepByStep()
     
     -- Task 7: Variable Audit & Value Verification
     pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "Auto Queue Audit", Text = string.format("autoQueueEnabled=%s, isQueueRunning=%s, selectedDifficulty=%s, selectedSquadSize=%s, isPlayerQueuedState=%s, tStatus=%s", tostring(autoQueueEnabled), tostring(isQueueRunning), tostring(selectedDifficulty), tostring(selectedSquadSize), tostring(isPlayerQueuedState), tostring(tStatus)), Duration = 4 }) end)
+        
+        
     if isQueueRunning then
         pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 0: Already running (isQueueRunning state lock active)"), Duration = 4 }) end)
         return
