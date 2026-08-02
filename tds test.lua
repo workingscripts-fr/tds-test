@@ -2030,8 +2030,6 @@ function executeAutoQueueStepByStep()
     
     -- Task 7: Variable Audit & Value Verification
     pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "Auto Queue Audit", Text = string.format("autoQueueEnabled=%s, isQueueRunning=%s, selectedDifficulty=%s, selectedSquadSize=%s, isPlayerQueuedState=%s, tStatus=%s", tostring(autoQueueEnabled), tostring(isQueueRunning), tostring(selectedDifficulty), tostring(selectedSquadSize), tostring(isPlayerQueuedState), tostring(tStatus)), Duration = 4 }) end)
-        tostring(autoQueueEnabled), tostring(isQueueRunning), tostring(selectedDifficulty), tostring(selectedSquadSize), tostring(isPlayerQueuedState), tostring(tStatus and tStatus.Text or "NIL")))
-        
     if isQueueRunning then
         pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 0: Already running (isQueueRunning state lock active)"), Duration = 4 }) end)
         return
