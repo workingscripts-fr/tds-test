@@ -2716,7 +2716,7 @@ local function processScoutPlacement()
         for _, child in ipairs(towersFolder:GetChildren()) do
             if child:IsA("Model") then
                 if not getTowerUID(child) then
-                    continue
+                    --continue--
                 end
 
                 if getTowerReplicatorLevel(child) == 0 then
@@ -2823,7 +2823,7 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
     local placePipelineStart = tick()
 
     while autoPlaceEnabled and (tick() - placePipelineStart) < 45.0 do
-        attempt += 1
+        attempt = attempt + 1
 
         local shotgunnerPlaceArgs = {
             "Troops",
@@ -2846,7 +2846,7 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
             for _, child in ipairs(towersFolder:GetChildren()) do
                 if child:IsA("Model") then
                     if not getTowerUID(child) then
-                        continue
+                        --continue--
                     end
 
                     if getTowerReplicatorLevel(child) == 0 then
@@ -2936,7 +2936,7 @@ while autoPlaceEnabled and (tick() - upgStart1) < 45.0 do
 
         if not targetModel then
             task.wait(0.10)
-            continue
+            --continue--
         end
 
         placedModel = targetModel
@@ -2992,7 +2992,7 @@ while autoPlaceEnabled and (tick() - upgStart2) < 45.0 do
 
         if not targetModel then
             task.wait(0.10)
-            continue
+            --continue--
         end
 
         placedModel = targetModel
@@ -3054,7 +3054,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
     local placePipelineStart = tick()
 
     while autoPlaceEnabled and (tick() - placePipelineStart) < 45.0 do
-        attempt += 1
+        attempt = attempt + 1
 
         local minigunnerPlaceArgs = {
             "Troops",
@@ -3077,7 +3077,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
             for _, child in ipairs(towersFolder:GetChildren()) do
                 if child:IsA("Model") then
                     if not getTowerUID(child) then
-                        continue
+                        --continue--
                     end
 
                     if getTowerReplicatorLevel(child) == 0 then
@@ -3169,7 +3169,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
 
         if not targetModel then
             task.wait(0.10)
-            continue
+            --continue--
         end
 
         placedModel = targetModel
@@ -3225,7 +3225,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
 
         if not targetModel then
             task.wait(0.10)
-            continue
+            --continue--
         end
 
         placedModel = targetModel
@@ -3281,7 +3281,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
 
         if not targetModel then
             task.wait(0.10)
-            continue
+            --continue--
         end
 
         placedModel = targetModel
@@ -3357,7 +3357,7 @@ local function upgradeSpecificTower(shotgunnerIndex, uid, placedModel, targetLev
 
         if not targetModel then
             task.wait(0.10)
-            continue
+            --continue--
         end
 
         if targetModel and getTowerReplicatorLevel(targetModel) >= targetLevel then
@@ -3445,17 +3445,17 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
             local p8 = Vector3.new(12.14875602722168, 1.0000064373016357, 3.7485179901123047)
             local p9 = Vector3.new(12.177484512329102, 1.0000064373016357, 5.752628326416016)
 
-            if vector and vector.create then
+            if vector and Vector3.new then
                 pcall(function()
-                    p1 = vector.create(12.490434646606445, 1.0000064373016357, -10.304333686828613)
-                    p2 = vector.create(12.487998962402344, 1.0000064373016357, -8.301471710205078)
-                    p3 = vector.create(12.300650596618652, 1.0000064373016357, -6.279729843139648)
-                    p4 = vector.create(12.210693359375, 1.0000064373016357, -4.2749176025390625)
-                    p5 = vector.create(12.139368057250977, 1.0000064373016357, -2.2711424827575684)
-                    p6 = vector.create(12.086908340454102, 1.0000064373016357, -0.2654876708984375)
-                    p7 = vector.create(12.142791748046875, 1.0000064373016357, 1.7478370666503906)
-                    p8 = vector.create(12.14875602722168, 1.0000064373016357, 3.7485179901123047)
-                    p9 = vector.create(12.177484512329102, 1.0000064373016357, 5.752628326416016)
+                    p1 = Vector3.new(12.490434646606445, 1.0000064373016357, -10.304333686828613)
+                    p2 = Vector3.new(12.487998962402344, 1.0000064373016357, -8.301471710205078)
+                    p3 = Vector3.new(12.300650596618652, 1.0000064373016357, -6.279729843139648)
+                    p4 = Vector3.new(12.210693359375, 1.0000064373016357, -4.2749176025390625)
+                    p5 = Vector3.new(12.139368057250977, 1.0000064373016357, -2.2711424827575684)
+                    p6 = Vector3.new(12.086908340454102, 1.0000064373016357, -0.2654876708984375)
+                    p7 = Vector3.new(12.142791748046875, 1.0000064373016357, 1.7478370666503906)
+                    p8 = Vector3.new(12.14875602722168, 1.0000064373016357, 3.7485179901123047)
+                    p9 = Vector3.new(12.177484512329102, 1.0000064373016357, 5.752628326416016)
                 end)
             end
 
@@ -3544,18 +3544,18 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                 local mp9 = Vector3.new(0.6056113243103027, 1.0000064373016357, 1.8032293319702148)
                 local mp10 = Vector3.new(0.7378559112548828, 1.0000064373016357, -1.2998151779174805)
 
-                if vector and vector.create then
+                if vector and Vector3.new then
                     pcall(function()
-                        mp1 = vector.create(3.3973870277404785, 1.0000064373016357, 5.273189544677734)
-                        mp2 = vector.create(3.68341064453125, 1.0000064373016357, 2.269501209259033)
-                        mp3 = vector.create(3.718188762664795, 1.0000064373016357, -0.7739953994750977)
-                        mp4 = vector.create(3.841353416442871, 1.0000064373016357, -3.801422119140625)
-                        mp5 = vector.create(3.819641590118408, 1.0000064373016357, -6.826100826263428)
-                        mp6 = vector.create(3.7243003845214844, 1.0000064373016357, -9.859762191772461)
-                        mp7 = vector.create(3.79325532913208, 1.0000064373016357, -12.903999328613281)
-                        mp8 = vector.create(3.8457250595092773, 1.0000064373016357, -15.914878845214844)
-                        mp9 = vector.create(0.6056113243103027, 1.0000064373016357, 1.8032293319702148)
-                        mp10 = vector.create(0.7378559112548828, 1.0000064373016357, -1.2998151779174805)
+                        mp1 = Vector3.new(3.3973870277404785, 1.0000064373016357, 5.273189544677734)
+                        mp2 = Vector3.new(3.68341064453125, 1.0000064373016357, 2.269501209259033)
+                        mp3 = Vector3.new(3.718188762664795, 1.0000064373016357, -0.7739953994750977)
+                        mp4 = Vector3.new(3.841353416442871, 1.0000064373016357, -3.801422119140625)
+                        mp5 = Vector3.new(3.819641590118408, 1.0000064373016357, -6.826100826263428)
+                        mp6 = Vector3.new(3.7243003845214844, 1.0000064373016357, -9.859762191772461)
+                        mp7 = Vector3.new(3.79325532913208, 1.0000064373016357, -12.903999328613281)
+                        mp8 = Vector3.new(3.8457250595092773, 1.0000064373016357, -15.914878845214844)
+                        mp9 = Vector3.new(0.6056113243103027, 1.0000064373016357, 1.8032293319702148)
+                        mp10 = Vector3.new(0.7378559112548828, 1.0000064373016357, -1.2998151779174805)
                     end)
                 end
 
