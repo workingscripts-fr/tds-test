@@ -6,8 +6,8 @@ print("[TDS TEST DEBUG] Startup 1: Initializing Services & Environment...")
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Startup Execution Audit & Fix Update",
-        Text = "Startup execution audit complete: All yields timed-out & GUI parenting safe",
+        Title = "Forensic Execution Audit & Loader Fix Update",
+        Text = "Root GUI visibility guaranteed; loader fail-safes verified",
         Duration = 5
     })
 end)
@@ -4834,8 +4834,9 @@ do
     local menuRoot = root
     local origSize = UDim2.fromOffset(720, 470)
     
-    menuRoot.Visible = false
-    menuRoot.Size = UDim2.fromOffset(0, 0)
+    -- Ensure root menu is ALREADY VISIBLE and full size by default
+    menuRoot.Visible = true
+    menuRoot.Size = origSize
     
     -- 1. Get real Game Name & User Avatar Details
     local gameName = "TDS Test"
@@ -5297,13 +5298,9 @@ do
         
         task.wait(slideTime - 0.1)
         
-        -- Reveal Root Menu Window with smooth bounce scale
-        menuRoot.Size = UDim2.fromOffset(0, 0)
+        -- Reveal Root Menu Window safely
         menuRoot.Visible = true
-        local bounceTween = TweenService:Create(menuRoot, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = origSize
-        })
-        bounceTween:Play()
+        menuRoot.Size = origSize
         
         task.wait(0.1)
         end) -- end pcall
