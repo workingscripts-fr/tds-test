@@ -2,10 +2,12 @@
 -- TDS TEST - AAA COSMIC UNIVERSE UI
 -- ==========================================
 
+print("[TDS TEST DEBUG] Startup 1: Initializing Services & Environment...")
+
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Full Audit & Minigunners Pipeline Update",
-        Text = "Full 3-Pass Code Audit Passed: All sequences production-ready",
+        Title = "Startup Execution Audit & Fix Update",
+        Text = "Startup execution audit complete: All yields timed-out & GUI parenting safe",
         Duration = 5
     })
 end)
@@ -68,10 +70,37 @@ if not parentContainer and LocalPlayer then
     parentContainer = LocalPlayer:FindFirstChildOfClass("PlayerGui") or LocalPlayer:FindFirstChild("PlayerGui")
 end
 
+print("[TDS TEST DEBUG] Startup 2: Resolving LocalPlayer & Environment State...")
+
+-- Safe Parent GUI Helper
+local function safeParentGui(gui)
+    if not gui then return false end
+    if gethui then
+        local ok = pcall(function() gui.Parent = gethui() end)
+        if ok and gui.Parent then return true end
+    end
+    if syn and syn.protect_gui then
+        pcall(function() syn.protect_gui(gui) gui.Parent = game:GetService("CoreGui") end)
+        if gui.Parent then return true end
+    end
+    local lp = game:GetService("Players").LocalPlayer
+    if lp then
+        local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
+        if pg then
+            local ok = pcall(function() gui.Parent = pg end)
+            if ok and gui.Parent then return true end
+        end
+    end
+    local ok = pcall(function() gui.Parent = game:GetService("CoreGui") end)
+    if ok and gui.Parent then return true end
+    return false
+end
+
 -- Singleton cleanup to prevent multiple instances
 local EXEC_ENV = (getgenv and getgenv()) or _G
 local MENU_STATE_KEY = "__TDSTestSingletonState"
 
+print("[TDS TEST DEBUG] Startup 3: Cleaning up previous menu state...")
 do
     local previousState = EXEC_ENV[MENU_STATE_KEY]
     if previousState then
@@ -86,6 +115,8 @@ do
         EXEC_ENV[MENU_STATE_KEY] = nil
     end
 end
+
+print("[TDS TEST DEBUG] Startup 4: Initializing Design Tokens & Theme Engine...")
 
 -- Theme Color Names
 local UI_THEME_GREEN_PURPLE = "Green/Purple"
@@ -250,6 +281,7 @@ end)
 -- AAA MODERN UI REDESIGN SECTION (COSMIC UNIVERSE THEME)
 -- ----------------------------------------------------
 
+print("[TDS TEST DEBUG] Creating GUI...")
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "TDSTestUI"
 screenGui.ResetOnSpawn = false
@@ -259,7 +291,8 @@ screenGui.DisplayOrder = 9999
 pcall(function()
     screenGui.OnTopOfCoreBlur = true
 end)
-screenGui.Parent = parentContainer
+safeParentGui(screenGui)
+print("[TDS TEST DEBUG] GUI Created & Parented Successfully.")
 
 local root = Instance.new("Frame")
 root.Name = "Root"
@@ -2627,7 +2660,7 @@ local function processScoutPlacement()
     }
 
     pcall(function()
-        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutPlaceArgs))
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(scoutPlaceArgs))
     end)
 
     local newTower = nil
@@ -2683,12 +2716,12 @@ local function processScoutPlacement()
 
     -- Scout Upgrade 1
     local scoutUpgArgs = { "Troops", "Upgrade", "Set", { Troop = scoutTower } }
-    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgArgs)) end)
+    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(scoutUpgArgs)) end)
     task.wait(0.35)
     if not autoPlaceEnabled then return false end
 
     -- Scout Upgrade 2
-    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(scoutUpgArgs)) end)
+    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(scoutUpgArgs)) end)
     task.wait(0.35)
     if not autoPlaceEnabled then return false end
 
@@ -2719,7 +2752,7 @@ local function processScoutSell()
         }
     }
     pcall(function()
-        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(sellArgs))
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(sellArgs))
     end)
 
     scoutSold = true
@@ -2755,7 +2788,7 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
         }
 
         pcall(function()
-            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(shotgunnerPlaceArgs))
+            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(shotgunnerPlaceArgs))
         end)
 
         placedModel = nil
@@ -2875,7 +2908,7 @@ while autoPlaceEnabled and (tick() - upgStart1) < 45.0 do
                 }
             }
             pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
             end)
         end
         task.wait(0.20)
@@ -2931,7 +2964,7 @@ while autoPlaceEnabled and (tick() - upgStart2) < 45.0 do
                 }
             }
             pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
             end)
         end
         task.wait(0.20)
@@ -2986,7 +3019,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
         }
 
         pcall(function()
-            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(minigunnerPlaceArgs))
+            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(minigunnerPlaceArgs))
         end)
 
         placedModel = nil
@@ -3108,7 +3141,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
                 }
             }
             pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
             end)
         end
         task.wait(0.20)
@@ -3164,7 +3197,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
                 }
             }
             pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
             end)
         end
         task.wait(0.20)
@@ -3220,7 +3253,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
                 }
             }
             pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
             end)
         end
         task.wait(0.20)
@@ -3294,7 +3327,7 @@ local function upgradeSpecificTower(shotgunnerIndex, uid, placedModel, targetLev
                 }
             }
             pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(upgradeArgs))
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
             end)
         end
         task.wait(0.20)
@@ -4838,7 +4871,7 @@ do
     loaderGui.Name = "TDSTestLoaderGui"
     loaderGui.IgnoreGuiInset = true
     loaderGui.DisplayOrder = 10000
-    loaderGui.Parent = parentContainer
+    safeParentGui(loaderGui)
     
     -- Screen Wrapper
     local screenWrapper = Instance.new("Frame")
