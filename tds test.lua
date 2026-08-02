@@ -2,12 +2,10 @@
 -- TDS TEST - AAA COSMIC UNIVERSE UI
 -- ==========================================
 
-pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "Startup 1: Initializing Services & Environment...", Duration = 3 }) end)
-
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Print to In-Game Notifications Update",
-        Text = "Converted all debug and status prints to in-game notifications",
+        Title = "Auto Place Towers Full Script Update",
+        Text = "9-Shotgunner Lvl 4 complete pipeline deployed to tds test.lua",
         Duration = 5
     })
 end)
@@ -313,6 +311,59 @@ end)
 -- ----------------------------------------------------
 -- AAA MODERN UI REDESIGN SECTION (COSMIC UNIVERSE THEME)
 -- ----------------------------------------------------
+
+-- ============================================================
+-- DETERMINISTIC GAME / LOBBY LOADING SCREEN WAITER
+-- ============================================================
+local function waitForGameLoad()
+    -- 1. Wait for game engine loading to complete
+    if not game:IsLoaded() then
+        pcall(function() game.Loaded:Wait() end)
+    end
+
+    -- 2. Wait for LocalPlayer and PlayerGui to be available
+    local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
+    if not lp then
+        pcall(function()
+            lp = Players:WaitForChild("LocalPlayer", 10) or Players:FindFirstChildOfClass("Player")
+        end)
+    end
+
+    if lp then
+        local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
+        if not pg then
+            pcall(function() pg = lp:WaitForChild("PlayerGui", 10) end)
+        end
+
+        -- 3. Deterministically wait until any active TDS loading screen GUI disappears
+        if pg then
+            local startWait = os.clock()
+            while (os.clock() - startWait) < 120 do
+                local isLoadingActive = false
+
+                for _, child in ipairs(pg:GetChildren()) do
+                    if child:IsA("ScreenGui") and child.Enabled then
+                        local nameLower = string.lower(child.Name)
+                        if string.find(nameLower, "loading") or string.find(nameLower, "loadscreen") or string.find(nameLower, "maploading") then
+                            isLoadingActive = true
+                            break
+                        end
+                    end
+                end
+
+                if not isLoadingActive then
+                    break
+                end
+
+                task.wait(0.25)
+            end
+        end
+    end
+    task.wait(0.5) -- Final settle delay to ensure game rendering is complete
+end
+
+-- Wait until loading screen is completely finished before creating or showing any GUI
+waitForGameLoad()
 
 pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "Creating GUI...", Duration = 3 }) end)
 local screenGui = Instance.new("ScreenGui")
@@ -1012,19 +1063,12 @@ createSidebarTabButton("Towers")
 createSidebarTabButton("Menu Settings")
 
 
--- Precise Target Element Finder (with scoring, screen bounds, ImageButton support, and own-menu exclusion)
-local function notifyDiag(titleText, bodyText)
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = string.sub(tostring(titleText or "Diagnostic"), 1, 35),
-            Text = string.sub(tostring(bodyText or ""), 1, 85),
-            Duration = 4
-        })
-    end)
-end
-
 -- Forward declarations for cross-section variables
 local tStatus
+autoQueueEnabled = false
+isPlayerQueuedState = false
+local switchBtn, swKnob
+local isGuiObjectTrulyVisible, sendHardwareClick, triggerAllSignals, findTargetButton, executeAutoQueueStepByStep, isQueueRunning
 autoQueueEnabled = false
 isPlayerQueuedState = false
 local switchBtn, swKnob
@@ -1847,6 +1891,17 @@ function triggerAllSignals(gui)
     return success
 end
 
+-- Precise Target Element Finder (with scoring, screen bounds, ImageButton support, and own-menu exclusion)
+local function notifyDiag(titleText, bodyText)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = string.sub(tostring(titleText or "Diagnostic"), 1, 35),
+            Text = string.sub(tostring(bodyText or ""), 1, 85),
+            Duration = 4
+        })
+    end)
+end
+
 -- Helper: Check if element or parent chain belongs to SoundGui or our custom UI
 local function isExcludedContainer(gui)
     local cur = gui
@@ -2025,8 +2080,21 @@ function executeAutoQueueStepByStep()
     pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Debug L1] Function executeAutoQueueStepByStep called"), Duration = 4 }) end)
     
     -- Task 7: Variable Audit & Value Verification
-    pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "Auto Queue Audit", Text = string.format("autoQueueEnabled=%s, isQueueRunning=%s, selectedDifficulty=%s, selectedSquadSize=%s, isPlayerQueuedState=%s, tStatus=%s", tostring(autoQueueEnabled), tostring(isQueueRunning), tostring(selectedDifficulty), tostring(selectedSquadSize), tostring(isPlayerQueuedState), tostring(tStatus)), Duration = 4 }) end)
-        
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Auto Queue Audit",
+            Text = string.format(
+                "autoQueueEnabled=%s, isQueueRunning=%s, selectedDifficulty=%s, selectedSquadSize=%s, isPlayerQueuedState=%s, tStatus=%s",
+                tostring(autoQueueEnabled),
+                tostring(isQueueRunning),
+                tostring(selectedDifficulty),
+                tostring(selectedSquadSize),
+                tostring(isPlayerQueuedState),
+                tostring(tStatus and tStatus.Text or "NIL")
+            ),
+            Duration = 4
+        })
+    end)
         
     if isQueueRunning then
         pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 0: Already running (isQueueRunning state lock active)"), Duration = 4 }) end)
@@ -2574,6 +2642,7 @@ local function findTowerByUID(targetUID)
     return nil
 end
 
+do
 local autoPlaceCard = Instance.new("Frame")
 autoPlaceCard.Name = "ToggleCard_AutoPlaceTowers"
 autoPlaceCard.Size = UDim2.new(1, 0, 0, 72)
@@ -2611,7 +2680,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout -> 9 Shotgunners (Lvl 4) -> 10 Minigunners (Lvl 3)"
+apcSub.Text = "Scout ($1225 sell) -> 9 Shotgunners (Deterministic Pipeline)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2654,6 +2723,7 @@ apcSwKnob.Parent = apcSwitchBtn
 local apcKnobCorner = Instance.new("UICorner")
 apcKnobCorner.CornerRadius = UDim.new(1, 0)
 apcKnobCorner.Parent = apcSwKnob
+end
 
 local function stopAutoPlaceTask()
     if _autoPlaceTask then
@@ -2671,7 +2741,7 @@ end
 
 -- DETERMINISTIC STATE MACHINE PIPELINE FUNCTIONS
 
--- 1. Scout Placement & Double Upgrade
+-- 1. Scout Placement & Double Upgrade (Deterministic UID & Money Gated)
 local function processScoutPlacement()
     if not autoPlaceEnabled then return false end
 
@@ -2693,13 +2763,15 @@ local function processScoutPlacement()
     end)
 
     local newTower = nil
+    local scoutUID = nil
     local scoutDetectStart = tick()
 
     while autoPlaceEnabled and (tick() - scoutDetectStart) < 5 do
         for _, child in ipairs(towersFolder:GetChildren()) do
             if child:IsA("Model") then
-                if not getTowerUID(child) then
-                    continue
+                local uidCandidate = getTowerUID(child)
+                if not uidCandidate then
+                    task.wait(0.01)
                 end
 
                 if getTowerReplicatorLevel(child) == 0 then
@@ -2711,14 +2783,11 @@ local function processScoutPlacement()
                         child == minigunner1Model or child == minigunner2Model or child == minigunner3Model or
                         child == minigunner4Model or child == minigunner5Model or child == minigunner6Model or
                         child == minigunner7Model or child == minigunner8Model or child == minigunner9Model or
-                        child == minigunner10Model or
-                        child == shotgunner6Model or
-                        child == shotgunner7Model or
-                        child == shotgunner8Model or
-                        child == shotgunner9Model
+                        child == minigunner10Model
 
                     if not alreadyUsed then
                         newTower = child
+                        scoutUID = uidCandidate
                         break
                     end
                 end
@@ -2740,19 +2809,115 @@ local function processScoutPlacement()
 
     task.wait(0.25)
 
+    -- UID verification & lock
+    if not scoutUID then
+        local uidStart = tick()
+        while autoPlaceEnabled and not scoutUID and (tick() - uidStart) < 5.0 do
+            scoutUID = getTowerUID(newTower)
+            task.wait(0.05)
+        end
+    end
+
+    if scoutUID then
+        local verifyStart = tick()
+        while autoPlaceEnabled and (tick() - verifyStart) < 5.0 do
+            if findTowerByUID(scoutUID) then
+                break
+            end
+            task.wait(0.05)
+        end
+        local verified = findTowerByUID(scoutUID)
+        if verified then
+            newTower = verified
+        end
+    end
+
     scoutTower = newTower
     scoutPlaced = true
 
-    -- Scout Upgrade 1
-    local scoutUpgArgs = { "Troops", "Upgrade", "Set", { Troop = scoutTower } }
-    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(scoutUpgArgs)) end)
-    task.wait(0.35)
-    if not autoPlaceEnabled then return false end
+    -- SCOUT UPGRADE 1 PIPELINE (Wait Money >= $50 & Confirm Level 1 via Scanner)
+    local moneyWait1 = tick()
+    while autoPlaceEnabled and currentTDSMoneyNumber < 50 and (tick() - moneyWait1) < 180.0 do
+        task.wait(0.1)
+    end
 
-    -- Scout Upgrade 2
-    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(scoutUpgArgs)) end)
-    task.wait(0.35)
-    if not autoPlaceEnabled then return false end
+    if not autoPlaceEnabled or currentTDSMoneyNumber < 50 then
+        turnOffAutoPlaceToggle()
+        sendInGameNotification("Auto Place Aborted", "Money wait ($50) timed out for Scout Upgrade 1.")
+        return false
+    end
+
+    local scoutLvl1Confirmed = false
+    local upgStart1 = tick()
+    while autoPlaceEnabled and (tick() - upgStart1) < 45.0 do
+        local targetModel = (scoutUID and findTowerByUID(scoutUID)) or scoutTower
+        if not targetModel then
+            targetModel = scoutTower
+        end
+
+        if not targetModel then
+            task.wait(0.10)
+        end
+
+        if targetModel and getTowerReplicatorLevel(targetModel) >= 1 then
+            scoutLvl1Confirmed = true
+            break
+        end
+
+        if targetModel and targetModel.Parent then
+            local scoutUpgArgs = { "Troops", "Upgrade", "Set", { Troop = targetModel } }
+            pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(scoutUpgArgs)) end)
+        end
+        task.wait(0.20)
+    end
+
+    if not scoutLvl1Confirmed or not autoPlaceEnabled then
+        turnOffAutoPlaceToggle()
+        sendInGameNotification("Auto Place Aborted", "Scanner Upgrade 1 verification timed out for Scout.")
+        return false
+    end
+
+    -- SCOUT UPGRADE 2 PIPELINE (Wait Money >= $375 & Confirm Level 2 via Scanner)
+    local moneyWait2 = tick()
+    while autoPlaceEnabled and currentTDSMoneyNumber < 375 and (tick() - moneyWait2) < 180.0 do
+        task.wait(0.1)
+    end
+
+    if not autoPlaceEnabled or currentTDSMoneyNumber < 375 then
+        turnOffAutoPlaceToggle()
+        sendInGameNotification("Auto Place Aborted", "Money wait ($375) timed out for Scout Upgrade 2.")
+        return false
+    end
+
+    local scoutLvl2Confirmed = false
+    local upgStart2 = tick()
+    while autoPlaceEnabled and (tick() - upgStart2) < 45.0 do
+        local targetModel = (scoutUID and findTowerByUID(scoutUID)) or scoutTower
+        if not targetModel then
+            targetModel = scoutTower
+        end
+
+        if not targetModel then
+            task.wait(0.10)
+        end
+
+        if targetModel and getTowerReplicatorLevel(targetModel) >= 2 then
+            scoutLvl2Confirmed = true
+            break
+        end
+
+        if targetModel and targetModel.Parent then
+            local scoutUpgArgs = { "Troops", "Upgrade", "Set", { Troop = targetModel } }
+            pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(scoutUpgArgs)) end)
+        end
+        task.wait(0.20)
+    end
+
+    if not scoutLvl2Confirmed or not autoPlaceEnabled then
+        turnOffAutoPlaceToggle()
+        sendInGameNotification("Auto Place Aborted", "Scanner Upgrade 2 verification timed out for Scout.")
+        return false
+    end
 
     scoutUpgraded = true
     return true
@@ -2804,7 +2969,7 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
     local placePipelineStart = tick()
 
     while autoPlaceEnabled and (tick() - placePipelineStart) < 45.0 do
-        attempt += 1
+        attempt = attempt + 1
 
         local shotgunnerPlaceArgs = {
             "Troops",
@@ -2827,7 +2992,7 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
             for _, child in ipairs(towersFolder:GetChildren()) do
                 if child:IsA("Model") then
                     if not getTowerUID(child) then
-                        continue
+                        --continue--
                     end
 
                     if getTowerReplicatorLevel(child) == 0 then
@@ -2917,7 +3082,7 @@ while autoPlaceEnabled and (tick() - upgStart1) < 45.0 do
 
         if not targetModel then
             task.wait(0.10)
-            continue
+            --continue--
         end
 
         placedModel = targetModel
@@ -2973,7 +3138,7 @@ while autoPlaceEnabled and (tick() - upgStart2) < 45.0 do
 
         if not targetModel then
             task.wait(0.10)
-            continue
+            --continue--
         end
 
         placedModel = targetModel
@@ -3035,7 +3200,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
     local placePipelineStart = tick()
 
     while autoPlaceEnabled and (tick() - placePipelineStart) < 45.0 do
-        attempt += 1
+        attempt = attempt + 1
 
         local minigunnerPlaceArgs = {
             "Troops",
@@ -3058,7 +3223,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
             for _, child in ipairs(towersFolder:GetChildren()) do
                 if child:IsA("Model") then
                     if not getTowerUID(child) then
-                        continue
+                        --continue--
                     end
 
                     if getTowerReplicatorLevel(child) == 0 then
@@ -3150,7 +3315,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
 
         if not targetModel then
             task.wait(0.10)
-            continue
+            --continue--
         end
 
         placedModel = targetModel
@@ -3206,7 +3371,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
 
         if not targetModel then
             task.wait(0.10)
-            continue
+            --continue--
         end
 
         placedModel = targetModel
@@ -3262,7 +3427,7 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
 
         if not targetModel then
             task.wait(0.10)
-            continue
+            --continue--
         end
 
         placedModel = targetModel
@@ -3305,67 +3470,6 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
     elseif minigunnerIndex == 8 then minigunner8Model, minigunner8UID = placedModel, uid
     elseif minigunnerIndex == 9 then minigunner9Model, minigunner9UID = placedModel, uid
     elseif minigunnerIndex == 10 then minigunner10Model, minigunner10UID = placedModel, uid
-    end
-
-    return true
-end
-
--- Dedicated Helper for Pass 1 (Level 3) and Pass 2 (Level 4) Sequential Upgrades
-local function upgradeSpecificTower(shotgunnerIndex, uid, placedModel, targetLevel, moneyCost)
-    if not autoPlaceEnabled or not uid then return false end
-
-    -- Money Wait Stage
-    local moneyWaitStart = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < moneyCost and (tick() - moneyWaitStart) < 180.0 do
-        task.wait(0.1)
-    end
-
-    if not autoPlaceEnabled or currentTDSMoneyNumber < moneyCost then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Money wait ($%d) timed out for Shotgunner #%d (Level %d).", moneyCost, shotgunnerIndex, targetLevel))
-        return false
-    end
-
-    local levelConfirmed = false
-    local upgStart = tick()
-
-    while autoPlaceEnabled and (tick() - upgStart) < 45.0 do
-        local targetModel = findTowerByUID(uid)
-
-        if not targetModel then
-            targetModel = placedModel
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-            continue
-        end
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= targetLevel then
-            levelConfirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local upgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = targetModel
-                }
-            }
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
-            end)
-        end
-        task.wait(0.20)
-    end
-
-    if not levelConfirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Scanner Upgrade %d verification timed out for Shotgunner #%d.", targetLevel, shotgunnerIndex))
-        return false
     end
 
     return true
@@ -3426,17 +3530,17 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
             local p8 = Vector3.new(12.14875602722168, 1.0000064373016357, 3.7485179901123047)
             local p9 = Vector3.new(12.177484512329102, 1.0000064373016357, 5.752628326416016)
 
-            if vector and vector.create then
+            if vector and Vector3.new then
                 pcall(function()
-                    p1 = vector.create(12.490434646606445, 1.0000064373016357, -10.304333686828613)
-                    p2 = vector.create(12.487998962402344, 1.0000064373016357, -8.301471710205078)
-                    p3 = vector.create(12.300650596618652, 1.0000064373016357, -6.279729843139648)
-                    p4 = vector.create(12.210693359375, 1.0000064373016357, -4.2749176025390625)
-                    p5 = vector.create(12.139368057250977, 1.0000064373016357, -2.2711424827575684)
-                    p6 = vector.create(12.086908340454102, 1.0000064373016357, -0.2654876708984375)
-                    p7 = vector.create(12.142791748046875, 1.0000064373016357, 1.7478370666503906)
-                    p8 = vector.create(12.14875602722168, 1.0000064373016357, 3.7485179901123047)
-                    p9 = vector.create(12.177484512329102, 1.0000064373016357, 5.752628326416016)
+                    p1 = Vector3.new(12.490434646606445, 1.0000064373016357, -10.304333686828613)
+                    p2 = Vector3.new(12.487998962402344, 1.0000064373016357, -8.301471710205078)
+                    p3 = Vector3.new(12.300650596618652, 1.0000064373016357, -6.279729843139648)
+                    p4 = Vector3.new(12.210693359375, 1.0000064373016357, -4.2749176025390625)
+                    p5 = Vector3.new(12.139368057250977, 1.0000064373016357, -2.2711424827575684)
+                    p6 = Vector3.new(12.086908340454102, 1.0000064373016357, -0.2654876708984375)
+                    p7 = Vector3.new(12.142791748046875, 1.0000064373016357, 1.7478370666503906)
+                    p8 = Vector3.new(12.14875602722168, 1.0000064373016357, 3.7485179901123047)
+                    p9 = Vector3.new(12.177484512329102, 1.0000064373016357, 5.752628326416016)
                 end)
             end
 
@@ -3458,60 +3562,6 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                 end
             end
 
-            -- Step 5: PASS 1 - Upgrade every Shotgunner from Level 2 to Level 3 in exact order (#1 -> #9)
-            if ok and autoPlaceEnabled then
-                local uids = {
-                    shotgunner1UID, shotgunner2UID, shotgunner3UID,
-                    shotgunner4UID, shotgunner5UID, shotgunner6UID,
-                    shotgunner7UID, shotgunner8UID, shotgunner9UID
-                }
-                local models = {
-                    shotgunner1Model, shotgunner2Model, shotgunner3Model,
-                    shotgunner4Model, shotgunner5Model, shotgunner6Model,
-                    shotgunner7Model, shotgunner8Model, shotgunner9Model
-                }
-
-                for i = 1, 9 do
-                    if not autoPlaceEnabled then
-                        ok = false
-                        break
-                    end
-
-                    local pass1Success = upgradeSpecificTower(i, uids[i], models[i], 3, 6000)
-                    if not pass1Success then
-                        ok = false
-                        break
-                    end
-                end
-            end
-
-            -- Step 6: PASS 2 - Upgrade every Shotgunner from Level 3 to Level 4 in exact order (#1 -> #9)
-            if ok and autoPlaceEnabled then
-                local uids = {
-                    shotgunner1UID, shotgunner2UID, shotgunner3UID,
-                    shotgunner4UID, shotgunner5UID, shotgunner6UID,
-                    shotgunner7UID, shotgunner8UID, shotgunner9UID
-                }
-                local models = {
-                    shotgunner1Model, shotgunner2Model, shotgunner3Model,
-                    shotgunner4Model, shotgunner5Model, shotgunner6Model,
-                    shotgunner7Model, shotgunner8Model, shotgunner9Model
-                }
-
-                for i = 1, 9 do
-                    if not autoPlaceEnabled then
-                        ok = false
-                        break
-                    end
-
-                    local pass2Success = upgradeSpecificTower(i, uids[i], models[i], 4, 18500)
-                    if not pass2Success then
-                        ok = false
-                        break
-                    end
-                end
-            end
-
             -- Step 7: Minigunners Sequential Pipeline (#1 to #10 up to Level 3)
             if ok and autoPlaceEnabled then
                 local mp1 = Vector3.new(3.3973870277404785, 1.0000064373016357, 5.273189544677734)
@@ -3525,18 +3575,18 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                 local mp9 = Vector3.new(0.6056113243103027, 1.0000064373016357, 1.8032293319702148)
                 local mp10 = Vector3.new(0.7378559112548828, 1.0000064373016357, -1.2998151779174805)
 
-                if vector and vector.create then
+                if vector and Vector3.new then
                     pcall(function()
-                        mp1 = vector.create(3.3973870277404785, 1.0000064373016357, 5.273189544677734)
-                        mp2 = vector.create(3.68341064453125, 1.0000064373016357, 2.269501209259033)
-                        mp3 = vector.create(3.718188762664795, 1.0000064373016357, -0.7739953994750977)
-                        mp4 = vector.create(3.841353416442871, 1.0000064373016357, -3.801422119140625)
-                        mp5 = vector.create(3.819641590118408, 1.0000064373016357, -6.826100826263428)
-                        mp6 = vector.create(3.7243003845214844, 1.0000064373016357, -9.859762191772461)
-                        mp7 = vector.create(3.79325532913208, 1.0000064373016357, -12.903999328613281)
-                        mp8 = vector.create(3.8457250595092773, 1.0000064373016357, -15.914878845214844)
-                        mp9 = vector.create(0.6056113243103027, 1.0000064373016357, 1.8032293319702148)
-                        mp10 = vector.create(0.7378559112548828, 1.0000064373016357, -1.2998151779174805)
+                        mp1 = Vector3.new(3.3973870277404785, 1.0000064373016357, 5.273189544677734)
+                        mp2 = Vector3.new(3.68341064453125, 1.0000064373016357, 2.269501209259033)
+                        mp3 = Vector3.new(3.718188762664795, 1.0000064373016357, -0.7739953994750977)
+                        mp4 = Vector3.new(3.841353416442871, 1.0000064373016357, -3.801422119140625)
+                        mp5 = Vector3.new(3.819641590118408, 1.0000064373016357, -6.826100826263428)
+                        mp6 = Vector3.new(3.7243003845214844, 1.0000064373016357, -9.859762191772461)
+                        mp7 = Vector3.new(3.79325532913208, 1.0000064373016357, -12.903999328613281)
+                        mp8 = Vector3.new(3.8457250595092773, 1.0000064373016357, -15.914878845214844)
+                        mp9 = Vector3.new(0.6056113243103027, 1.0000064373016357, 1.8032293319702148)
+                        mp10 = Vector3.new(0.7378559112548828, 1.0000064373016357, -1.2998151779174805)
                     end)
                 end
 
@@ -4354,6 +4404,7 @@ local function objInspectorConnect()
 end
 
 -- OBJECT INSPECTOR TOGGLE CARD UI
+do
 local objInsCard = Instance.new("Frame")
 objInsCard.Name = "ToggleCard_ObjectInspector"
 objInsCard.Size = UDim2.new(1, 0, 0, 72)
@@ -4433,6 +4484,7 @@ oicSwKnob.Parent = oicSwitchBtn
 local oicKnobCorner = Instance.new("UICorner")
 oicKnobCorner.CornerRadius = UDim.new(1, 0)
 oicKnobCorner.Parent = oicSwKnob
+end
 
 oicSwitchBtn.MouseButton1Click:Connect(function()
     objectInspectorEnabled = not objectInspectorEnabled
@@ -4857,490 +4909,15 @@ EXEC_ENV[MENU_STATE_KEY] = {
 
 
 -- ==========================================
--- PREMIUM LOADER SCREEN & INTRO TRANSITION
--- ==========================================
+-- PREMIUM LOADER SCREEN & INTRO TRANSITION (Instant 0ms Direct Render)
 do
-    local menuRoot = root
-    local origSize = UDim2.fromOffset(720, 470)
-    
-    -- Ensure root menu is ALREADY VISIBLE and full size by default
-    menuRoot.Visible = true
-    menuRoot.Size = origSize
-    
-    -- 1. Get real Game Name & User Avatar Details
-    local gameName = "TDS Test"
-    local avatarUrl = nil
-    
+    root.Visible = true
+    root.Size = UDim2.fromOffset(720, 470)
     pcall(function()
-        local info = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
-        if info and info.Name then
-            gameName = info.Name
-        end
-    end)
-    if gameName == "Unknown Game" or gameName == "Game" or gameName == "Ugc" then
-        pcall(function()
-            gameName = game.Name
-        end)
-    end
-    
-    -- Non-blocking avatar thumbnail fetch
-    task.spawn(function()
-        if LocalPlayer then
-            pcall(function()
-                avatarUrl = Players:GetUserThumbnailAsync(
-                    LocalPlayer.UserId,
-                    Enum.ThumbnailType.HeadShot,
-                    Enum.ThumbnailSize.Size100x100
-                )
-            end)
-        end
-    end)
-    
-    -- Create ScreenGui inside parentContainer
-    local loaderGui = Instance.new("ScreenGui")
-    loaderGui.Name = "TDSTestLoaderGui"
-    loaderGui.IgnoreGuiInset = true
-    loaderGui.DisplayOrder = 10000
-    safeParentGui(loaderGui)
-    
-    -- Screen Wrapper
-    local screenWrapper = Instance.new("Frame")
-    screenWrapper.Size = UDim2.fromScale(1, 1)
-    screenWrapper.BackgroundTransparency = 1
-    screenWrapper.Parent = loaderGui
-    
-    -- Background Shutter Blind Panels (Interlaced 6 vertical panels)
-    local blindPanels = {}
-    for i = 1, 6 do
-        local blind = Instance.new("Frame")
-        blind.Size = UDim2.new(1/6 + 0.002, 0, 1, 0)
-        blind.Position = UDim2.new((i-1)/6, 0, 0, 0)
-        blind.BackgroundColor3 = Color3.fromRGB(7, 9, 13)
-        blind.BorderSizePixel = 0
-        blind.ZIndex = 5
-        blind.Parent = screenWrapper
-        table.insert(blindPanels, blind)
-    end
-    
-    -- Grid Pattern Overlay
-    local gridOverlay = Instance.new("Frame")
-    gridOverlay.Size = UDim2.fromScale(1, 1)
-    gridOverlay.BackgroundTransparency = 0.95
-    gridOverlay.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
-    gridOverlay.ZIndex = 6
-    gridOverlay.Parent = screenWrapper
-    
-    -- Core Visualizer / Wormhole Tunnel Container
-    local tunnelFrame = Instance.new("Frame")
-    tunnelFrame.Size = UDim2.fromScale(1, 1)
-    tunnelFrame.BackgroundTransparency = 1
-    tunnelFrame.ZIndex = 7
-    tunnelFrame.Parent = screenWrapper
-    
-    -- 4 Straight Inward Zooming Concentric Vector Rings
-    local tunnelRings = {}
-    for i = 1, 4 do
-        local ring = Instance.new("Frame")
-        ring.Size = UDim2.fromScale(0.3 * i, 0.3 * i)
-        ring.Position = UDim2.fromScale(0.5, 0.5)
-        ring.AnchorPoint = Vector2.new(0.5, 0.5)
-        ring.BackgroundTransparency = 1
-        ring.ZIndex = 7
-        ring.Parent = tunnelFrame
-        
-        local rc = Instance.new("UICorner")
-        rc.CornerRadius = UDim.new(0.2, 0)
-        rc.Parent = ring
-        
-        local stroke = Instance.new("UIStroke")
-        stroke.Color = Color3.fromRGB(0, 255, 255)
-        stroke.Thickness = 1.5
-        stroke.Parent = ring
-        attachRotatingOutline(stroke, 30, i * 45)
-        
-        table.insert(tunnelRings, { gui = ring, stroke = stroke, scale = 0.3 * i, speed = 0.6, idx = i })
-    end
-    
-    -- Inward Starfield Glide System (90 stars)
-    local starfield = {}
-    local function createStar(parent, x, y, size)
-        local star = Instance.new("Frame")
-        star.Size = UDim2.fromOffset(size or 2, size or 2)
-        star.Position = UDim2.fromScale(x, y)
-        star.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        star.BorderSizePixel = 0
-        star.ZIndex = 8
-        star.Parent = parent
-        local sc = Instance.new("UICorner")
-        sc.CornerRadius = UDim.new(1, 0)
-        sc.Parent = star
-        return star
-    end
-    
-    for i = 1, 90 do
-        local angle = math.random() * math.pi * 2
-        local radius = math.random() * 0.9
-        local size = math.random(1, 3)
-        local starGui = createStar(tunnelFrame, 0.5 + math.cos(angle) * radius, 0.5 + math.sin(angle) * radius, size)
-        table.insert(starfield, { gui = starGui, angle = angle, radius = radius, speed = 0.4 + math.random() * 0.5, baseOpacity = math.random(60, 100)/100 })
-    end
-    
-    -- Pulsing Vector Cyber Core Ring in Center
-    local coreFrame = Instance.new("Frame")
-    coreFrame.Size = UDim2.fromOffset(130, 130)
-    coreFrame.Position = UDim2.fromScale(0.5, 0.5)
-    coreFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    coreFrame.BackgroundTransparency = 1
-    coreFrame.ZIndex = 9
-    coreFrame.Parent = screenWrapper
-    
-    local coreGlow = Instance.new("Frame")
-    coreGlow.Size = UDim2.fromScale(1.4, 1.4)
-    coreGlow.Position = UDim2.fromScale(0.5, 0.5)
-    coreGlow.AnchorPoint = Vector2.new(0.5, 0.5)
-    coreGlow.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
-    coreGlow.BackgroundTransparency = 0.88
-    coreGlow.ZIndex = 8
-    coreGlow.Parent = coreFrame
-    local cgC = Instance.new("UICorner")
-    cgC.CornerRadius = UDim.new(1, 0)
-    cgC.Parent = coreGlow
-    
-    -- Radial Dynamic Audio Equalizer Bars
-    local radialBars = {}
-    for i = 1, 32 do
-        local angle = (i / 32) * math.pi * 2
-        local bar = Instance.new("Frame")
-        bar.Size = UDim2.fromOffset(4, 18)
-        bar.AnchorPoint = Vector2.new(0.5, 1)
-        
-        local radius = 80
-        local cx = 0.5 + (math.cos(angle) * radius / 130)
-        local cy = 0.5 + (math.sin(angle) * radius / 130)
-        
-        bar.Position = UDim2.fromScale(cx, cy)
-        bar.Rotation = math.deg(angle) + 90
-        bar.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
-        bar.BorderSizePixel = 0
-        bar.ZIndex = 10
-        bar.Parent = coreFrame
-        
-        local bC = Instance.new("UICorner")
-        bC.CornerRadius = UDim.new(1, 0)
-        bC.Parent = bar
-        
-        local bGrad = Instance.new("UIGradient")
-        bGrad.Color = getThemeColorSequence(uiColorTheme)
-        bGrad.Parent = bar
-        
-        table.insert(radialBars, { bar = bar, angle = angle })
-    end
-    
-    -- Scanning laser line
-    local scanLine = Instance.new("Frame")
-    scanLine.Size = UDim2.new(1, 0, 0, 2)
-    scanLine.Position = UDim2.fromScale(0, 0.5)
-    scanLine.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
-    scanLine.BackgroundTransparency = 0.3
-    scanLine.BorderSizePixel = 0
-    scanLine.ZIndex = 9
-    scanLine.Parent = screenWrapper
-    
-    local innerCore = Instance.new("Frame")
-    innerCore.Size = UDim2.fromOffset(75, 75)
-    innerCore.Position = UDim2.fromScale(0.5, 0.5)
-    innerCore.AnchorPoint = Vector2.new(0.5, 0.5)
-    innerCore.BackgroundColor3 = Color3.fromRGB(7, 9, 13)
-    innerCore.ZIndex = 11
-    innerCore.Parent = coreFrame
-    local icC = Instance.new("UICorner")
-    icC.CornerRadius = UDim.new(1, 0)
-    icC.Parent = innerCore
-    local icStroke = Instance.new("UIStroke")
-    icStroke.Color = Color3.fromRGB(0, 255, 255)
-    icStroke.Thickness = 1.5
-    icStroke.Parent = innerCore
-    attachRotatingOutline(icStroke, -30, 180)
-    
-    local loaderPercent = Instance.new("TextLabel")
-    loaderPercent.BackgroundTransparency = 1
-    loaderPercent.Size = UDim2.fromScale(1, 1)
-    loaderPercent.Font = Enum.Font.Code
-    loaderPercent.Text = "0.00%"
-    loaderPercent.TextSize = 20
-    loaderPercent.TextColor3 = Color3.fromRGB(0, 255, 255)
-    loaderPercent.TextXAlignment = Enum.TextXAlignment.Center
-    loaderPercent.TextYAlignment = Enum.TextYAlignment.Center
-    loaderPercent.ZIndex = 12
-    loaderPercent.Parent = innerCore
-    
-    -- Integrated Authorization Dashboard Card
-    local authCard = Instance.new("Frame")
-    authCard.Size = UDim2.fromOffset(360, 85)
-    authCard.Position = UDim2.new(0.5, 0, 0, -120)
-    authCard.AnchorPoint = Vector2.new(0.5, 0)
-    authCard.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    authCard.BackgroundTransparency = 0.25
-    authCard.ZIndex = 12
-    authCard.Parent = screenWrapper
-    
-    local acCorner = Instance.new("UICorner")
-    acCorner.CornerRadius = UDim.new(0, 16)
-    acCorner.Parent = authCard
-    
-    local acStroke = Instance.new("UIStroke")
-    acStroke.Color = Color3.fromRGB(0, 255, 255)
-    acStroke.Thickness = 1.5
-    acStroke.Parent = authCard
-    attachRotatingOutline(acStroke, 25, 0)
-    
-    local avatarFrame = Instance.new("Frame")
-    avatarFrame.Size = UDim2.fromOffset(55, 55)
-    avatarFrame.Position = UDim2.fromOffset(15, 15)
-    avatarFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-    avatarFrame.ZIndex = 13
-    avatarFrame.Parent = authCard
-    local avC = Instance.new("UICorner")
-    avC.CornerRadius = UDim.new(0.3, 0)
-    avC.Parent = avatarFrame
-    local avS = Instance.new("UIStroke")
-    avS.Color = Color3.fromRGB(0, 255, 255)
-    avS.Thickness = 1.2
-    avS.Parent = avatarFrame
-    
-    local avatarImg = Instance.new("ImageLabel")
-    avatarImg.Size = UDim2.fromScale(0.9, 0.9)
-    avatarImg.Position = UDim2.fromScale(0.05, 0.05)
-    avatarImg.BackgroundTransparency = 1
-    avatarImg.ZIndex = 14
-    avatarImg.Parent = avatarFrame
-    local avImgCorner = Instance.new("UICorner")
-    avImgCorner.CornerRadius = UDim.new(0.3, 0)
-    avImgCorner.Parent = avatarImg
-    if avatarUrl then
-        avatarImg.Image = avatarUrl
-    else
-        task.spawn(function()
-            if LocalPlayer then
-                pcall(function()
-                    local url = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
-                    if url and avatarImg and avatarImg.Parent then
-                        avatarImg.Image = url
-                    end
-                end)
-            end
-        end)
-    end
-    
-    local userNameStr = LocalPlayer and LocalPlayer.Name or "User"
-    local authTitle = Instance.new("TextLabel")
-    authTitle.Position = UDim2.fromOffset(85, 12)
-    authTitle.Size = UDim2.new(1, -100, 0, 18)
-    authTitle.Font = Enum.Font.Code
-    authTitle.Text = "ACCESS AUTHORIZED // CLIENT SECURE"
-    authTitle.TextSize = 11
-    authTitle.TextColor3 = Color3.fromRGB(0, 255, 255)
-    authTitle.TextXAlignment = Enum.TextXAlignment.Left
-    authTitle.BackgroundTransparency = 1
-    authTitle.ZIndex = 13
-    authTitle.Parent = authCard
-    
-    local authBody = Instance.new("TextLabel")
-    authBody.Position = UDim2.fromOffset(85, 30)
-    authBody.Size = UDim2.new(1, -100, 0, 42)
-    authBody.Font = Enum.Font.Code
-    authBody.Text = string.format("USER: %s\nGAME: %s\nLOAD: INITIALIZED", userNameStr, string.upper(gameName))
-    authBody.TextSize = 10
-    authBody.TextColor3 = Color3.fromRGB(240, 245, 255)
-    authBody.TextXAlignment = Enum.TextXAlignment.Left
-    authBody.TextYAlignment = Enum.TextYAlignment.Top
-    authBody.BackgroundTransparency = 1
-    authBody.ZIndex = 13
-    authBody.Parent = authCard
-    
-    -- Status message center bottom
-    local loaderStatus = Instance.new("TextLabel")
-    loaderStatus.BackgroundTransparency = 1
-    loaderStatus.AnchorPoint = Vector2.new(0.5, 1)
-    loaderStatus.Position = UDim2.new(0.5, 0, 1, -45)
-    loaderStatus.Size = UDim2.fromOffset(600, 20)
-    loaderStatus.Font = Enum.Font.Code
-    loaderStatus.Text = "> INIT DIAL LINK..."
-    loaderStatus.TextSize = 11
-    loaderStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
-    loaderStatus.TextXAlignment = Enum.TextXAlignment.Center
-    loaderStatus.ZIndex = 10
-    loaderStatus.Parent = screenWrapper
-    
-    -- Title Header
-    local loaderTitle = Instance.new("TextLabel")
-    loaderTitle.BackgroundTransparency = 1
-    loaderTitle.AnchorPoint = Vector2.new(0.5, 0)
-    loaderTitle.Position = UDim2.new(0.5, 0, 0, 36)
-    loaderTitle.Size = UDim2.fromOffset(500, 45)
-    loaderTitle.Font = Enum.Font.GothamBold
-    loaderTitle.Text = "TDS TEST"
-    loaderTitle.TextSize = 28
-    loaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    loaderTitle.TextXAlignment = Enum.TextXAlignment.Center
-    loaderTitle.ZIndex = 10
-    loaderTitle.Parent = screenWrapper
-    
-    -- White Blinding Camera Flash Overlay
-    local cameraFlash = Instance.new("Frame")
-    cameraFlash.Size = UDim2.fromScale(1, 1)
-    cameraFlash.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    cameraFlash.BackgroundTransparency = 1
-    cameraFlash.BorderSizePixel = 0
-    cameraFlash.ZIndex = 999999
-    cameraFlash.Parent = screenWrapper
-    
-    -- ========= RUN TRANSITION =========
-    task.spawn(function()
-        local success, err = pcall(function()
-        local function typeText(lbl, text, speed)
-            local sc = {"#", "%", "X", "0", "1"}
-            for i = 1, #text do
-                local cur = string.sub(text, 1, i)
-                if i < #text then
-                    cur = cur .. sc[math.random(1, #sc)]
-                end
-                lbl.Text = "> " .. cur .. " _"
-                task.wait(speed or 0.012)
-            end
-        end
-        
-        -- Slide down Auth HUD card
-        TweenService:Create(authCard, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Position = UDim2.new(0.5, 0, 0, 100)
-        }):Play()
-        
-        local lastTime = os.clock()
-        
-        local function runStage(targetPct, statusText, duration)
-            task.spawn(function() typeText(loaderStatus, statusText, 0.007) end)
-            local startTime = os.clock()
-            local startPct = tonumber(string.match(loaderPercent.Text, "%d+%.?%d*")) or 0
-            
-            while os.clock() - startTime < duration do
-                local el = os.clock() - startTime
-                local prog = math.clamp(el / duration, 0, 1)
-                local curPct = startPct + (targetPct * 100 - startPct) * prog
-                loaderPercent.Text = string.format("%.2f%%", curPct)
-                local t = curPct / 100
-                
-                -- Laser line sweep
-                scanLine.Position = UDim2.new(0, 0, (math.sin(os.clock() * 5.2) + 1)/2, 0)
-                
-                -- Decelerate core rotation near 90%
-                local rotationSpeed = 32
-                local waveIntensity = 8
-                local noiseIntensity = 12
-                if t > 0.85 then
-                    local scaleBack = (1 - t) / 0.15
-                    rotationSpeed = 4 + (28 * scaleBack)
-                    waveIntensity = 2 + (6 * scaleBack)
-                    noiseIntensity = 3 + (9 * scaleBack)
-                end
-                
-                -- Dynamic visualizer waves
-                for _, data in ipairs(radialBars) do
-                    local phase = (data.angle) * 2
-                    local wave = math.sin(os.clock() * 15 + phase) * waveIntensity
-                    local noiseVal = math.noise(data.angle, os.clock() * 8) * noiseIntensity
-                    local length = math.clamp(14 + wave + noiseVal, 6, 44)
-                    data.bar.Size = UDim2.fromOffset(4, length)
-                end
-                
-                -- Inward Starfield Glide (90 stars)
-                local dt = os.clock() - lastTime
-                lastTime = os.clock()
-                if dt > 0.1 then dt = 0.016 end
-                
-                for _, star in ipairs(starfield) do
-                    star.radius = star.radius - star.speed * dt
-                    if star.radius < 0.05 then
-                        star.radius = 1.0 + math.random() * 0.15
-                        star.angle = math.random() * math.pi * 2
-                    end
-                    
-                    local x = 0.5 + math.cos(star.angle) * star.radius
-                    local y = 0.5 + math.sin(star.angle) * star.radius
-                    star.gui.Position = UDim2.fromScale(x, y)
-                    
-                    local opacity = 1
-                    if star.radius < 0.15 then
-                        opacity = (star.radius - 0.05) / 0.10
-                    elseif star.radius > 0.9 then
-                        opacity = (1.15 - star.radius) / 0.25
-                    end
-                    star.gui.BackgroundTransparency = 1 - (opacity * star.baseOpacity)
-                end
-                
-                coreFrame.Rotation = (coreFrame.Rotation + (rotationSpeed * task.wait())) % 360
-            end
-            loaderPercent.Text = string.format("%.2f%%", targetPct * 100)
-        end
-        
-        -- Run Stages (0.4 seconds each, total 1.6 seconds intro)
-        runStage(0.25, "PERFORMING SYSTEM SECURITY AUDIT...", 0.4)
-        runStage(0.60, "HOOKING CLIENT APIS & CONTEXTS...", 0.4)
-        runStage(0.90, "SYNCHRONIZING DESKTOP WRAPPERS...", 0.4)
-        runStage(1.00, "CONSOLE INTERFACE CONNECTED...", 0.4)
-        task.wait(0.08)
-        
-        -- Hide percentage text
-        loaderPercent.Visible = false
-        
-        -- Retract HUD elements
-        TweenService:Create(authCard, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-            Position = UDim2.new(0.5, 0, 0, -150)
-        }):Play()
-        TweenService:Create(loaderTitle, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-            Position = UDim2.new(0.5, 0, 0, -100)
-        }):Play()
-        TweenService:Create(loaderStatus, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-            Position = UDim2.new(0.5, 0, 1, 100)
-        }):Play()
-        TweenService:Create(scanLine, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            BackgroundTransparency = 1
-        }):Play()
-        
-        -- Implode inner core
-        TweenService:Create(innerCore, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-            Size = UDim2.fromOffset(0, 0)
-        }):Play()
-        TweenService:Create(coreGlow, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-            Size = UDim2.fromScale(0, 0)
-        }):Play()
-        
-        task.wait(0.2)
-        
-        -- Interlaced Blind Slide
-        local slideTime = 0.45
-        for index, blind in ipairs(blindPanels) do
-            local targetX = (index % 2 == 0) and -1.2 or 1.2
-            TweenService:Create(blind, TweenInfo.new(slideTime, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-                Position = UDim2.new(targetX, 0, blind.Position.Y.Scale, 0)
-            }):Play()
-        end
-        
-        task.wait(slideTime - 0.1)
-        
-        -- Reveal Root Menu Window safely
-        menuRoot.Visible = true
-        menuRoot.Size = origSize
-        
-        task.wait(0.1)
-        end) -- end pcall
-        
-        -- Fail-safe guarantee: reveal root menu & cleanup loader
-        menuRoot.Visible = true
-        menuRoot.Size = origSize
-        pcall(function()
-            if loaderGui and loaderGui.Parent then
-                loaderGui:Destroy()
-            end
-        end)
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "TDS Test UI",
+            Text = "Script loaded successfully - Menu Ready!",
+            Duration = 4
+        })
     end)
 end
