@@ -2644,6 +2644,7 @@ local function findTowerByUID(targetUID)
     return nil
 end
 
+local apcSwitchBtn, apcSwKnob
 do
 local autoPlaceCard = Instance.new("Frame")
 autoPlaceCard.Name = "ToggleCard_AutoPlaceTowers"
@@ -2689,7 +2690,7 @@ apcSub.TextXAlignment = Enum.TextXAlignment.Left
 apcSub.ZIndex = 6
 apcSub.Parent = autoPlaceCard
 
-local apcSwitchBtn = Instance.new("TextButton")
+apcSwitchBtn = Instance.new("TextButton")
 apcSwitchBtn.Name = "AutoPlaceTowersSwitchBtn"
 apcSwitchBtn.AnchorPoint = Vector2.new(1, 0.5)
 apcSwitchBtn.Position = UDim2.new(1, -16, 0.5, 0)
@@ -2713,7 +2714,7 @@ apcSwStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 apcSwStroke.Parent = apcSwitchBtn
 attachRotatingOutline(apcSwStroke, 24, 135)
 
-local apcSwKnob = Instance.new("Frame")
+apcSwKnob = Instance.new("Frame")
 apcSwKnob.Name = "Knob"
 apcSwKnob.Size = UDim2.fromOffset(20, 20)
 apcSwKnob.Position = UDim2.fromOffset(3, 3)
@@ -4406,6 +4407,7 @@ local function objInspectorConnect()
 end
 
 -- OBJECT INSPECTOR TOGGLE CARD UI
+local oicSwitchBtn, oicSwKnob
 do
 local objInsCard = Instance.new("Frame")
 objInsCard.Name = "ToggleCard_ObjectInspector"
@@ -4450,7 +4452,7 @@ oicSub.TextXAlignment = Enum.TextXAlignment.Left
 oicSub.ZIndex = 6
 oicSub.Parent = objInsCard
 
-local oicSwitchBtn = Instance.new("TextButton")
+oicSwitchBtn = Instance.new("TextButton")
 oicSwitchBtn.Name = "ObjectInspectorSwitchBtn"
 oicSwitchBtn.AnchorPoint = Vector2.new(1, 0.5)
 oicSwitchBtn.Position = UDim2.new(1, -16, 0.5, 0)
@@ -4474,7 +4476,7 @@ oicSwStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 oicSwStroke.Parent = oicSwitchBtn
 attachRotatingOutline(oicSwStroke, 24, 315)
 
-local oicSwKnob = Instance.new("Frame")
+oicSwKnob = Instance.new("Frame")
 oicSwKnob.Name = "Knob"
 oicSwKnob.Size = UDim2.fromOffset(20, 20)
 oicSwKnob.Position = UDim2.fromOffset(3, 3)
