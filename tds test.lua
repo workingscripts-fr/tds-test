@@ -2589,6 +2589,7 @@ local function findTowerByUID(targetUID)
     return nil
 end
 
+do
 local autoPlaceCard = Instance.new("Frame")
 autoPlaceCard.Name = "ToggleCard_AutoPlaceTowers"
 autoPlaceCard.Size = UDim2.new(1, 0, 0, 72)
@@ -2669,6 +2670,7 @@ apcSwKnob.Parent = apcSwitchBtn
 local apcKnobCorner = Instance.new("UICorner")
 apcKnobCorner.CornerRadius = UDim.new(1, 0)
 apcKnobCorner.Parent = apcSwKnob
+end
 
 local function stopAutoPlaceTask()
     if _autoPlaceTask then
@@ -4371,6 +4373,7 @@ local function objInspectorConnect()
 end
 
 -- OBJECT INSPECTOR TOGGLE CARD UI
+do
 local objInsCard = Instance.new("Frame")
 objInsCard.Name = "ToggleCard_ObjectInspector"
 objInsCard.Size = UDim2.new(1, 0, 0, 72)
@@ -4450,6 +4453,7 @@ oicSwKnob.Parent = oicSwitchBtn
 local oicKnobCorner = Instance.new("UICorner")
 oicKnobCorner.CornerRadius = UDim.new(1, 0)
 oicKnobCorner.Parent = oicSwKnob
+end
 
 oicSwitchBtn.MouseButton1Click:Connect(function()
     objectInspectorEnabled = not objectInspectorEnabled
