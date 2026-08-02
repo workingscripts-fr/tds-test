@@ -313,86 +313,48 @@ end)
 -- ----------------------------------------------------
 
 -- ============================================================
--- SAFE & DETERMINISTIC GAME / LOBBY LOADING SCREEN WAITER
+-- SAFE & DETERMINISTIC GAME / LOBBY READINESS WAITER
 -- ============================================================
 local function waitForGameLoad()
     pcall(function()
-        local startTotalWait = os.clock()
-
-        -- 1. Initial grace period: wait up to 3.0s for game engine & loading GUIs to initialize
-        local initStart = os.clock()
-        while (os.clock() - initStart) < 3.0 do
-            if not game:IsLoaded() then
-                task.wait(0.1)
-            else
-                -- Check if a loading GUI has spawned in PlayerGui
-                local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
-                local pg = lp and (lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui"))
-                if pg then
-                    local foundLoading = false
-                    for _, child in ipairs(pg:GetDescendants()) do
-                        if child:IsA("ScreenGui") and child.Enabled then
-                            local nameLower = string.lower(child.Name)
-                            local looksLikeLoading =
-                                string.find(nameLower, "loading")
-                                or string.find(nameLower, "loadscreen")
-                                or string.find(nameLower, "startup")
-                                or string.find(nameLower, "boot")
-                                or string.find(nameLower, "transition")
-                                or string.find(nameLower, "teleport")
-
-                            if looksLikeLoading then
-                                foundLoading = true
-                                break
-                            end
-                        end
-                    end
-                    if foundLoading then
-                        break -- Loading GUI has appeared, proceed to active wait loop
-                    end
-                end
+        -- 1. Wait for game engine loading
+        if not game:IsLoaded() then
+            local engineStart = os.clock()
+            while not game:IsLoaded() and (os.clock() - engineStart) < 15.0 do
                 task.wait(0.1)
             end
         end
 
-        -- 2. Active wait loop: Stay visible while game is loading OR loading GUI is active
-        while (os.clock() - startTotalWait) < 120.0 do
-            local isEngineLoading = not game:IsLoaded()
-            local isGuiLoading = false
-
-            local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
-            local pg = lp and (lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui"))
-            if pg then
-                for _, child in ipairs(pg:GetDescendants()) do
-                    if child:IsA("ScreenGui") and child.Enabled then
-                        local nameLower = string.lower(child.Name)
-                        local looksLikeLoading =
-                            string.find(nameLower, "loading")
-                            or string.find(nameLower, "loadscreen")
-                            or string.find(nameLower, "startup")
-                            or string.find(nameLower, "boot")
-                            or string.find(nameLower, "transition")
-                            or string.find(nameLower, "teleport")
-
-                        if looksLikeLoading then
-                            isGuiLoading = true
-                            break
-                        end
-                    end
+        -- 2. Wait for LocalPlayer
+        local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
+        if not lp then
+            local lpStart = os.clock()
+            while not lp and (os.clock() - lpStart) < 10.0 do
+                lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
+                if not lp then
+                    pcall(function() lp = Players:FindFirstChildOfClass("Player") end)
                 end
+                if lp then break end
+                task.wait(0.1)
             end
+        end
 
-            -- Exit condition: Engine is loaded AND no loading GUI is active
-            if not isEngineLoading and not isGuiLoading then
-                break
+        -- 3, 4, 5. Wait for Character, Humanoid, and HumanoidRootPart
+        if lp then
+            local charStart = os.clock()
+            while (os.clock() - charStart) < 15.0 do
+                local char = lp.Character
+                if char and char:FindFirstChildOfClass("Humanoid") and char:FindFirstChild("HumanoidRootPart") then
+                    break
+                end
+                task.wait(0.1)
             end
-
-            task.wait(0.2)
         end
     end)
 
+    -- 6. Allow frame rendering to settle (8 RenderStepped frames)
     local RunService = game:GetService("RunService")
-    for i = 1, 5 do
+    for i = 1, 8 do
         RunService.RenderStepped:Wait()
     end
 end
