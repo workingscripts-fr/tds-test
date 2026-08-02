@@ -2,12 +2,10 @@
 -- TDS TEST - AAA COSMIC UNIVERSE UI
 -- ==========================================
 
-pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "9 Shotgunners Lvl 4 Pipeline Update", Text = "Pass 1 (Lvl 3) and Pass 2 (Lvl 4) sequential upgrades enabled", Duration = 3 }) end)
-
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Immediate GUI Render & Execution Fix Update",
-        Text = "Bypassed intro loader overlay for instant 0ms UI rendering",
+        Title = "9 Shotgunners Lvl 4 Pipeline Update",
+        Text = "Pass 1 (Lvl 3) and Pass 2 (Lvl 4) sequential upgrades enabled",
         Duration = 5
     })
 end)
