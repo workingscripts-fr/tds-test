@@ -2627,7 +2627,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout ($1225 sell) -> 9 Shotgunners (Pass 1 Lvl 3 -> Pass 2 Lvl 4)"
+apcSub.Text = "Scout ($1225 sell) -> 9 Shotgunners (Deterministic Pipeline)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -3329,67 +3329,6 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
     return true
 end
 
--- Dedicated Helper for Pass 1 (Level 3) and Pass 2 (Level 4) Sequential Upgrades
-local function upgradeSpecificTower(shotgunnerIndex, uid, placedModel, targetLevel, moneyCost)
-    if not autoPlaceEnabled or not uid then return false end
-
-    -- Money Wait Stage
-    local moneyWaitStart = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < moneyCost and (tick() - moneyWaitStart) < 180.0 do
-        task.wait(0.1)
-    end
-
-    if not autoPlaceEnabled or currentTDSMoneyNumber < moneyCost then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Money wait ($%d) timed out for Shotgunner #%d (Level %d).", moneyCost, shotgunnerIndex, targetLevel))
-        return false
-    end
-
-    local levelConfirmed = false
-    local upgStart = tick()
-
-    while autoPlaceEnabled and (tick() - upgStart) < 45.0 do
-        local targetModel = findTowerByUID(uid)
-
-        if not targetModel then
-            targetModel = placedModel
-        end
-
-        if not targetModel then
-            task.wait(0.10)
-            --continue--
-        end
-
-        if targetModel and getTowerReplicatorLevel(targetModel) >= targetLevel then
-            levelConfirmed = true
-            break
-        end
-
-        if targetModel and targetModel.Parent then
-            local upgradeArgs = {
-                "Troops",
-                "Upgrade",
-                "Set",
-                {
-                    Troop = targetModel
-                }
-            }
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(upgradeArgs))
-            end)
-        end
-        task.wait(0.20)
-    end
-
-    if not levelConfirmed or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Scanner Upgrade %d verification timed out for Shotgunner #%d.", targetLevel, shotgunnerIndex))
-        return false
-    end
-
-    return true
-end
-
 -- MAIN TOGGLE EVENT HANDLER
 apcSwitchBtn.MouseButton1Click:Connect(function()
     autoPlaceEnabled = not autoPlaceEnabled
@@ -3471,60 +3410,6 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
 
                     local shotgunnerSuccess = PlaceAndUpgradeShotgunner(i, positions[i])
                     if not shotgunnerSuccess then
-                        ok = false
-                        break
-                    end
-                end
-            end
-
-            -- Step 5: PASS 1 - Upgrade every Shotgunner from Level 2 to Level 3 in exact order (#1 -> #9)
-            if ok and autoPlaceEnabled then
-                local uids = {
-                    shotgunner1UID, shotgunner2UID, shotgunner3UID,
-                    shotgunner4UID, shotgunner5UID, shotgunner6UID,
-                    shotgunner7UID, shotgunner8UID, shotgunner9UID
-                }
-                local models = {
-                    shotgunner1Model, shotgunner2Model, shotgunner3Model,
-                    shotgunner4Model, shotgunner5Model, shotgunner6Model,
-                    shotgunner7Model, shotgunner8Model, shotgunner9Model
-                }
-
-                for i = 1, 9 do
-                    if not autoPlaceEnabled then
-                        ok = false
-                        break
-                    end
-
-                    local pass1Success = upgradeSpecificTower(i, uids[i], models[i], 3, 6000)
-                    if not pass1Success then
-                        ok = false
-                        break
-                    end
-                end
-            end
-
-            -- Step 6: PASS 2 - Upgrade every Shotgunner from Level 3 to Level 4 in exact order (#1 -> #9)
-            if ok and autoPlaceEnabled then
-                local uids = {
-                    shotgunner1UID, shotgunner2UID, shotgunner3UID,
-                    shotgunner4UID, shotgunner5UID, shotgunner6UID,
-                    shotgunner7UID, shotgunner8UID, shotgunner9UID
-                }
-                local models = {
-                    shotgunner1Model, shotgunner2Model, shotgunner3Model,
-                    shotgunner4Model, shotgunner5Model, shotgunner6Model,
-                    shotgunner7Model, shotgunner8Model, shotgunner9Model
-                }
-
-                for i = 1, 9 do
-                    if not autoPlaceEnabled then
-                        ok = false
-                        break
-                    end
-
-                    local pass2Success = upgradeSpecificTower(i, uids[i], models[i], 4, 18500)
-                    if not pass2Success then
                         ok = false
                         break
                     end
