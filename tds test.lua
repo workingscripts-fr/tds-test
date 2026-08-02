@@ -2,12 +2,12 @@
 -- TDS TEST - AAA COSMIC UNIVERSE UI
 -- ==========================================
 
-print("[TDS TEST DEBUG] Startup 1: Initializing Services & Environment...")
+pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "Startup 1: Initializing Services & Environment...", Duration = 3 }) end)
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Forensic Execution Audit & Loader Fix Update",
-        Text = "Root GUI visibility guaranteed; loader fail-safes verified",
+        Title = "Print to In-Game Notifications Update",
+        Text = "Converted all debug and status prints to in-game notifications",
         Duration = 5
     })
 end)
@@ -70,37 +70,70 @@ if not parentContainer and LocalPlayer then
     parentContainer = LocalPlayer:FindFirstChildOfClass("PlayerGui") or LocalPlayer:FindFirstChild("PlayerGui")
 end
 
-print("[TDS TEST DEBUG] Startup 2: Resolving LocalPlayer & Environment State...")
+pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "Startup 2: Resolving LocalPlayer & Environment State...", Duration = 3 }) end)
 
--- Safe Parent GUI Helper
+-- Safe Parent GUI Helper (100% Bulletproof Across All Executors)
 local function safeParentGui(gui)
     if not gui then return false end
-    if gethui then
-        local ok = pcall(function() gui.Parent = gethui() end)
-        if ok and gui.Parent then return true end
-    end
-    if syn and syn.protect_gui then
-        pcall(function() syn.protect_gui(gui) gui.Parent = game:GetService("CoreGui") end)
-        if gui.Parent then return true end
-    end
-    local lp = game:GetService("Players").LocalPlayer
-    if lp then
-        local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
-        if pg then
-            local ok = pcall(function() gui.Parent = pg end)
-            if ok and gui.Parent then return true end
+    pcall(function() gui.Enabled = true end)
+
+    -- 1. Try gethui() if gethui returns a valid Instance
+    if type(gethui) == "function" then
+        local ok, res = pcall(gethui)
+        if ok and typeof(res) == "Instance" then
+            local pOk = pcall(function() gui.Parent = res end)
+            if pOk and gui.Parent == res then return true end
         end
     end
-    local ok = pcall(function() gui.Parent = game:GetService("CoreGui") end)
-    if ok and gui.Parent then return true end
-    return false
+
+    -- 2. Try LocalPlayer.PlayerGui (Wait up to 3s if LocalPlayer or PlayerGui is loading)
+    local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
+    if not lp then
+        pcall(function()
+            lp = Players:WaitForChild("LocalPlayer", 3) or Players:FindFirstChildOfClass("Player")
+        end)
+    end
+
+    if lp then
+        local pg = lp:FindFirstChildOfClass("PlayerGui") or lp:FindFirstChild("PlayerGui")
+        if not pg then
+            pcall(function()
+                pg = lp:WaitForChild("PlayerGui", 3)
+            end)
+        end
+        if pg then
+            local ok = pcall(function() gui.Parent = pg end)
+            if ok and gui.Parent == pg then return true end
+        end
+    end
+
+    -- 3. Try syn.protect_gui with CoreGui
+    if type(syn) == "table" and type(syn.protect_gui) == "function" then
+        pcall(function()
+            syn.protect_gui(gui)
+        end)
+    end
+
+    -- 4. Try CoreGui
+    local okCore, coreGui = pcall(function() return game:GetService("CoreGui") end)
+    if okCore and coreGui then
+        local ok = pcall(function() gui.Parent = coreGui end)
+        if ok and gui.Parent == coreGui then return true end
+    end
+
+    -- 5. Ultimate Fallback: CurrentCamera or Workspace
+    pcall(function()
+        gui.Parent = workspace.CurrentCamera or workspace
+    end)
+
+    return gui.Parent ~= nil
 end
 
 -- Singleton cleanup to prevent multiple instances
 local EXEC_ENV = (getgenv and getgenv()) or _G
 local MENU_STATE_KEY = "__TDSTestSingletonState"
 
-print("[TDS TEST DEBUG] Startup 3: Cleaning up previous menu state...")
+pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "Startup 3: Cleaning up previous menu state...", Duration = 3 }) end)
 do
     local previousState = EXEC_ENV[MENU_STATE_KEY]
     if previousState then
@@ -116,7 +149,7 @@ do
     end
 end
 
-print("[TDS TEST DEBUG] Startup 4: Initializing Design Tokens & Theme Engine...")
+pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "Startup 4: Initializing Design Tokens & Theme Engine...", Duration = 3 }) end)
 
 -- Theme Color Names
 local UI_THEME_GREEN_PURPLE = "Green/Purple"
@@ -281,7 +314,7 @@ end)
 -- AAA MODERN UI REDESIGN SECTION (COSMIC UNIVERSE THEME)
 -- ----------------------------------------------------
 
-print("[TDS TEST DEBUG] Creating GUI...")
+pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "Creating GUI...", Duration = 3 }) end)
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "TDSTestUI"
 screenGui.ResetOnSpawn = false
@@ -292,7 +325,7 @@ pcall(function()
     screenGui.OnTopOfCoreBlur = true
 end)
 safeParentGui(screenGui)
-print("[TDS TEST DEBUG] GUI Created & Parented Successfully.")
+pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "GUI Created & Parented Successfully.", Duration = 3 }) end)
 
 local root = Instance.new("Frame")
 root.Name = "Root"
@@ -1803,7 +1836,7 @@ function triggerAllSignals(gui)
         success = true
     end
     
-    print(string.format("[triggerAllSignals] Target '%s' (%s) -> Triggered: %s", gui.Name, gui.ClassName, table.concat(signalLogs, ", ")))
+    pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[triggerAllSignals] Target '%s' (%s) -> Triggered: %s", gui.Name, gui.ClassName, table.concat(signalLogs, ", "))), Duration = 4 }) end)
     return success
 end
 
@@ -1983,67 +2016,67 @@ local function waitForCondition(conditionFunc, timeout, retryInterval, condition
     while os.clock() - startTime < timeout do
         local ok, result = pcall(conditionFunc)
         if ok and result then
-            print(string.format("[AutoQueue] waitForCondition SUCCESS: %s met in %.2fs", conditionName, os.clock() - startTime))
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue] waitForCondition SUCCESS: %s met in %.2fs", conditionName, os.clock() - startTime)), Duration = 4 }) end)
             return result
         end
         task.wait(retryInterval)
     end
-    print(string.format("[AutoQueue] waitForCondition TIMEOUT: %s was NOT met after %.2fs", conditionName, timeout))
+    pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue] waitForCondition TIMEOUT: %s was NOT met after %.2fs", conditionName, timeout)), Duration = 4 }) end)
     return nil
 end
 
 function executeAutoQueueStepByStep()
-    print("[AutoQueue Debug L1] Function executeAutoQueueStepByStep called")
+    pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Debug L1] Function executeAutoQueueStepByStep called"), Duration = 4 }) end)
     
     -- Task 7: Variable Audit & Value Verification
-    print(string.format("[AutoQueue Variable Audit] autoQueueEnabled=%s, isQueueRunning=%s, selectedDifficulty=%s, selectedSquadSize=%s, isPlayerQueuedState=%s, tStatus=%s",
+    pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "Auto Queue Audit", Text = string.format("autoQueueEnabled=%s, isQueueRunning=%s, selectedDifficulty=%s, selectedSquadSize=%s, isPlayerQueuedState=%s, tStatus=%s", tostring(autoQueueEnabled), tostring(isQueueRunning), tostring(selectedDifficulty), tostring(selectedSquadSize), tostring(isPlayerQueuedState), tostring(tStatus)), Duration = 4 }) end)
         tostring(autoQueueEnabled), tostring(isQueueRunning), tostring(selectedDifficulty), tostring(selectedSquadSize), tostring(isPlayerQueuedState), tostring(tStatus and tStatus.Text or "NIL")))
         
     if isQueueRunning then
-        print("[AutoQueue Exit] RETURN 0: Already running (isQueueRunning state lock active)")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 0: Already running (isQueueRunning state lock active)"), Duration = 4 }) end)
         return
     end
     if not autoQueueEnabled then
-        print("[AutoQueue Exit] RETURN 1: Auto Queue is currently disabled")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 1: Auto Queue is currently disabled"), Duration = 4 }) end)
         if tStatus then tStatus.Text = "Status: Disabled" end
         return
     end
     
     isQueueRunning = true
-    print("[AutoQueue Debug L2] State lock acquired (isQueueRunning = true)")
+    pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Debug L2] State lock acquired (isQueueRunning = true)"), Duration = 4 }) end)
     
     -- Task 1: Unmask errors and replace silent pcall
     local success, err = pcall(function()
         if not autoQueueEnabled then
-            print("[AutoQueue Exit] RETURN 1.1: Disabled inside execution loop")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 1.1: Disabled inside execution loop"), Duration = 4 }) end)
             tStatus.Text = "Status: Disabled"
             tStatus.TextColor3 = Color3.fromRGB(160, 170, 184)
             return
         end
         
-        print("[AutoQueue Debug L3] Checking selection validations...")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Debug L3] Checking selection validations..."), Duration = 4 }) end)
         -- Validation Check: Difficulty & Squad Size selected
         if selectedDifficulty == "Not Chosen" and selectedSquadSize == "Not Chosen" then
-            print("[AutoQueue Exit] RETURN 2.1: Difficulty & Squad Size Not Chosen")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 2.1: Difficulty & Squad Size Not Chosen"), Duration = 4 }) end)
             tStatus.Text = "Status: Difficulty & Squad Size Not Chosen"
             tStatus.TextColor3 = Color3.fromRGB(255, 120, 0)
             return
         elseif selectedDifficulty == "Not Chosen" then
-            print("[AutoQueue Exit] RETURN 2.2: Difficulty Not Chosen")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 2.2: Difficulty Not Chosen"), Duration = 4 }) end)
             tStatus.Text = "Status: Difficulty Not Chosen"
             tStatus.TextColor3 = Color3.fromRGB(255, 120, 0)
             return
         elseif selectedSquadSize == "Not Chosen" then
-            print("[AutoQueue Exit] RETURN 2.3: Squad Size Not Chosen")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 2.3: Squad Size Not Chosen"), Duration = 4 }) end)
             tStatus.Text = "Status: Squad Size Not Chosen"
             tStatus.TextColor3 = Color3.fromRGB(255, 120, 0)
             return
         end
         
-        print("[AutoQueue Debug L4] Checking queue state confirmation...")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Debug L4] Checking queue state confirmation..."), Duration = 4 }) end)
         local cancelBtn = findTargetButton("cancel")
         if cancelBtn or isPlayerQueuedState then
-            print(string.format("[AutoQueue Exit] RETURN 3: Already queued (cancelBtn=%s, isPlayerQueuedState=%s)", tostring(cancelBtn ~= nil), tostring(isPlayerQueuedState)))
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue Exit] RETURN 3: Already queued (cancelBtn=%s, isPlayerQueuedState=%s)", tostring(cancelBtn ~= nil), tostring(isPlayerQueuedState))), Duration = 4 }) end)
             tStatus.Text = "Status: Successfully Queued!"
             tStatus.TextColor3 = Color3.fromRGB(14, 255, 0)
             return
@@ -2079,7 +2112,7 @@ function executeAutoQueueStepByStep()
         local menuAlreadyOpen = isGamemodeMenuOpen()
         
         if not menuAlreadyOpen then
-            print("[AutoQueue] Play menu is closed. Searching for Green PLAY button...")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue] Play menu is closed. Searching for Green PLAY button..."), Duration = 4 }) end)
             tStatus.Text = "Status: Searching for PLAY..."
             tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
             
@@ -2087,7 +2120,7 @@ function executeAutoQueueStepByStep()
             local retries = 0
             while not playBtn and retries < 5 and autoQueueEnabled do
                 retries = retries + 1
-                print(string.format("[AutoQueue Retry] Searching for Green PLAY button (Attempt %d/5)...", retries))
+                pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue Retry] Searching for Green PLAY button (Attempt %d/5)...", retries)), Duration = 4 }) end)
                 tStatus.Text = string.format("Status: Waiting for PLAY (%d/5)...", retries)
                 tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
                 task.wait(0.5)
@@ -2095,13 +2128,13 @@ function executeAutoQueueStepByStep()
             end
             
             if not playBtn then
-                print("[AutoQueue Exit] Green PLAY button could not be found")
+                pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] Green PLAY button could not be found"), Duration = 4 }) end)
                 tStatus.Text = "Status: PLAY Button Not Found"
                 tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
                 return
             end
             
-            print("[AutoQueue] Found Green PLAY button. Clicking PLAY...")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue] Found Green PLAY button. Clicking PLAY..."), Duration = 4 }) end)
             notifyDiag("Play Clicked", "")
             tStatus.Text = "Status: Clicking PLAY..."
             tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
@@ -2109,7 +2142,7 @@ function executeAutoQueueStepByStep()
             triggerAllSignals(playBtn)
             task.wait(1.0)
         else
-            print("[AutoQueue] Play ALREADY clicked. Choose a Gamemode menu is open!")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue] Play ALREADY clicked. Choose a Gamemode menu is open!"), Duration = 4 }) end)
             tStatus.Text = "Status: Menu Open -> Finding Survival..."
             tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
         end
@@ -2117,7 +2150,7 @@ function executeAutoQueueStepByStep()
         ----------------------------------------------------
         -- STEP 2 Execution: Find & Click Survival Card
         ----------------------------------------------------
-        print("[AutoQueue] Searching for Survival card...")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue] Searching for Survival card..."), Duration = 4 }) end)
         notifyDiag("Searching Survival", "")
         tStatus.Text = "Status: Searching for Survival..."
         tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
@@ -2126,7 +2159,7 @@ function executeAutoQueueStepByStep()
         local retries = 0
         while not survivalBtn and retries < 5 and autoQueueEnabled do
             retries = retries + 1
-            print(string.format("[AutoQueue Retry] Searching for Survival card (%d/5)...", retries))
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue Retry] Searching for Survival card (%d/5)...", retries)), Duration = 4 }) end)
             tStatus.Text = string.format("Status: Searching Survival (%d/5)...", retries)
             tStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
             task.wait(0.5)
@@ -2134,7 +2167,7 @@ function executeAutoQueueStepByStep()
         end
         
         if survivalBtn then
-            print("[AutoQueue] Found Survival card! Clicking Survival...")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue] Found Survival card! Clicking Survival..."), Duration = 4 }) end)
             notifyDiag("Survival Found", "")
             tStatus.Text = "Status: Clicking Survival..."
             tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
@@ -2142,97 +2175,97 @@ function executeAutoQueueStepByStep()
             triggerAllSignals(survivalBtn)
             task.wait(0.5)
         else
-            print("[AutoQueue Exit] Survival gamemode card not found after retries")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] Survival gamemode card not found after retries"), Duration = 4 }) end)
             tStatus.Text = "Status: Survival Card Not Found"
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
             return
         end
         
-        print("[AutoQueue] Survival Found")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue] Survival Found"), Duration = 4 }) end)
         
         ----------------------------------------------------
         -- STEP 3: Click Survival & Verify Difficulty menu appears
         ----------------------------------------------------
-        print(string.format("[AutoQueue Debug L7] Step 3: Clicking Survival & waiting for Difficulty '%s'...", selectedDifficulty))
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue Debug L7] Step 3: Clicking Survival & waiting for Difficulty '%s'...", selectedDifficulty)), Duration = 4 }) end)
         local diffBtn = findTargetButton(selectedDifficulty)
         retries = 0
         while not diffBtn and retries < 5 and autoQueueEnabled do
             retries = retries + 1
-            print(string.format("[AutoQueue] Clicking Survival (Attempt %d/5)", retries))
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue] Clicking Survival (Attempt %d/5)", retries)), Duration = 4 }) end)
             tStatus.Text = string.format("Status: Selecting Survival (%d/5)...", retries)
             tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
             
             triggerAllSignals(survivalBtn)
             
-            print("[AutoQueue] Waiting for Difficulty")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue] Waiting for Difficulty"), Duration = 4 }) end)
             diffBtn = waitForCondition(function()
                 return findTargetButton(selectedDifficulty)
             end, 1.2, 0.15, "Difficulty " .. tostring(selectedDifficulty) .. " Menu Visibility")
             
             if not diffBtn then
-                print(string.format("[AutoQueue Retry Notice] Difficulty '%s' not visible after attempt %d/5, re-verifying Survival button", selectedDifficulty, retries))
+                pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue Retry Notice] Difficulty '%s' not visible after attempt %d/5, re-verifying Survival button", selectedDifficulty, retries)), Duration = 4 }) end)
                 survivalBtn = findTargetButton("survival") or survivalBtn
             end
         end
         
         if not diffBtn then
-            print(string.format("[AutoQueue Exit] RETURN 6: Difficulty '%s' not found after 5 retries. Restarting sequence...", selectedDifficulty))
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue Exit] RETURN 6: Difficulty '%s' not found after 5 retries. Restarting sequence...", selectedDifficulty)), Duration = 4 }) end)
             tStatus.Text = string.format("Status: Difficulty %s Not Found - Restarting...", selectedDifficulty)
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
             return
         end
         
-        print(string.format("[AutoQueue] Difficulty Found: %s", selectedDifficulty))
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue] Difficulty Found: %s", selectedDifficulty)), Duration = 4 }) end)
         
         ----------------------------------------------------
         -- STEP 4: Click Selected Difficulty & Verify Squad menu appears
         ----------------------------------------------------
-        print(string.format("[AutoQueue Debug L8] Step 4: Clicking Difficulty '%s' & waiting for Squad '%s'...", selectedDifficulty, selectedSquadSize))
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue Debug L8] Step 4: Clicking Difficulty '%s' & waiting for Squad '%s'...", selectedDifficulty, selectedSquadSize)), Duration = 4 }) end)
         local squadBtn = findTargetButton(selectedSquadSize)
         retries = 0
         while not squadBtn and retries < 5 and autoQueueEnabled do
             retries = retries + 1
-            print(string.format("[AutoQueue] Clicking %s (Attempt %d/5)", selectedDifficulty, retries))
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue] Clicking %s (Attempt %d/5)", selectedDifficulty, retries)), Duration = 4 }) end)
             tStatus.Text = string.format("Status: Clicking %s (%d/5)...", selectedDifficulty, retries)
             tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
             
             triggerAllSignals(diffBtn)
             
-            print("[AutoQueue] Waiting for Squad")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue] Waiting for Squad"), Duration = 4 }) end)
             squadBtn = waitForCondition(function()
                 return findTargetButton(selectedSquadSize)
             end, 1.2, 0.15, "Squad " .. tostring(selectedSquadSize) .. " Menu Visibility")
             
             if not squadBtn then
-                print(string.format("[AutoQueue Retry Notice] Squad '%s' not visible after attempt %d/5, re-verifying Difficulty button", selectedSquadSize, retries))
+                pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue Retry Notice] Squad '%s' not visible after attempt %d/5, re-verifying Difficulty button", selectedSquadSize, retries)), Duration = 4 }) end)
                 diffBtn = findTargetButton(selectedDifficulty) or diffBtn
             end
         end
         
         if not squadBtn then
-            print(string.format("[AutoQueue Exit] RETURN 7: Squad option '%s' not found after 5 retries. Restarting sequence...", selectedSquadSize))
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue Exit] RETURN 7: Squad option '%s' not found after 5 retries. Restarting sequence...", selectedSquadSize)), Duration = 4 }) end)
             tStatus.Text = string.format("Status: Squad %s Not Found - Restarting...", selectedSquadSize)
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
             return
         end
         
-        print(string.format("[AutoQueue] Squad Found: %s", selectedSquadSize))
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue] Squad Found: %s", selectedSquadSize)), Duration = 4 }) end)
         
         ----------------------------------------------------
         -- STEP 5: Click Selected Squad Size & Verify Queue Confirmation
         ----------------------------------------------------
-        print(string.format("[AutoQueue Debug L9] Step 5: Clicking Squad '%s' & waiting for Queue Confirmation...", selectedSquadSize))
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue Debug L9] Step 5: Clicking Squad '%s' & waiting for Queue Confirmation...", selectedSquadSize)), Duration = 4 }) end)
         retries = 0
         local isConfirmed = false
         while not isConfirmed and retries < 5 and autoQueueEnabled do
             retries = retries + 1
-            print(string.format("[AutoQueue] Clicking %s (Attempt %d/5)", selectedSquadSize, retries))
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue] Clicking %s (Attempt %d/5)", selectedSquadSize, retries)), Duration = 4 }) end)
             tStatus.Text = string.format("Status: Clicking %s (%d/5)...", selectedSquadSize, retries)
             tStatus.TextColor3 = Color3.fromRGB(0, 229, 255)
             
             triggerAllSignals(squadBtn)
             
-            print("[AutoQueue] Waiting for Queue Confirmation")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue] Waiting for Queue Confirmation"), Duration = 4 }) end)
             local confirm = waitForCondition(function()
                 local cBtn = findTargetButton("cancel")
                 return cBtn or isPlayerQueuedState
@@ -2241,7 +2274,7 @@ function executeAutoQueueStepByStep()
             if confirm then
                 isConfirmed = true
             else
-                print(string.format("[AutoQueue Retry Notice] Queue Confirmation not detected after attempt %d/5, re-verifying Squad button", retries))
+                pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(string.format("[AutoQueue Retry Notice] Queue Confirmation not detected after attempt %d/5, re-verifying Squad button", retries)), Duration = 4 }) end)
                 squadBtn = findTargetButton(selectedSquadSize) or squadBtn
             end
         end
@@ -2250,9 +2283,9 @@ function executeAutoQueueStepByStep()
             isPlayerQueuedState = true
             tStatus.Text = "Status: Successfully Queued!"
             tStatus.TextColor3 = Color3.fromRGB(14, 255, 0)
-            print("[AutoQueue Exit] RETURN 8: Successfully Queued")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 8: Successfully Queued"), Duration = 4 }) end)
         else
-            print("[AutoQueue Exit] RETURN 9: Queue confirmation failed after 5 retries")
+            pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 9: Queue confirmation failed after 5 retries"), Duration = 4 }) end)
             tStatus.Text = "Status: Queue Failed - Restarting..."
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
         end
@@ -2260,9 +2293,9 @@ function executeAutoQueueStepByStep()
     
     -- Task 1: Explicit Error Logging & Status Display
     if not success then
-        print("[AUTOQUEUE ERROR]")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AUTOQUEUE ERROR]"), Duration = 4 }) end)
         warn("Auto Queue Exception: " .. tostring(err))
-        print(debug.traceback())
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(debug.traceback()), Duration = 4 }) end)
         if tStatus then
             tStatus.Text = "Status: ERROR -> " .. tostring(err)
             tStatus.TextColor3 = Color3.fromRGB(255, 60, 60)
@@ -2270,7 +2303,7 @@ function executeAutoQueueStepByStep()
     end
     
     isQueueRunning = false
-    print("[AutoQueue Debug L10] State lock released (isQueueRunning = false)")
+    pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Debug L10] State lock released (isQueueRunning = false)"), Duration = 4 }) end)
 end
 
 -- Single-Threaded Non-Overlapping Auto Queue Loop Manager
@@ -2280,7 +2313,7 @@ local function startAutoQueueWorker()
     if autoQueueThread then return end
     
     autoQueueThread = task.spawn(function()
-        print("[AutoQueue Worker] Single-threaded execution loop started")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Worker] Single-threaded execution loop started"), Duration = 4 }) end)
         while autoQueueEnabled do
             -- Ensure previous execution has fully returned before starting a new one
             if not isQueueRunning then
@@ -2289,7 +2322,7 @@ local function startAutoQueueWorker()
             -- Wait 0.8 seconds ONLY AFTER the previous execution has completely finished
             task.wait(0.8)
         end
-        print("[AutoQueue Worker] Execution loop stopped")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Worker] Execution loop stopped"), Duration = 4 }) end)
         autoQueueThread = nil
     end)
 end
@@ -4285,7 +4318,7 @@ local function objInspectorConnect()
 
     local mouse = Players.LocalPlayer and Players.LocalPlayer:GetMouse()
     if not mouse then
-        print("[Object Inspector] Could not get Mouse")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[Object Inspector] Could not get Mouse"), Duration = 4 }) end)
         return
     end
 
@@ -4311,7 +4344,7 @@ local function objInspectorConnect()
         end
 
         local fullText = table.concat(lines, "\n")
-        print(fullText)
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring(fullText), Duration = 4 }) end)
 
         -- Show notification with key info (truncated for UI)
         local notifText = target.Name .. "\n<" .. target.ClassName .. ">\nParent: " .. tostring(target.Parent and target.Parent.Name or "nil") .. "\n" .. target:GetFullName()
@@ -4321,7 +4354,7 @@ local function objInspectorConnect()
         notifyDiag("Inspector:", notifText)
     end)
 
-    print("[Object Inspector] Click listener connected")
+    pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[Object Inspector] Click listener connected"), Duration = 4 }) end)
 end
 
 -- OBJECT INSPECTOR TOGGLE CARD UI
@@ -4412,13 +4445,13 @@ oicSwitchBtn.MouseButton1Click:Connect(function()
         oicSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         oicSwKnob.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
         notifyDiag("Inspector:", "Object Inspector ENABLED")
-        print("[Object Inspector] ENABLED")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[Object Inspector] ENABLED"), Duration = 4 }) end)
         objInspectorConnect()
     else
         oicSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
         oicSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
         notifyDiag("Inspector:", "Object Inspector DISABLED")
-        print("[Object Inspector] DISABLED")
+        pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[Object Inspector] DISABLED"), Duration = 4 }) end)
         objInspectorDisconnect()
     end
 end)
