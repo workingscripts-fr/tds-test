@@ -6,8 +6,8 @@ pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Tit
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Print to In-Game Notifications Update",
-        Text = "Converted all debug and status prints to in-game notifications",
+        Title = "Syntax & Line 2033 Fix Update",
+        Text = "Fixed orphaned tostring line 2033 & verified 0 syntax errors",
         Duration = 5
     })
 end)
@@ -2029,8 +2029,21 @@ function executeAutoQueueStepByStep()
     pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Debug L1] Function executeAutoQueueStepByStep called"), Duration = 4 }) end)
     
     -- Task 7: Variable Audit & Value Verification
-    pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "Auto Queue Audit", Text = string.format("autoQueueEnabled=%s, isQueueRunning=%s, selectedDifficulty=%s, selectedSquadSize=%s, isPlayerQueuedState=%s, tStatus=%s", tostring(autoQueueEnabled), tostring(isQueueRunning), tostring(selectedDifficulty), tostring(selectedSquadSize), tostring(isPlayerQueuedState), tostring(tStatus)), Duration = 4 }) end)
-        tostring(autoQueueEnabled), tostring(isQueueRunning), tostring(selectedDifficulty), tostring(selectedSquadSize), tostring(isPlayerQueuedState), tostring(tStatus and tStatus.Text or "NIL")))
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Auto Queue Audit",
+            Text = string.format(
+                "autoQueueEnabled=%s, isQueueRunning=%s, selectedDifficulty=%s, selectedSquadSize=%s, isPlayerQueuedState=%s, tStatus=%s",
+                tostring(autoQueueEnabled),
+                tostring(isQueueRunning),
+                tostring(selectedDifficulty),
+                tostring(selectedSquadSize),
+                tostring(isPlayerQueuedState),
+                tostring(tStatus and tStatus.Text or "NIL")
+            ),
+            Duration = 4
+        })
+    end)
         
     if isQueueRunning then
         pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Log", Text = tostring("[AutoQueue Exit] RETURN 0: Already running (isQueueRunning state lock active)"), Duration = 4 }) end)
