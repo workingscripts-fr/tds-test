@@ -4,8 +4,8 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "9 Shotgunners Lvl 4 Pipeline Update",
-        Text = "Pass 1 (Lvl 3) and Pass 2 (Lvl 4) sequential upgrades enabled",
+        Title = "Auto Place Towers Full Script Update",
+        Text = "9-Shotgunner Lvl 4 complete pipeline deployed to tds test.lua",
         Duration = 5
     })
 end)
