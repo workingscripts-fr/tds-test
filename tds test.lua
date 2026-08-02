@@ -364,8 +364,114 @@ local function waitForGameLoad()
     end)
 end
 
+-- ============================================================
+-- CUSTOM LOADING SCREEN (shown only while waiting for the game to load)
+-- This is intentionally separate from, and lightweight compared to, the
+-- main menu below. No tabs/toggles/dragging/page contents live here.
+-- ============================================================
+local loadingGui = Instance.new("ScreenGui")
+loadingGui.Name = "TDSTestLoadingUI"
+loadingGui.ResetOnSpawn = false
+loadingGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+loadingGui.IgnoreGuiInset = false
+loadingGui.DisplayOrder = 9999
+pcall(function() loadingGui.OnTopOfCoreBlur = true end)
+safeParentGui(loadingGui)
+
+local loadingRoot = Instance.new("Frame")
+loadingRoot.Name = "LoadingRoot"
+loadingRoot.AnchorPoint = Vector2.new(0.5, 0.5)
+loadingRoot.Position = UDim2.new(0.5, 0, 0.5, 0)
+loadingRoot.Size = UDim2.fromOffset(220, 120)
+loadingRoot.BackgroundColor3 = Color3.fromRGB(7, 9, 13)
+loadingRoot.BackgroundTransparency = 0.12
+loadingRoot.BorderSizePixel = 0
+loadingRoot.Parent = loadingGui
+
+local loadingCorner = Instance.new("UICorner")
+loadingCorner.CornerRadius = UDim.new(0, 16)
+loadingCorner.Parent = loadingRoot
+
+local loadingStroke = Instance.new("UIStroke")
+loadingStroke.Color = Color3.fromRGB(255, 255, 255)
+loadingStroke.Thickness = 1.6
+loadingStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+loadingStroke.Parent = loadingRoot
+
+local loadingStrokeGrad = Instance.new("UIGradient")
+loadingStrokeGrad.Color = getThemeColorSequence(uiColorTheme)
+loadingStrokeGrad.Parent = loadingStroke
+
+local spinnerRing = Instance.new("Frame")
+spinnerRing.Name = "SpinnerRing"
+spinnerRing.AnchorPoint = Vector2.new(0.5, 0)
+spinnerRing.Position = UDim2.new(0.5, 0, 0, 18)
+spinnerRing.Size = UDim2.fromOffset(34, 34)
+spinnerRing.BackgroundTransparency = 1
+spinnerRing.Parent = loadingRoot
+
+local spinnerCorner = Instance.new("UICorner")
+spinnerCorner.CornerRadius = UDim.new(1, 0)
+spinnerCorner.Parent = spinnerRing
+
+local spinnerStroke = Instance.new("UIStroke")
+spinnerStroke.Color = Color3.fromRGB(255, 255, 255)
+spinnerStroke.Thickness = 3
+spinnerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+spinnerStroke.Parent = spinnerRing
+
+local spinnerGrad = Instance.new("UIGradient")
+spinnerGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(0.5, getThemeColorAt(uiColorTheme, 0.5)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
+})
+spinnerGrad.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0, 0),
+    NumberSequenceKeypoint.new(0.85, 0.4),
+    NumberSequenceKeypoint.new(1, 1)
+})
+spinnerGrad.Parent = spinnerStroke
+
+local loadingLabel = Instance.new("TextLabel")
+loadingLabel.Name = "LoadingLabel"
+loadingLabel.AnchorPoint = Vector2.new(0.5, 0)
+loadingLabel.Position = UDim2.new(0.5, 0, 0, 62)
+loadingLabel.Size = UDim2.new(1, -24, 0, 20)
+loadingLabel.BackgroundTransparency = 1
+loadingLabel.Font = Enum.Font.GothamBold
+loadingLabel.Text = "Loading..."
+loadingLabel.TextSize = 14
+loadingLabel.TextColor3 = Color3.fromRGB(245, 249, 255)
+loadingLabel.Parent = loadingRoot
+
+local loadingSub = Instance.new("TextLabel")
+loadingSub.Name = "LoadingSub"
+loadingSub.AnchorPoint = Vector2.new(0.5, 0)
+loadingSub.Position = UDim2.new(0.5, 0, 0, 86)
+loadingSub.Size = UDim2.new(1, -24, 0, 16)
+loadingSub.BackgroundTransparency = 1
+loadingSub.Font = Enum.Font.GothamMedium
+loadingSub.Text = "Waiting for game to finish loading..."
+loadingSub.TextSize = 11
+loadingSub.TextColor3 = Color3.fromRGB(174, 204, 236)
+loadingSub.TextWrapped = true
+loadingSub.Parent = loadingRoot
+
+local loadingSpinning = true
+task.spawn(function()
+    while loadingSpinning do
+        spinnerGrad.Rotation = (spinnerGrad.Rotation + 6) % 360
+        task.wait(0.03)
+    end
+end)
+
 -- Wait until loading screen is completely finished before creating or showing any GUI
 waitForGameLoad()
+
+-- Loading finished: tear down the custom loading screen before the real menu begins
+loadingSpinning = false
+pcall(function() loadingGui:Destroy() end)
 
 pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "Creating GUI...", Duration = 3 }) end)
 local screenGui = Instance.new("ScreenGui")
