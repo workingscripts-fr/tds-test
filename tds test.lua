@@ -2,7 +2,7 @@
 -- TDS TEST - AAA COSMIC UNIVERSE UI
 -- ==========================================
 
-pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "Startup 1: Initializing Services & Environment...", Duration = 3 }) end)
+pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "9 Shotgunners Lvl 4 Pipeline Update", Text = "Pass 1 (Lvl 3) and Pass 2 (Lvl 4) sequential upgrades enabled", Duration = 3 }) end)
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
@@ -2518,16 +2518,6 @@ local minigunner7Model, minigunner7UID = nil, nil
 local minigunner8Model, minigunner8UID = nil, nil
 local minigunner9Model, minigunner9UID = nil, nil
 local minigunner10Model, minigunner10UID = nil, nil
-local minigunner1Model, minigunner1UID = nil, nil
-local minigunner2Model, minigunner2UID = nil, nil
-local minigunner3Model, minigunner3UID = nil, nil
-local minigunner4Model, minigunner4UID = nil, nil
-local minigunner5Model, minigunner5UID = nil, nil
-local minigunner6Model, minigunner6UID = nil, nil
-local minigunner7Model, minigunner7UID = nil, nil
-local minigunner8Model, minigunner8UID = nil, nil
-local minigunner9Model, minigunner9UID = nil, nil
-local minigunner10Model, minigunner10UID = nil, nil
 
 local _autoPlaceTask = nil
 
@@ -2638,7 +2628,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout -> 9 Shotgunners (Lvl 4) -> 10 Minigunners (Lvl 3)"
+apcSub.Text = "Scout ($1225 sell) -> 9 Shotgunners (Pass 1 Lvl 3 -> Pass 2 Lvl 4)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2732,13 +2722,15 @@ local function processScoutPlacement()
                 if getTowerReplicatorLevel(child) == 0 then
                     local alreadyUsed =
                         child == scoutTower or
-                        child == shotgunner1Model or child == shotgunner2Model or child == shotgunner3Model or
-                        child == shotgunner4Model or child == shotgunner5Model or child == shotgunner6Model or
-                        child == shotgunner7Model or child == shotgunner8Model or child == shotgunner9Model or
-                        child == minigunner1Model or child == minigunner2Model or child == minigunner3Model or
-                        child == minigunner4Model or child == minigunner5Model or child == minigunner6Model or
-                        child == minigunner7Model or child == minigunner8Model or child == minigunner9Model or
-                        child == minigunner10Model or
+                        child == shotgunner1Model or
+                        child == shotgunner2Model or
+                        child == shotgunner3Model or
+                        child == shotgunner4Model or
+                        child == shotgunner5Model or
+                        child == shotgunner6Model or
+                        child == shotgunner7Model or
+                        child == shotgunner8Model or
+                        child == shotgunner9Model or
                         child == shotgunner6Model or
                         child == shotgunner7Model or
                         child == shotgunner8Model or
@@ -3337,140 +3329,6 @@ local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
     return true
 end
 
--- Deterministic Minigunner Placement & Upgrades (Level 1 $350 -> Level 2 $1500 -> Level 3 $6500)
-local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
-    if not autoPlaceEnabled then return false end
-
-    local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
-    if not towersFolder then return false end
-
-    -- STEP A: VERIFY & RETRY PLACEMENT
-    local placedModel = nil
-    local uid = nil
-
-    local attempt = 0
-    local placePipelineStart = tick()
-
-    while autoPlaceEnabled and (tick() - placePipelineStart) < 45.0 do
-        attempt += 1
-
-        local minigunnerPlaceArgs = {
-            "Troops",
-            "Place",
-            {
-                Rotation = CFrame.new(0, 0, 0, 1, -0, 0, 0, 1, -0, 0, 0, 1),
-                Position = positionVector
-            },
-            "Minigunner"
-        }
-
-        pcall(function()
-            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction"):InvokeServer(unpack(minigunnerPlaceArgs))
-        end)
-
-        placedModel = nil
-        local detectStart = tick()
-
-        while autoPlaceEnabled and (tick() - detectStart) < 5 do
-            for _, child in ipairs(towersFolder:GetChildren()) do
-                if child:IsA("Model") then
-                    if not getTowerUID(child) then
-                        continue
-                    end
-
-                    if getTowerReplicatorLevel(child) == 0 then
-                        local alreadyUsed =
-                            child == scoutTower or
-                            child == shotgunner1Model or child == shotgunner2Model or child == shotgunner3Model or
-                            child == shotgunner4Model or child == shotgunner5Model or child == shotgunner6Model or
-                            child == shotgunner7Model or child == shotgunner8Model or child == shotgunner9Model or
-                            child == minigunner1Model or child == minigunner2Model or child == minigunner3Model or
-                            child == minigunner4Model or child == minigunner5Model or child == minigunner6Model or
-                            child == minigunner7Model or child == minigunner8Model or child == minigunner9Model or
-                            child == minigunner10Model
-
-                        if not alreadyUsed then
-                            placedModel = child
-                            break
-                        end
-                    end
-                end
-            end
-
-            if placedModel then
-                break
-            end
-
-            task.wait(0.05)
-        end
-
-        if placedModel then
-            task.wait(0.25)
-
-            -- Wait for the TowerReplicator UID to replicate
-            local uidStart = tick()
-
-            while autoPlaceEnabled and not uid and (tick() - uidStart) < 5.0 do
-                uid = getTowerUID(placedModel)
-                task.wait(0.05)
-            end
-
-            -- Verify the tower can actually be found by its UID before continuing
-            if uid then
-                local verifyStart = tick()
-
-                while autoPlaceEnabled and (tick() - verifyStart) < 5.0 do
-                    if findTowerByUID(uid) then
-                        break
-                    end
-                    task.wait(0.05)
-                end
-
-                local verified = findTowerByUID(uid)
-                if verified then
-                    placedModel = verified
-                    break
-                end
-            end
-        end
-
-        task.wait(0.20)
-    end
-
-    if not placedModel or not uid or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", string.format("Placement verification failed for Minigunner #%d.", minigunnerIndex))
-        return false
-    end
-
-    -- Store reference based on index immediately
-    if minigunnerIndex == 1 then minigunner1Model, minigunner1UID = placedModel, uid
-    elseif minigunnerIndex == 2 then minigunner2Model, minigunner2UID = placedModel, uid
-    elseif minigunnerIndex == 3 then minigunner3Model, minigunner3UID = placedModel, uid
-    elseif minigunnerIndex == 4 then minigunner4Model, minigunner4UID = placedModel, uid
-    elseif minigunnerIndex == 5 then minigunner5Model, minigunner5UID = placedModel, uid
-    elseif minigunnerIndex == 6 then minigunner6Model, minigunner6UID = placedModel, uid
-    elseif minigunnerIndex == 7 then minigunner7Model, minigunner7UID = placedModel, uid
-    elseif minigunnerIndex == 8 then minigunner8Model, minigunner8UID = placedModel, uid
-    elseif minigunnerIndex == 9 then minigunner9Model, minigunner9UID = placedModel, uid
-    elseif minigunnerIndex == 10 then minigunner10Model, minigunner10UID = placedModel, uid
-    end
-
-    -- STEP B: WAIT FOR $350 & UPGRADE TO LEVEL 1
-    local level1Success = upgradeSpecificTower(minigunnerIndex, uid, placedModel, 1, 350)
-    if not level1Success then return false end
-
-    -- STEP C: WAIT FOR $1500 & UPGRADE TO LEVEL 2
-    local level2Success = upgradeSpecificTower(minigunnerIndex, uid, placedModel, 2, 1500)
-    if not level2Success then return false end
-
-    -- STEP D: WAIT FOR $6500 & UPGRADE TO LEVEL 3
-    local level3Success = upgradeSpecificTower(minigunnerIndex, uid, placedModel, 3, 6500)
-    if not level3Success then return false end
-
-    return true
-end
-
 -- Dedicated Helper for Pass 1 (Level 3) and Pass 2 (Level 4) Sequential Upgrades
 local function upgradeSpecificTower(shotgunnerIndex, uid, placedModel, targetLevel, moneyCost)
     if not autoPlaceEnabled or not uid then return false end
@@ -3556,16 +3414,6 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         shotgunner7Model, shotgunner7UID = nil, nil
         shotgunner8Model, shotgunner8UID = nil, nil
         shotgunner9Model, shotgunner9UID = nil, nil
-        minigunner1Model, minigunner1UID = nil, nil
-        minigunner2Model, minigunner2UID = nil, nil
-        minigunner3Model, minigunner3UID = nil, nil
-        minigunner4Model, minigunner4UID = nil, nil
-        minigunner5Model, minigunner5UID = nil, nil
-        minigunner6Model, minigunner6UID = nil, nil
-        minigunner7Model, minigunner7UID = nil, nil
-        minigunner8Model, minigunner8UID = nil, nil
-        minigunner9Model, minigunner9UID = nil, nil
-        minigunner10Model, minigunner10UID = nil, nil
         minigunner1Model, minigunner1UID = nil, nil
         minigunner2Model, minigunner2UID = nil, nil
         minigunner3Model, minigunner3UID = nil, nil
