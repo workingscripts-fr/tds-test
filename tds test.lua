@@ -2862,6 +2862,100 @@ apcSwKnob.Parent = apcSwitchBtn
 local apcKnobCorner = Instance.new("UICorner")
 apcKnobCorner.CornerRadius = UDim.new(1, 0)
 apcKnobCorner.Parent = apcSwKnob
+
+-- UI Card 2: Auto Rejoin & Select U-Turn Toggle Card
+autoRejoinEnabled = true
+local autoRejoinCard = Instance.new("Frame")
+autoRejoinCard.Name = "ToggleCard_AutoRejoinMapSelect"
+autoRejoinCard.Size = UDim2.new(1, 0, 0, 72)
+autoRejoinCard.BackgroundColor3 = Color3.fromRGB(16, 23, 34)
+autoRejoinCard.BorderSizePixel = 0
+autoRejoinCard.ZIndex = 5
+autoRejoinCard.LayoutOrder = 2
+autoRejoinCard.Parent = twScroll
+
+local arCorner = Instance.new("UICorner")
+arCorner.CornerRadius = UDim.new(0, 12)
+arCorner.Parent = autoRejoinCard
+
+local arStroke = Instance.new("UIStroke")
+arStroke.Color = Color3.fromRGB(255, 255, 255)
+arStroke.Thickness = 1.4
+arStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+arStroke.Parent = autoRejoinCard
+attachRotatingOutline(arStroke, 22, 90)
+
+local arLabel = Instance.new("TextLabel")
+arLabel.Position = UDim2.fromOffset(16, 14)
+arLabel.Size = UDim2.new(0.65, 0, 0, 20)
+arLabel.BackgroundTransparency = 1
+arLabel.Font = Enum.Font.GothamBold
+arLabel.Text = "Auto Rejoin & Select U-Turn"
+arLabel.TextSize = 14
+arLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+arLabel.TextXAlignment = Enum.TextXAlignment.Left
+arLabel.ZIndex = 6
+arLabel.Parent = autoRejoinCard
+
+local arSub = Instance.new("TextLabel")
+arSub.Position = UDim2.fromOffset(16, 36)
+arSub.Size = UDim2.new(0.65, 0, 0, 20)
+arSub.BackgroundTransparency = 1
+arSub.Font = Enum.Font.GothamMedium
+arSub.Text = "Auto Play Again -> Intermission -> Override U-Turn -> Ready"
+arSub.TextSize = 11
+arSub.TextColor3 = Color3.fromRGB(140, 150, 165)
+arSub.TextXAlignment = Enum.TextXAlignment.Left
+arSub.ZIndex = 6
+arSub.Parent = autoRejoinCard
+
+local arSwitchBtn = Instance.new("TextButton")
+arSwitchBtn.Name = "AutoRejoinSwitchBtn"
+arSwitchBtn.AnchorPoint = Vector2.new(1, 0.5)
+arSwitchBtn.Position = UDim2.new(1, -16, 0.5, 0)
+arSwitchBtn.Size = UDim2.fromOffset(50, 26)
+arSwitchBtn.BackgroundColor3 = Color3.fromRGB(11, 15, 24)
+arSwitchBtn.BorderSizePixel = 0
+arSwitchBtn.AutoButtonColor = false
+arSwitchBtn.Active = true
+arSwitchBtn.ZIndex = 10
+arSwitchBtn.Text = ""
+arSwitchBtn.Parent = autoRejoinCard
+
+local arSwCorner = Instance.new("UICorner")
+arSwCorner.CornerRadius = UDim.new(1, 0)
+arSwCorner.Parent = arSwitchBtn
+
+local arSwStroke = Instance.new("UIStroke")
+arSwStroke.Color = Color3.fromRGB(255, 255, 255)
+arSwStroke.Thickness = 1.4
+arSwStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+arSwStroke.Parent = arSwitchBtn
+attachRotatingOutline(arSwStroke, 24, 180)
+
+local arSwKnob = Instance.new("Frame")
+arSwKnob.Name = "Knob"
+arSwKnob.Size = UDim2.fromOffset(20, 20)
+arSwKnob.Position = UDim2.fromOffset(27, 3)
+arSwKnob.BackgroundColor3 = Color3.fromRGB(14, 255, 0)
+arSwKnob.BorderSizePixel = 0
+arSwKnob.ZIndex = 11
+arSwKnob.Parent = arSwitchBtn
+
+local arKnobCorner = Instance.new("UICorner")
+arKnobCorner.CornerRadius = UDim.new(1, 0)
+arKnobCorner.Parent = arSwKnob
+
+arSwitchBtn.MouseButton1Click:Connect(function()
+    autoRejoinEnabled = not autoRejoinEnabled
+    if autoRejoinEnabled then
+        arSwKnob:TweenPosition(UDim2.fromOffset(27, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+        arSwKnob.BackgroundColor3 = Color3.fromRGB(14, 255, 0)
+    else
+        arSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+        arSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+    end
+end)
 end
 
 local function stopAutoPlaceTask()
@@ -3376,6 +3470,153 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         end)
     else
         turnOffAutoPlaceToggle()
+    end
+end)
+
+-- ============================================================
+-- FEATURE 1B: AUTOMATED REJOIN, MAP OVERRIDE (U-TURN), AND READY-UP LOOP
+-- ============================================================
+local _lastMatchAutoTriggered = false
+
+task.spawn(function()
+    while true do
+        pcall(function()
+            if autoRejoinEnabled then
+                local pg = getPlayerGui()
+                
+                -- 1. TRIUMPH / REWARDS SCREEN DETECTION -> CLICK PLAY AGAIN
+                if pg then
+                    local playAgainBtn = nil
+                    for _, desc in ipairs(pg:GetDescendants()) do
+                        if (desc:IsA("TextButton") or desc:IsA("ImageButton") or desc:IsA("TextLabel")) then
+                            local txt = ""
+                            pcall(function() txt = desc.Text end)
+                            if string.find(string.lower(txt), "play again") then
+                                playAgainBtn = desc
+                                break
+                            end
+                        end
+                    end
+                    if playAgainBtn then
+                        sendInGameNotification("Auto Rejoin", " Triumph screen detected! Clicking Play Again...")
+                        pcall(function()
+                            local clickObj = playAgainBtn:FindFirstChild("inputSink") or playAgainBtn
+                            for _, conn in ipairs(getconnections(clickObj.MouseButton1Click or clickObj.Activated)) do
+                                conn:Fire()
+                            end
+                        end)
+                        local rf = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteFunction")
+                        if rf then
+                            pcall(function() rf:InvokeServer("Voting", "Restart") end)
+                            pcall(function() rf:InvokeServer("Voting", "PlayAgain") end)
+                        end
+                        task.wait(3)
+                    end
+                end
+
+                -- 2. INTERMISSION LOBBY DETECTION & MAP OVERRIDE (U-TURN)
+                local interLobby = workspace:FindFirstChild("IntermissionLobby")
+                if interLobby then
+                    _lastMatchAutoTriggered = false
+                    
+                    local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
+                    local char = lp and lp.Character
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    local hum = char and char:FindFirstChildOfClass("Humanoid")
+                    
+                    -- Move character towards MapVote terminal
+                    local terminal = interLobby:FindFirstChild("MapVote")
+                    if terminal and hum and hrp then
+                        if (hrp.Position - terminal.Position).Magnitude > 8 then
+                            hum:MoveTo(terminal.Position)
+                            task.wait(1)
+                        end
+                    end
+
+                    -- Trigger MapVote ProximityPrompt
+                    local prompt = terminal and terminal:FindFirstChildOfClass("ProximityPrompt")
+                    if prompt and fireproximityprompt then
+                        pcall(function() fireproximityprompt(prompt) end)
+                    end
+
+                    -- Remote Map Override (U-Turn)
+                    local rf = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteFunction")
+                    if rf then
+                        pcall(function() rf:InvokeServer("Voting", "Override", "U-Turn") end)
+                        pcall(function() rf:InvokeServer("Voting", "Vote", "U-Turn") end)
+                    end
+
+                    -- Click U-Turn in Map Override UI
+                    if pg then
+                        local intermission = pg:FindFirstChild("ReactGameIntermission")
+                        if intermission and intermission:FindFirstChild("Frame") then
+                            local mapOverride = intermission.Frame:FindFirstChild("mapOverride")
+                            if mapOverride and mapOverride.list and mapOverride.list.content then
+                                local uTurnBtn = mapOverride.list.content:FindFirstChild("1U-Turn") or mapOverride.list.content:FindFirstChild("0U-Turn")
+                                if not uTurnBtn then
+                                    for _, c in ipairs(mapOverride.list.content:GetChildren()) do
+                                        if c.Name:lower():find("u-turn") or c.Name:lower():find("uturn") then
+                                            uTurnBtn = c
+                                            break
+                                        end
+                                    end
+                                end
+                                if uTurnBtn then
+                                    local inputSink = uTurnBtn:FindFirstChild("inputSink") or uTurnBtn
+                                    pcall(function()
+                                        for _, conn in ipairs(getconnections(inputSink.MouseButton1Click or inputSink.Activated)) do
+                                            conn:Fire()
+                                        end
+                                    end)
+                                end
+                            end
+
+                            -- Walk over to Board1 VotePlatform & Click Ready
+                            local board1 = interLobby:FindFirstChild("Boards") and interLobby.Boards:FindFirstChild("Board1")
+                            local platform = board1 and board1:FindFirstChild("Hitboxes") and board1.Hitboxes:FindFirstChild("VotePlatform")
+                            if platform and hum and hrp then
+                                if (hrp.Position - platform.Position).Magnitude > 6 then
+                                    hum:MoveTo(platform.Position)
+                                    task.wait(1)
+                                end
+                            end
+
+                            local readyBtn = intermission.Frame.buttons and intermission.Frame.buttons:FindFirstChild("ready")
+                            if readyBtn then
+                                pcall(function()
+                                    for _, conn in ipairs(getconnections(readyBtn.MouseButton1Click or readyBtn.Activated)) do
+                                        conn:Fire()
+                                    end
+                                end)
+                            end
+                        end
+                    end
+
+                    if rf then
+                        pcall(function() rf:InvokeServer("Voting", "Ready") end)
+                        pcall(function() rf:InvokeServer("Voting", "ToggleReady") end)
+                    end
+                end
+
+                -- 3. MATCH AUTO-START TRIGGER FOR AUTO PLACE TOWERS
+                local inMatch = workspace:FindFirstChild("Towers") ~= nil and workspace:FindFirstChild("IntermissionLobby") == nil
+                if inMatch then
+                    if not autoPlaceEnabled and not _lastMatchAutoTriggered then
+                        _lastMatchAutoTriggered = true
+                        
+                        -- Trigger Auto Place Switch
+                        if apcSwitchBtn then
+                            pcall(function()
+                                for _, conn in ipairs(getconnections(apcSwitchBtn.MouseButton1Click)) do
+                                    conn:Fire()
+                                end
+                            end)
+                        end
+                    end
+                end
+            end
+        end)
+        task.wait(1.5)
     end
 end)
 
