@@ -3543,6 +3543,7 @@ task.spawn(function()
                     local rf = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteFunction")
                     if rf then
                         pcall(function() rf:InvokeServer("Voting", "Override", "U-Turn") end)
+                        pcall(function() rf:InvokeServer("Voting", "Select", "U-Turn") end)
                         pcall(function() rf:InvokeServer("Voting", "Vote", "U-Turn") end)
                     end
 
@@ -3571,20 +3572,45 @@ task.spawn(function()
                                 end
                             end
 
-                            -- Walk over to Board1 VotePlatform & Click Ready
-                            local board1 = interLobby:FindFirstChild("Boards") and interLobby.Boards:FindFirstChild("Board1")
-                            local platform = board1 and board1:FindFirstChild("Hitboxes") and board1.Hitboxes:FindFirstChild("VotePlatform")
-                            if platform and hum and hrp then
-                                if (hrp.Position - platform.Position).Magnitude > 6 then
-                                    hum:MoveTo(platform.Position)
-                                    task.wait(1)
+                            -- Walk over to U-Turn Board VotePlatform, fire ProximityPrompt & Click Ready
+                            local uTurnBoard = nil
+                            if interLobby:FindFirstChild("Boards") then
+                                for _, b in ipairs(interLobby.Boards:GetChildren()) do
+                                    pcall(function()
+                                        local title = b.Hitboxes.Bottom.MapDisplay.Title.Text
+                                        if string.find(string.lower(title), "u-turn") or string.find(string.lower(title), "uturn") then
+                                            uTurnBoard = b
+                                        end
+                                    end)
+                                end
+                                if not uTurnBoard then uTurnBoard = interLobby.Boards:FindFirstChild("Board1") end
+                            end
+
+                            local platform = uTurnBoard and uTurnBoard:FindFirstChild("Hitboxes") and uTurnBoard.Hitboxes:FindFirstChild("VotePlatform")
+                            if platform then
+                                if hum and hrp then
+                                    pcall(function() hrp.CFrame = platform.CFrame + Vector3.new(0, 3, 0) end)
+                                    pcall(function() hum:MoveTo(platform.Position) end)
+                                    task.wait(0.3)
+                                end
+
+                                local votePrompt = nil
+                                for _, desc in ipairs(platform:GetDescendants()) do
+                                    if desc:IsA("ProximityPrompt") then
+                                        votePrompt = desc
+                                        break
+                                    end
+                                end
+                                if votePrompt and fireproximityprompt then
+                                    pcall(function() fireproximityprompt(votePrompt) end)
                                 end
                             end
 
                             local readyBtn = intermission.Frame.buttons and intermission.Frame.buttons:FindFirstChild("ready")
                             if readyBtn then
                                 pcall(function()
-                                    for _, conn in ipairs(getconnections(readyBtn.MouseButton1Click or readyBtn.Activated)) do
+                                    local inputSink = readyBtn:FindFirstChild("inputSink") or readyBtn
+                                    for _, conn in ipairs(getconnections(inputSink.MouseButton1Click or inputSink.Activated)) do
                                         conn:Fire()
                                     end
                                 end)
@@ -3598,14 +3624,36 @@ task.spawn(function()
                     end
                 end
 
-                -- 3. MATCH AUTO-START TRIGGER FOR AUTO PLACE TOWERS
+                -- 3. MATCH AUTO-START TRIGGER FOR AUTO PLACE TOWERS & PRE-MATCH ONE-TIME READY
                 local inMatch = workspace:FindFirstChild("Towers") ~= nil and workspace:FindFirstChild("IntermissionLobby") == nil
                 if inMatch then
-                    if not autoPlaceEnabled and not _lastMatchAutoTriggered then
+                    if not _lastMatchAutoTriggered then
                         _lastMatchAutoTriggered = true
                         
+                        -- Click pre-match Ready button ONE TIME upon loading into match
+                        if pg then
+                            local readyInMatch = pg:FindFirstChild("ReactOverridesVote") or pg:FindFirstChild("ReactGameDifficulty")
+                            if readyInMatch then
+                                for _, desc in ipairs(readyInMatch:GetDescendants()) do
+                                    if desc:IsA("GuiObject") and (desc.Name == "button" or desc.Name == "readyButton" or desc.Name == "ready") then
+                                        pcall(function()
+                                            local clickObj = desc:FindFirstChild("inputSink") or desc
+                                            for _, conn in ipairs(getconnections(clickObj.MouseButton1Click or clickObj.Activated)) do
+                                                conn:Fire()
+                                            end
+                                        end)
+                                    end
+                                end
+                            end
+                        end
+                        
+                        local rf = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteFunction")
+                        if rf then
+                            pcall(function() rf:InvokeServer("Voting", "Ready") end)
+                        end
+
                         -- Trigger Auto Place Switch
-                        if apcSwitchBtn then
+                        if not autoPlaceEnabled and apcSwitchBtn then
                             pcall(function()
                                 for _, conn in ipairs(getconnections(apcSwitchBtn.MouseButton1Click)) do
                                     conn:Fire()
