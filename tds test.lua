@@ -2658,28 +2658,23 @@ autoPlaceEnabled = false
 scoutPlaced = false
 scoutUpgraded = false
 scoutSold = false
-shotgunner1Placed = false
-shotgunner1Upgraded = false
 
--- Stored instance & TowerUID references for build sequence
-local scoutTower = nil
-local shotgunner1Model, shotgunner1UID = nil, nil
-local shotgunner2Model, shotgunner2UID = nil, nil
-local shotgunner3Model, shotgunner3UID = nil, nil
-local shotgunner4Model, shotgunner4UID = nil, nil
-local shotgunner5Model, shotgunner5UID = nil, nil
-local shotgunner6Model, shotgunner6UID = nil, nil
-local shotgunner7Model, shotgunner7UID = nil, nil
-local shotgunner8Model, shotgunner8UID = nil, nil
-local shotgunner9Model, shotgunner9UID = nil, nil
--- Indexed storage for all 28 Minigunners (replaces individually-named
--- minigunner1Model..minigunner10Model so the same detection logic scales
--- cleanly to all 28 placements instead of a long named-variable chain)
+local scoutTower, scoutUID = nil, nil
+local shotgunnerModels, shotgunnerUIDs = {}, {}
 local minigunnerModels, minigunnerUIDs = {}, {}
 
 local function isKnownMinigunnerModel(child)
     for i = 1, 28 do
         if child == minigunnerModels[i] then
+            return true
+        end
+    end
+    return false
+end
+
+local function isKnownShotgunnerModel(child)
+    for i = 1, 9 do
+        if child == shotgunnerModels[i] then
             return true
         end
     end
@@ -2799,7 +2794,7 @@ apcSub.Position = UDim2.fromOffset(16, 36)
 apcSub.Size = UDim2.new(0.65, 0, 0, 20)
 apcSub.BackgroundTransparency = 1
 apcSub.Font = Enum.Font.GothamMedium
-apcSub.Text = "Scout ($1225 sell) -> 9 Shotgunners (Deterministic Pipeline)"
+apcSub.Text = "Scout -> 9 Shotgunners (Lvl 4) -> 28 Minigunners (Lvl 4)"
 apcSub.TextSize = 11
 apcSub.TextColor3 = Color3.fromRGB(140, 150, 165)
 apcSub.TextXAlignment = Enum.TextXAlignment.Left
@@ -2858,8 +2853,8 @@ local function turnOffAutoPlaceToggle()
     stopAutoPlaceTask()
 end
 
--- PATCH 8: Unified Upgrade Helper (Reuses exact scanner, money-gating, UID re-acquisition & diagnostic notifications)
-local function UpgradeTowerToLevel(uid, placedModel, requiredMoney, targetLevel, timeout, towerNameOrIndex)
+-- Unified Upgrade Helper with Detailed Failsafe Error Reporting
+local function UpgradeTowerToLevel(uid, placedModel, requiredMoney, targetLevel, timeout, stageName, towerType, towerIndex)
     if not autoPlaceEnabled or not uid then return false, placedModel end
 
     -- Money Wait Stage
@@ -2875,11 +2870,15 @@ local function UpgradeTowerToLevel(uid, placedModel, requiredMoney, targetLevel,
         sendInGameNotification(
             "Auto Place Aborted",
             string.format(
-                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
-                tostring(towerNameOrIndex or "Tower"),
+                "Money wait timed out!\nStage: %s\nTower: %s #%s\nUID: %s\nMoney: %d/$%d\nCurrent Level: %d (Expected: %d)",
+                tostring(stageName),
+                tostring(towerType or "Tower"),
+                tostring(towerIndex or "1"),
                 tostring(uid),
-                tostring(currentTDSMoneyNumber),
-                targetModel and getTowerReplicatorLevel(targetModel) or -1
+                tonumber(currentTDSMoneyNumber) or 0,
+                requiredMoney,
+                targetModel and getTowerReplicatorLevel(targetModel) or -1,
+                targetLevel
             )
         )
         return false, placedModel
@@ -2889,7 +2888,6 @@ local function UpgradeTowerToLevel(uid, placedModel, requiredMoney, targetLevel,
     local upgStart = tick()
 
     while autoPlaceEnabled and (tick() - upgStart) < (timeout or 45.0) do
-        -- PATCH 1: Reacquire live model using findTowerByUID before every verification & remote call
         local liveTower = findTowerByUID(uid)
         if liveTower then
             placedModel = liveTower
@@ -2904,7 +2902,6 @@ local function UpgradeTowerToLevel(uid, placedModel, requiredMoney, targetLevel,
             continue
         end
 
-        -- PATCH 2: Double-check verification via live tower scanner
         if targetModel and getTowerReplicatorLevel(targetModel) >= targetLevel then
             local doubleCheckLive = findTowerByUID(uid)
             if not doubleCheckLive then
@@ -2939,17 +2936,19 @@ local function UpgradeTowerToLevel(uid, placedModel, requiredMoney, targetLevel,
         sendInGameNotification(
             "Auto Place Aborted",
             string.format(
-                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
-                tostring(towerNameOrIndex or "Tower"),
+                "Upgrade verification timed out!\nStage: %s\nTower: %s #%s\nUID: %s\nMoney: %d\nCurrent Level: %d (Expected: %d)",
+                tostring(stageName),
+                tostring(towerType or "Tower"),
+                tostring(towerIndex or "1"),
                 tostring(uid),
-                tostring(currentTDSMoneyNumber),
-                targetModel and getTowerReplicatorLevel(targetModel) or -1
+                tonumber(currentTDSMoneyNumber) or 0,
+                targetModel and getTowerReplicatorLevel(targetModel) or -1,
+                targetLevel
             )
         )
         return false, placedModel
     end
 
-    -- PATCH 6: Refresh live reference immediately before returning true
     local finalLive = findTowerByUID(uid)
     if finalLive then
         placedModel = finalLive
@@ -2958,176 +2957,19 @@ local function UpgradeTowerToLevel(uid, placedModel, requiredMoney, targetLevel,
     return true, placedModel
 end
 
--- DETERMINISTIC STATE MACHINE PIPELINE FUNCTIONS
-
--- 1. Scout Placement & Double Upgrade (Deterministic UID & Money Gated)
-local function processScoutPlacement()
-    if not autoPlaceEnabled then return false end
+-- Generic Deterministic Tower Placement Helper
+local function PlaceTower(towerType, positionVector, towerIndex)
+    if not autoPlaceEnabled then return nil, nil end
 
     local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
-    if not towersFolder then return false end
+    if not towersFolder then return nil, nil end
 
-    local scoutPlaceArgs = {
-        "Troops",
-        "Place",
-        {
-            Rotation = CFrame.new(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1),
-            Position = Vector3.new(12.885271072387695, 1.0000064373016357, -8.871417045593262)
-        },
-        "Scout"
-    }
-
-    pcall(function()
-        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(scoutPlaceArgs))
-    end)
-
-    local newTower = nil
-    local scoutUID = nil
-    local scoutDetectStart = tick()
-
-    while autoPlaceEnabled and (tick() - scoutDetectStart) < 5 do
-        for _, child in ipairs(towersFolder:GetChildren()) do
-            if child:IsA("Model") then
-                local uidCandidate = getTowerUID(child)
-                if not uidCandidate then
-                    task.wait(0.01)
-                end
-
-                if getTowerReplicatorLevel(child) == 0 then
-                    local alreadyUsed =
-                        child == scoutTower or
-                        child == shotgunner1Model or child == shotgunner2Model or child == shotgunner3Model or
-                        child == shotgunner4Model or child == shotgunner5Model or child == shotgunner6Model or
-                        child == shotgunner7Model or child == shotgunner8Model or child == shotgunner9Model or
-                        isKnownMinigunnerModel(child)
-
-                    if not alreadyUsed then
-                        newTower = child
-                        scoutUID = uidCandidate
-                        break
-                    end
-                end
-            end
-        end
-
-        if newTower then
-            break
-        end
-
-        task.wait(0.05)
-    end
-
-    if not newTower or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification(
-            "Auto Place Aborted",
-            string.format(
-                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
-                "Scout Placement",
-                tostring(scoutUID or "nil"),
-                tostring(currentTDSMoneyNumber),
-                newTower and getTowerReplicatorLevel(newTower) or -1
-            )
-        )
-        return false
-    end
-
-    task.wait(0.25)
-
-    -- UID verification & lock
-    if not scoutUID then
-        local uidStart = tick()
-        while autoPlaceEnabled and not scoutUID and (tick() - uidStart) < 5.0 do
-            scoutUID = getTowerUID(newTower)
-            task.wait(0.05)
-        end
-    end
-
-    if scoutUID then
-        local verifyStart = tick()
-        while autoPlaceEnabled and (tick() - verifyStart) < 5.0 do
-            if findTowerByUID(scoutUID) then
-                break
-            end
-            task.wait(0.05)
-        end
-        local verified = findTowerByUID(scoutUID)
-        if verified then
-            newTower = verified
-        end
-    end
-
-    scoutTower = newTower
-    scoutPlaced = true
-
-    -- SCOUT UPGRADE 1 ($50 -> Level 1)
-    local ok1, updated1 = UpgradeTowerToLevel(scoutUID, scoutTower, 50, 1, 45.0, "Scout Upgrade 1")
-    if not ok1 then return false end
-    scoutTower = updated1
-
-    -- SCOUT UPGRADE 2 ($375 -> Level 2)
-    local ok2, updated2 = UpgradeTowerToLevel(scoutUID, scoutTower, 375, 2, 45.0, "Scout Upgrade 2")
-    if not ok2 then return false end
-    scoutTower = updated2
-
-    scoutUpgraded = true
-
-    -- PATCH 6: Refresh live reference before returning true
-    local liveTower = findTowerByUID(scoutUID)
-    if liveTower then
-        scoutTower = liveTower
-    end
-
-    return true
-end
-
--- 2. Wait Money & Sell Scout
-local function processScoutSell()
-    if not autoPlaceEnabled or not scoutTower then return false end
-
-    local startWait = tick()
-    while autoPlaceEnabled and currentTDSMoneyNumber < 1225 and (tick() - startWait) < 180.0 do
-        task.wait(0.1)
-    end
-
-    if not autoPlaceEnabled or currentTDSMoneyNumber < 1225 then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification("Auto Place Aborted", "Money threshold for Scout sell timed out.")
-        return false
-    end
-
-    local sellArgs = {
-        "Troops",
-        "Sell",
-        {
-            Troop = scoutTower
-        }
-    }
-    pcall(function()
-        game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(sellArgs))
-    end)
-
-    scoutSold = true
-    task.wait(0.3) -- Remote propagation delay
-    return true
-end
-
--- 3. Deterministic Shotgunner Placement & Upgrade Pipeline
-local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
-    if not autoPlaceEnabled then return false end
-
-    local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
-    if not towersFolder then return false end
-
-    -- STEP A: VERIFY & RETRY PLACEMENT
     local placedModel = nil
     local uid = nil
 
-    local attempt = 0
     local placePipelineStart = tick()
 
     while autoPlaceEnabled and (tick() - placePipelineStart) < 45.0 do
-        -- PATCH 4: Check existing tower by UID before placement retry to prevent duplicates
         if uid then
             local existing = findTowerByUID(uid)
             if existing then
@@ -3136,20 +2978,18 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
             end
         end
 
-        attempt = attempt + 1
-
-        local shotgunnerPlaceArgs = {
+        local placeArgs = {
             "Troops",
             "Place",
             {
                 Rotation = CFrame.new(0, 0, 0, 1, -0, 0, 0, 1, -0, 0, 0, 1),
                 Position = positionVector
             },
-            "Shotgunner"
+            towerType
         }
 
         pcall(function()
-            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(shotgunnerPlaceArgs))
+            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(placeArgs))
         end)
 
         placedModel = nil
@@ -3158,16 +2998,10 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
         while autoPlaceEnabled and (tick() - detectStart) < 5 do
             for _, child in ipairs(towersFolder:GetChildren()) do
                 if child:IsA("Model") then
-                    if not getTowerUID(child) then
-                        --continue--
-                    end
-
                     if getTowerReplicatorLevel(child) == 0 then
                         local alreadyUsed =
                             child == scoutTower or
-                            child == shotgunner1Model or child == shotgunner2Model or child == shotgunner3Model or
-                            child == shotgunner4Model or child == shotgunner5Model or child == shotgunner6Model or
-                            child == shotgunner7Model or child == shotgunner8Model or child == shotgunner9Model or
+                            isKnownShotgunnerModel(child) or
                             isKnownMinigunnerModel(child)
 
                         if not alreadyUsed then
@@ -3188,18 +3022,14 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
         if placedModel then
             task.wait(0.25)
 
-            -- Wait for the TowerReplicator UID to replicate
             local uidStart = tick()
-
             while autoPlaceEnabled and not uid and (tick() - uidStart) < 5.0 do
                 uid = getTowerUID(placedModel)
                 task.wait(0.05)
             end
 
-            -- Verify the tower can actually be found by its UID before continuing
             if uid then
                 local verifyStart = tick()
-
                 while autoPlaceEnabled and (tick() - verifyStart) < 5.0 do
                     if findTowerByUID(uid) then
                         break
@@ -3211,7 +3041,6 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
                 if verified then
                     placedModel = verified
 
-                    -- PATCH 3: Validate PrimaryPart distance from target placement position
                     if (verified.PrimaryPart and (verified.PrimaryPart.Position - positionVector).Magnitude > 0.5) then
                         placedModel = nil
                         uid = nil
@@ -3225,261 +3054,10 @@ local function PlaceAndUpgradeShotgunner(shotgunnerIndex, positionVector)
         task.wait(0.20)
     end
 
-    if not placedModel or not uid or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification(
-            "Auto Place Aborted",
-            string.format(
-                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
-                string.format("Shotgunner #%d Placement", shotgunnerIndex),
-                tostring(uid or "nil"),
-                tostring(currentTDSMoneyNumber),
-                placedModel and getTowerReplicatorLevel(placedModel) or -1
-            )
-        )
-        return false
-    end
-
-    -- STEP B: WAIT FOR $640 & UPGRADE TO LEVEL 1
-    local ok1, m1 = UpgradeTowerToLevel(uid, placedModel, 640, 1, 45.0, string.format("Shotgunner #%d Upgrade 1", shotgunnerIndex))
-    if not ok1 then return false end
-    placedModel = m1
-
-    -- STEP C: WAIT FOR $1550 & UPGRADE TO LEVEL 2
-    local ok2, m2 = UpgradeTowerToLevel(uid, placedModel, 1550, 2, 45.0, string.format("Shotgunner #%d Upgrade 2", shotgunnerIndex))
-    if not ok2 then return false end
-    placedModel = m2
-
-    -- STEP D: WAIT FOR $6000 & UPGRADE TO LEVEL 3
-    local ok3, m3 = UpgradeTowerToLevel(uid, placedModel, 6000, 3, 45.0, string.format("Shotgunner #%d Upgrade 3", shotgunnerIndex))
-    if not ok3 then return false end
-    placedModel = m3
-
-    -- STEP E: WAIT FOR $18500 & UPGRADE TO LEVEL 4 (MAX)
-    local ok4, m4 = UpgradeTowerToLevel(uid, placedModel, 18500, 4, 45.0, string.format("Shotgunner #%d Upgrade 4", shotgunnerIndex))
-    if not ok4 then return false end
-    placedModel = m4
-
-    -- PATCH 6: Refresh live reference immediately before returning true
-    local liveTower = findTowerByUID(uid)
-    if liveTower then
-        placedModel = liveTower
-    end
-
-    -- Store reference based on index
-    if shotgunnerIndex == 1 then shotgunner1Model, shotgunner1UID = placedModel, uid
-    elseif shotgunnerIndex == 2 then shotgunner2Model, shotgunner2UID = placedModel, uid
-    elseif shotgunnerIndex == 3 then shotgunner3Model, shotgunner3UID = placedModel, uid
-    elseif shotgunnerIndex == 4 then shotgunner4Model, shotgunner4UID = placedModel, uid
-    elseif shotgunnerIndex == 5 then shotgunner5Model, shotgunner5UID = placedModel, uid
-    elseif shotgunnerIndex == 6 then shotgunner6Model, shotgunner6UID = placedModel, uid
-    elseif shotgunnerIndex == 7 then shotgunner7Model, shotgunner7UID = placedModel, uid
-    elseif shotgunnerIndex == 8 then shotgunner8Model, shotgunner8UID = placedModel, uid
-    elseif shotgunnerIndex == 9 then shotgunner9Model, shotgunner9UID = placedModel, uid
-    end
-
-    return true
+    return placedModel, uid
 end
 
--- Dedicated Helper for Minigunner Placement & Upgrades (Levels 1, 2, and 3)
-local function PlaceAndUpgradeMinigunner(minigunnerIndex, positionVector)
-    if not autoPlaceEnabled then return false end
-
-    local towersFolder = workspace:FindFirstChild("Towers") or workspace:WaitForChild("Towers", 5)
-    if not towersFolder then return false end
-
-    -- STEP A: VERIFY & RETRY PLACEMENT
-    local placedModel = nil
-    local uid = nil
-
-    local attempt = 0
-    local placePipelineStart = tick()
-
-    while autoPlaceEnabled and (tick() - placePipelineStart) < 45.0 do
-        -- PATCH 4: Check existing tower by UID before placement retry to prevent duplicates
-        if uid then
-            local existing = findTowerByUID(uid)
-            if existing then
-                placedModel = existing
-                break
-            end
-        end
-
-        attempt = attempt + 1
-
-        local minigunnerPlaceArgs = {
-            "Troops",
-            "Place",
-            {
-                Rotation = CFrame.new(0, 0, 0, 1, -0, 0, 0, 1, -0, 0, 0, 1),
-                Position = positionVector
-            },
-            "Minigunner"
-        }
-
-        pcall(function()
-            game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(minigunnerPlaceArgs))
-        end)
-
-        placedModel = nil
-        local detectStart = tick()
-
-        while autoPlaceEnabled and (tick() - detectStart) < 5 do
-            for _, child in ipairs(towersFolder:GetChildren()) do
-                if child:IsA("Model") then
-                    if not getTowerUID(child) then
-                        --continue--
-                    end
-
-                    if getTowerReplicatorLevel(child) == 0 then
-                        local alreadyUsed =
-                            child == scoutTower or
-                            child == shotgunner1Model or child == shotgunner2Model or child == shotgunner3Model or
-                            child == shotgunner4Model or child == shotgunner5Model or child == shotgunner6Model or
-                            child == shotgunner7Model or child == shotgunner8Model or child == shotgunner9Model or
-                            isKnownMinigunnerModel(child)
-
-                        if not alreadyUsed then
-                            placedModel = child
-                            break
-                        end
-                    end
-                end
-            end
-
-            if placedModel then
-                break
-            end
-
-            task.wait(0.05)
-        end
-
-        if placedModel then
-            task.wait(0.25)
-
-            -- Wait for the TowerReplicator UID to replicate
-            local uidStart = tick()
-
-            while autoPlaceEnabled and not uid and (tick() - uidStart) < 5.0 do
-                uid = getTowerUID(placedModel)
-                task.wait(0.05)
-            end
-
-            -- Verify the tower can actually be found by its UID before continuing
-            if uid then
-                local verifyStart = tick()
-
-                while autoPlaceEnabled and (tick() - verifyStart) < 5.0 do
-                    if findTowerByUID(uid) then
-                        break
-                    end
-                    task.wait(0.05)
-                end
-
-                local verified = findTowerByUID(uid)
-                if verified then
-                    placedModel = verified
-
-                    -- PATCH 3: Validate PrimaryPart distance from target placement position
-                    if (verified.PrimaryPart and (verified.PrimaryPart.Position - positionVector).Magnitude > 0.5) then
-                        placedModel = nil
-                        uid = nil
-                    else
-                        break
-                    end
-                end
-            end
-        end
-
-        task.wait(0.20)
-    end
-
-    if not placedModel or not uid or not autoPlaceEnabled then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification(
-            "Auto Place Aborted",
-            string.format(
-                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
-                string.format("Minigunner #%d Placement", minigunnerIndex),
-                tostring(uid or "nil"),
-                tostring(currentTDSMoneyNumber),
-                placedModel and getTowerReplicatorLevel(placedModel) or -1
-            )
-        )
-        return false
-    end
-
-    -- STEP B: WAIT FOR $350 & UPGRADE TO LEVEL 1
-    local ok1, m1 = UpgradeTowerToLevel(uid, placedModel, 350, 1, 45.0, string.format("Minigunner #%d Upgrade 1", minigunnerIndex))
-    if not ok1 then return false end
-    placedModel = m1
-
-    -- STEP C: WAIT FOR $1500 & UPGRADE TO LEVEL 2
-    local ok2, m2 = UpgradeTowerToLevel(uid, placedModel, 1500, 2, 45.0, string.format("Minigunner #%d Upgrade 2", minigunnerIndex))
-    if not ok2 then return false end
-    placedModel = m2
-
-    -- STEP D: WAIT FOR $6500 & UPGRADE TO LEVEL 3
-    local ok3, m3 = UpgradeTowerToLevel(uid, placedModel, 6500, 3, 45.0, string.format("Minigunner #%d Upgrade 3", minigunnerIndex))
-    if not ok3 then return false end
-    placedModel = m3
-
-    -- PATCH 6: Refresh live reference immediately before returning true
-    local liveTower = findTowerByUID(uid)
-    if liveTower then
-        placedModel = liveTower
-    end
-
-    -- Store reference based on index
-    minigunnerModels[minigunnerIndex], minigunnerUIDs[minigunnerIndex] = placedModel, uid
-
-    return true
-end
-
--- Dedicated Helper for Minigunner Level 3 -> Level 4 (Max) Upgrade Pass
-local function UpgradeMinigunnerToMax(minigunnerIndex)
-    if not autoPlaceEnabled then return false end
-
-    local uid = minigunnerUIDs[minigunnerIndex]
-    local placedModel = minigunnerModels[minigunnerIndex]
-
-    if not uid or not placedModel then
-        turnOffAutoPlaceToggle()
-        sendInGameNotification(
-            "Auto Place Aborted",
-            string.format(
-                "Upgrade verification timed out.\nTower: %s\nUID: %s\nMoney: %s\nCurrent Level: %d",
-                string.format("Minigunner #%d Max", minigunnerIndex),
-                tostring(uid or "nil"),
-                tostring(currentTDSMoneyNumber),
-                placedModel and getTowerReplicatorLevel(placedModel) or -1
-            )
-        )
-        return false
-    end
-
-    -- If it's somehow already Level 4 (e.g. resumed run), skip straight through
-    local existing = findTowerByUID(uid)
-    if existing and getTowerReplicatorLevel(existing) >= 4 then
-        return true
-    end
-
-    -- STEP E: WAIT FOR $21500 & UPGRADE TO LEVEL 4 (MAX)
-    local ok4, m4 = UpgradeTowerToLevel(uid, placedModel, 21500, 4, 45.0, string.format("Minigunner #%d Upgrade 4 (Max)", minigunnerIndex))
-    if not ok4 then return false end
-    placedModel = m4
-
-    -- PATCH 6: Refresh live reference immediately before returning true
-    local liveTower = findTowerByUID(uid)
-    if liveTower then
-        placedModel = liveTower
-    end
-
-    minigunnerModels[minigunnerIndex], minigunnerUIDs[minigunnerIndex] = placedModel, uid
-    return true
-end
-
--- MAIN TOGGLE EVENT HANDLER
+-- MAIN TOGGLE EVENT HANDLER & DETERMINISTIC 9-STEP PIPELINE
 apcSwitchBtn.MouseButton1Click:Connect(function()
     autoPlaceEnabled = not autoPlaceEnabled
 
@@ -3488,33 +3066,77 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
         apcSwKnob.BackgroundColor3 = Color3.fromRGB(14, 255, 0)
         
         stopAutoPlaceTask()
-        scoutPlaced = false
-        scoutUpgraded = false
-        scoutSold = false
-        shotgunner1Placed = false
-        shotgunner1Upgraded = false
-        scoutTower = nil
-        shotgunner1Model, shotgunner1UID = nil, nil
-        shotgunner2Model, shotgunner2UID = nil, nil
-        shotgunner3Model, shotgunner3UID = nil, nil
-        shotgunner4Model, shotgunner4UID = nil, nil
-        shotgunner5Model, shotgunner5UID = nil, nil
-        shotgunner6Model, shotgunner6UID = nil, nil
-        shotgunner7Model, shotgunner7UID = nil, nil
-        shotgunner8Model, shotgunner8UID = nil, nil
-        shotgunner9Model, shotgunner9UID = nil, nil
+        scoutTower, scoutUID = nil, nil
+        shotgunnerModels, shotgunnerUIDs = {}, {}
         minigunnerModels, minigunnerUIDs = {}, {}
 
         _autoPlaceTask = task.spawn(function()
-            -- Step 1: Scout Placement & Double Upgrade
-            local ok = processScoutPlacement()
+            -- ==================================================
+            -- STEP 1: Scout Placement & Upgrade to Level 2
+            -- ==================================================
+            sendInGameNotification("Auto Place Towers", " Auto Place started.")
 
-            -- Step 2: Wait for $1225 & Sell Scout
-            if ok and autoPlaceEnabled then
-                ok = processScoutSell()
+            local scoutPos = Vector3.new(12.885271072387695, 1.0000064373016357, -8.871417045593262)
+            local sm, suid = PlaceTower("Scout", scoutPos, 1)
+
+            if not sm or not suid or not autoPlaceEnabled then
+                turnOffAutoPlaceToggle()
+                sendInGameNotification("Auto Place Aborted", string.format("Placement failed.\nTower: Scout\nStage: Step 1 Placement\nMoney: %d", tonumber(currentTDSMoneyNumber) or 0))
+                return
             end
 
-            -- Step 3: Exact Shotgunner Position Vectors (Shotgunners #1 to #9)
+            scoutTower, scoutUID = sm, suid
+            sendInGameNotification("Auto Place Towers", " Scout placed successfully.")
+
+            -- Upgrade Scout to Level 1 ($50)
+            local ok1, updated1 = UpgradeTowerToLevel(scoutUID, scoutTower, 50, 1, 45.0, "Step 1 Scout Level 1", "Scout", 1)
+            if not ok1 or not autoPlaceEnabled then return end
+            scoutTower = updated1
+            sendInGameNotification("Auto Place Towers", " Scout upgraded to Level 1.")
+
+            -- Upgrade Scout to Level 2 ($375)
+            local ok2, updated2 = UpgradeTowerToLevel(scoutUID, scoutTower, 375, 2, 45.0, "Step 1 Scout Level 2", "Scout", 1)
+            if not ok2 or not autoPlaceEnabled then return end
+            scoutTower = updated2
+            sendInGameNotification("Auto Place Towers", " Scout upgraded to Level 2.")
+
+            -- ==================================================
+            -- STEP 2: Wait for $1225 & Sell Scout
+            -- ==================================================
+            local sellWaitStart = tick()
+            while autoPlaceEnabled and currentTDSMoneyNumber < 1225 and (tick() - sellWaitStart) < 180.0 do
+                task.wait(0.1)
+            end
+
+            if not autoPlaceEnabled or currentTDSMoneyNumber < 1225 then
+                turnOffAutoPlaceToggle()
+                sendInGameNotification("Auto Place Aborted", string.format("Money wait ($1225) timed out!\nTower: Scout Sell\nStage: Step 2 Scout Sell\nMoney: %d", tonumber(currentTDSMoneyNumber) or 0))
+                return
+            end
+
+            local sellArgs = { "Troops", "Sell", { Troop = scoutTower } }
+            pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunction", 5):InvokeServer(unpack(sellArgs)) end)
+
+            local scoutRemoved = false
+            local sellVerifyStart = tick()
+            while autoPlaceEnabled and (tick() - sellVerifyStart) < 5.0 do
+                if not findTowerByUID(scoutUID) and not (scoutTower and scoutTower.Parent) then
+                    scoutRemoved = true
+                    break
+                end
+                task.wait(0.1)
+            end
+
+            if not scoutRemoved or not autoPlaceEnabled then
+                turnOffAutoPlaceToggle()
+                sendInGameNotification("Auto Place Aborted", string.format("Scout sell removal verification failed!\nStage: Step 2 Scout Sell\nUID: %s", tostring(scoutUID)))
+                return
+            end
+            sendInGameNotification("Auto Place Towers", " Scout sold successfully.")
+
+            -- ==================================================
+            -- STEP 3 & STEP 4: Place & Upgrade Shotgunners #1 to #9 to Level 2
+            -- ==================================================
             local p1 = Vector3.new(12.490434646606445, 1.0000064373016357, -10.304333686828613)
             local p2 = Vector3.new(12.487998962402344, 1.0000064373016357, -8.301471710205078)
             local p3 = Vector3.new(12.300650596618652, 1.0000064373016357, -6.279729843139648)
@@ -3539,94 +3161,188 @@ apcSwitchBtn.MouseButton1Click:Connect(function()
                 end)
             end
 
-            local positions = { p1, p2, p3, p4, p5, p6, p7, p8, p9 }
+            local shotgunnerPositions = { p1, p2, p3, p4, p5, p6, p7, p8, p9 }
 
-            -- Step 4: Strict Deterministic Sequential Pipeline for 9 Shotgunners (Placement & Upgrade to Level 4/Max)
-            if ok and autoPlaceEnabled then
-                for i = 1, 9 do
-                    if not autoPlaceEnabled then
-                        ok = false
-                        break
-                    end
+            for i = 1, 9 do
+                if not autoPlaceEnabled then return end
 
-                    local shotgunnerSuccess = PlaceAndUpgradeShotgunner(i, positions[i])
-                    if not shotgunnerSuccess then
-                        ok = false
-                        break
-                    end
+                local sgModel, sgUID = PlaceTower("Shotgunner", shotgunnerPositions[i], i)
+                if not sgModel or not sgUID or not autoPlaceEnabled then
+                    turnOffAutoPlaceToggle()
+                    sendInGameNotification("Auto Place Aborted", string.format("Placement verification failed!\nTower: Shotgunner #%d\nStage: Step 3/4 Placement\nMoney: %d", i, tonumber(currentTDSMoneyNumber) or 0))
+                    return
+                end
+                shotgunnerModels[i] = sgModel
+                shotgunnerUIDs[i] = sgUID
+                sendInGameNotification("Auto Place Towers", string.format(" Shotgunner #%d placed.", i))
+
+                -- Upgrade to Level 1 ($640)
+                local u1Ok, u1M = UpgradeTowerToLevel(sgUID, sgModel, 640, 1, 45.0, string.format("Step 3/4 Shotgunner #%d Level 1", i), "Shotgunner", i)
+                if not u1Ok or not autoPlaceEnabled then return end
+                shotgunnerModels[i] = u1M
+                sendInGameNotification("Auto Place Towers", string.format(" Shotgunner #%d upgraded to Level 1.", i))
+
+                -- Upgrade to Level 2 ($1550)
+                local u2Ok, u2M = UpgradeTowerToLevel(sgUID, u1M, 1550, 2, 45.0, string.format("Step 3/4 Shotgunner #%d Level 2", i), "Shotgunner", i)
+                if not u2Ok or not autoPlaceEnabled then return end
+                shotgunnerModels[i] = u2M
+                sendInGameNotification("Auto Place Towers", string.format(" Shotgunner #%d upgraded to Level 2.", i))
+            end
+            sendInGameNotification("Auto Place Towers", " All 9 Shotgunners reached Level 2.")
+
+            -- ==================================================
+            -- STEP 5: Upgrade ALL 9 Shotgunners from Level 2 to Level 3 ($6000)
+            -- ==================================================
+            sendInGameNotification("Auto Place Towers", " Beginning Level 3 Shotgunner upgrades.")
+            for i = 1, 9 do
+                if not autoPlaceEnabled then return end
+                local uid = shotgunnerUIDs[i]
+                local model = shotgunnerModels[i]
+
+                local u3Ok, u3M = UpgradeTowerToLevel(uid, model, 6000, 3, 45.0, string.format("Step 5 Shotgunner #%d Level 3", i), "Shotgunner", i)
+                if not u3Ok or not autoPlaceEnabled then return end
+                shotgunnerModels[i] = u3M
+                sendInGameNotification("Auto Place Towers", string.format(" Shotgunner #%d upgraded to Level 3.", i))
+            end
+            sendInGameNotification("Auto Place Towers", " All Shotgunners reached Level 3.")
+
+            -- ==================================================
+            -- STEP 6: Upgrade ALL 9 Shotgunners from Level 3 to Level 4 ($18500)
+            -- ==================================================
+            sendInGameNotification("Auto Place Towers", " Beginning Level 4 Shotgunner upgrades.")
+            for i = 1, 9 do
+                if not autoPlaceEnabled then return end
+                local uid = shotgunnerUIDs[i]
+                local model = shotgunnerModels[i]
+
+                local u4Ok, u4M = UpgradeTowerToLevel(uid, model, 18500, 4, 45.0, string.format("Step 6 Shotgunner #%d Level 4", i), "Shotgunner", i)
+                if not u4Ok or not autoPlaceEnabled then return end
+                shotgunnerModels[i] = u4M
+                sendInGameNotification("Auto Place Towers", string.format(" Shotgunner #%d upgraded to Level 4.", i))
+            end
+            sendInGameNotification("Auto Place Towers", " All Shotgunners are now Level 4.")
+
+            -- ==================================================
+            -- STEP 7: Place & Upgrade Minigunners #1 to #28 to Level 3
+            -- ==================================================
+            sendInGameNotification("Auto Place Towers", " Beginning Minigunner placement.")
+
+            local minigunnerPositions = {
+                Vector3.new(3.3973870277404785, 1.0000064373016357, 5.273189544677734),
+                Vector3.new(3.68341064453125, 1.0000064373016357, 2.269501209259033),
+                Vector3.new(3.718188762664795, 1.0000064373016357, -0.7739953994750977),
+                Vector3.new(3.841353416442871, 1.0000064373016357, -3.801422119140625),
+                Vector3.new(3.819641590118408, 1.0000064373016357, -6.826100826263428),
+                Vector3.new(3.7243003845214844, 1.0000064373016357, -9.859762191772461),
+                Vector3.new(3.79325532913208, 1.0000064373016357, -12.903999328613281),
+                Vector3.new(3.8457250595092773, 1.0000064373016357, -15.914878845214844),
+                Vector3.new(0.6056113243103027, 1.0000064373016357, 1.8032293319702148),
+                Vector3.new(0.7378559112548828, 1.0000064373016357, -1.2998151779174805),
+                Vector3.new(0.8663501739501953, 1.0000064373016357, -4.39886474609375),
+                Vector3.new(0.8860287666320801, 1.0000064373016357, -7.516957759857178),
+                Vector3.new(0.8263139724731445, 1.0000064373016357, -10.658610343933105),
+                Vector3.new(0.8636541366577148, 1.0000064373016357, -13.689079284667969),
+                Vector3.new(0.9747109413146973, 1.0000064373016357, -16.821365356445312),
+                Vector3.new(-1.9179191589355469, 1.0000064373016357, 0.1532115936279297),
+                Vector3.new(-1.8591423034667969, 1.0000064373016357, -2.8824591636657715),
+                Vector3.new(-1.8549041748046875, 1.0000064373016357, -5.925073146820068),
+                Vector3.new(-1.715224266052246, 1.0000064373016357, -9.01424503326416),
+                Vector3.new(-1.8170757293701172, 1.0000064373016357, -12.086271286010742),
+                Vector3.new(-1.7371788024902344, 1.0000064373016357, -15.278322219848633),
+                Vector3.new(-8.155489921569824, 1.0000064373016357, -7.970748424530029),
+                Vector3.new(-8.1359224319458, 1.0000064373016357, -4.894162654876709),
+                Vector3.new(-8.158841133117676, 1.0000064373016357, -1.8657312393188477),
+                Vector3.new(-8.066286087036133, 1.0000064373016357, 1.1722221374511719),
+                Vector3.new(-8.124473571777344, 1.0000064373016357, 4.239893913269043),
+                Vector3.new(-8.076244354248047, 1.0000064373016357, 7.294686317443848),
+                Vector3.new(-8.162724494934082, 1.0000064373016357, 10.314300537109375)
+            }
+
+            for i = 1, 28 do
+                if not autoPlaceEnabled then return end
+
+                local mModel, mUID = PlaceTower("Minigunner", minigunnerPositions[i], i)
+                if not mModel or not mUID or not autoPlaceEnabled then
+                    turnOffAutoPlaceToggle()
+                    sendInGameNotification("Auto Place Aborted", string.format("Placement verification failed!\nTower: Minigunner #%d\nStage: Step 7 Placement\nMoney: %d", i, tonumber(currentTDSMoneyNumber) or 0))
+                    return
+                end
+                minigunnerModels[i] = mModel
+                minigunnerUIDs[i] = mUID
+                sendInGameNotification("Auto Place Towers", string.format(" Minigunner #%d placed.", i))
+
+                -- Level 1 ($350)
+                local u1Ok, u1M = UpgradeTowerToLevel(mUID, mModel, 350, 1, 45.0, string.format("Step 7 Minigunner #%d Level 1", i), "Minigunner", i)
+                if not u1Ok or not autoPlaceEnabled then return end
+                minigunnerModels[i] = u1M
+                sendInGameNotification("Auto Place Towers", string.format(" Minigunner #%d upgraded to Level 1.", i))
+
+                -- Level 2 ($1500)
+                local u2Ok, u2M = UpgradeTowerToLevel(mUID, u1M, 1500, 2, 45.0, string.format("Step 7 Minigunner #%d Level 2", i), "Minigunner", i)
+                if not u2Ok or not autoPlaceEnabled then return end
+                minigunnerModels[i] = u2M
+                sendInGameNotification("Auto Place Towers", string.format(" Minigunner #%d upgraded to Level 2.", i))
+
+                -- Level 3 ($6500)
+                local u3Ok, u3M = UpgradeTowerToLevel(mUID, u2M, 6500, 3, 45.0, string.format("Step 7 Minigunner #%d Level 3", i), "Minigunner", i)
+                if not u3Ok or not autoPlaceEnabled then return end
+                minigunnerModels[i] = u3M
+                sendInGameNotification("Auto Place Towers", string.format(" Minigunner #%d upgraded to Level 3.", i))
+            end
+            sendInGameNotification("Auto Place Towers", " All 28 Minigunners reached Level 3.")
+
+            -- ==================================================
+            -- STEP 8: Upgrade ALL 28 Minigunners from Level 3 to Level 4 ($21500)
+            -- ==================================================
+            sendInGameNotification("Auto Place Towers", " Beginning Level 4 Minigunner upgrades.")
+            for i = 1, 28 do
+                if not autoPlaceEnabled then return end
+                local uid = minigunnerUIDs[i]
+                local model = minigunnerModels[i]
+
+                local u4Ok, u4M = UpgradeTowerToLevel(uid, model, 21500, 4, 45.0, string.format("Step 8 Minigunner #%d Level 4", i), "Minigunner", i)
+                if not u4Ok or not autoPlaceEnabled then return end
+                minigunnerModels[i] = u4M
+                sendInGameNotification("Auto Place Towers", string.format(" Minigunner #%d upgraded to Level 4.", i))
+            end
+            sendInGameNotification("Auto Place Towers", " All Minigunners are now Level 4.")
+
+            -- ==================================================
+            -- STEP 9: Final Verification & Completion Handler
+            -- ==================================================
+            local shotgunnerCount = 0
+            for i = 1, 9 do
+                local uid = shotgunnerUIDs[i]
+                local model = findTowerByUID(uid)
+                if model and getTowerReplicatorLevel(model) == 4 then
+                    shotgunnerCount = shotgunnerCount + 1
                 end
             end
 
-            -- Step 7: Minigunners Sequential Pipeline (#1 to #28, each placed & upgraded to Level 3)
-            if ok and autoPlaceEnabled then
-                local minigunnerPositions = {
-                    Vector3.new(3.3973870277404785, 1.0000064373016357, 5.273189544677734),
-                    Vector3.new(3.68341064453125, 1.0000064373016357, 2.269501209259033),
-                    Vector3.new(3.718188762664795, 1.0000064373016357, -0.7739953994750977),
-                    Vector3.new(3.841353416442871, 1.0000064373016357, -3.801422119140625),
-                    Vector3.new(3.819641590118408, 1.0000064373016357, -6.826100826263428),
-                    Vector3.new(3.7243003845214844, 1.0000064373016357, -9.859762191772461),
-                    Vector3.new(3.79325532913208, 1.0000064373016357, -12.903999328613281),
-                    Vector3.new(3.8457250595092773, 1.0000064373016357, -15.914878845214844),
-                    Vector3.new(0.6056113243103027, 1.0000064373016357, 1.8032293319702148),
-                    Vector3.new(0.7378559112548828, 1.0000064373016357, -1.2998151779174805),
-                    Vector3.new(0.8663501739501953, 1.0000064373016357, -4.39886474609375),
-                    Vector3.new(0.8860287666320801, 1.0000064373016357, -7.516957759857178),
-                    Vector3.new(0.8263139724731445, 1.0000064373016357, -10.658610343933105),
-                    Vector3.new(0.8636541366577148, 1.0000064373016357, -13.689079284667969),
-                    Vector3.new(0.9747109413146973, 1.0000064373016357, -16.821365356445312),
-                    Vector3.new(-1.9179191589355469, 1.0000064373016357, 0.1532115936279297),
-                    Vector3.new(-1.8591423034667969, 1.0000064373016357, -2.8824591636657715),
-                    Vector3.new(-1.8549041748046875, 1.0000064373016357, -5.925073146820068),
-                    Vector3.new(-1.715224266052246, 1.0000064373016357, -9.01424503326416),
-                    Vector3.new(-1.8170757293701172, 1.0000064373016357, -12.086271286010742),
-                    Vector3.new(-1.7371788024902344, 1.0000064373016357, -15.278322219848633),
-                    Vector3.new(-8.155489921569824, 1.0000064373016357, -7.970748424530029),
-                    Vector3.new(-8.1359224319458, 1.0000064373016357, -4.894162654876709),
-                    Vector3.new(-8.158841133117676, 1.0000064373016357, -1.8657312393188477),
-                    Vector3.new(-8.066286087036133, 1.0000064373016357, 1.1722221374511719),
-                    Vector3.new(-8.124473571777344, 1.0000064373016357, 4.239893913269043),
-                    Vector3.new(-8.076244354248047, 1.0000064373016357, 7.294686317443848),
-                    Vector3.new(-8.162724494934082, 1.0000064373016357, 10.314300537109375)
-                }
-
-                for i = 1, 28 do
-                    if not autoPlaceEnabled then
-                        ok = false
-                        break
-                    end
-
-                    local miniSuccess = PlaceAndUpgradeMinigunner(i, minigunnerPositions[i])
-                    if not miniSuccess then
-                        ok = false
-                        break
-                    end
+            local minigunnerCount = 0
+            for i = 1, 28 do
+                local uid = minigunnerUIDs[i]
+                local model = findTowerByUID(uid)
+                if model and getTowerReplicatorLevel(model) == 4 then
+                    minigunnerCount = minigunnerCount + 1
                 end
             end
 
-            -- Step 8: Minigunner Max Upgrade Pass (#1 to #28, Level 3 -> Level 4)
-            -- Runs ONLY after every one of the 28 Minigunners has been placed and
-            -- verified at Level 3. Upgrades proceed in the exact order the
-            -- Minigunners were originally placed (#1 first, #28 last).
-            if ok and autoPlaceEnabled then
-                for i = 1, 28 do
-                    if not autoPlaceEnabled then
-                        ok = false
-                        break
-                    end
-
-                    local maxSuccess = UpgradeMinigunnerToMax(i)
-                    if not maxSuccess then
-                        ok = false
-                        break
-                    end
-                end
-            end
-
-            -- Step 9: Completion Handler (ONLY after all 28 Minigunners reach Level 4)
-            if ok and autoPlaceEnabled then
+            if shotgunnerCount == 9 and minigunnerCount == 28 then
+                sendInGameNotification("Auto Place Towers", " Final verification passed.")
+                sendInGameNotification("Auto Place Towers", " Auto Place Towers has successfully finished.")
                 turnOffAutoPlaceToggle()
-                sendInGameNotification("Auto Place Towers", "Finished placing and maxing all towers.")
+            else
+                turnOffAutoPlaceToggle()
+                sendInGameNotification(
+                    "Auto Place Aborted",
+                    string.format(
+                        "Final verification failed!\nDetected Shotgunners Level 4: %d/9\nDetected Minigunners Level 4: %d/28\nTotal Towers Level 4: %d/37",
+                        shotgunnerCount,
+                        minigunnerCount,
+                        shotgunnerCount + minigunnerCount
+                    )
+                )
             end
 
             _autoPlaceTask = nil
