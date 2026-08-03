@@ -990,27 +990,34 @@ local function bindDirectCashTracker()
     end)
 
     if cashObj then
-        _cashTargetObject = cashObj
-        updateMoneyFromCashObject(cashObj)
+        local targetSignalObj = cashObj
+        if cashObj:IsA("Frame") or cashObj:IsA("GuiObject") then
+            local amountChild = cashObj:FindFirstChild("amount") or cashObj:FindFirstChildOfClass("TextLabel")
+            if amountChild then
+                targetSignalObj = amountChild
+            end
+        end
 
-        if cashObj:IsA("TextLabel") or cashObj:IsA("TextButton") then
-            _cashTargetConnection = cashObj:GetPropertyChangedSignal("Text"):Connect(function()
-                updateMoneyFromCashObject(cashObj)
+        _cashTargetObject = targetSignalObj
+        updateMoneyFromCashObject(targetSignalObj)
+
+        if targetSignalObj:IsA("TextLabel") or targetSignalObj:IsA("TextButton") then
+            _cashTargetConnection = targetSignalObj:GetPropertyChangedSignal("Text"):Connect(function()
+                updateMoneyFromCashObject(targetSignalObj)
             end)
-        elseif cashObj:IsA("StringValue") or cashObj:IsA("IntValue") or cashObj:IsA("NumberValue") or cashObj:IsA("ValueBase") then
-            _cashTargetConnection = cashObj.Changed:Connect(function()
-                updateMoneyFromCashObject(cashObj)
+        elseif targetSignalObj:IsA("StringValue") or targetSignalObj:IsA("IntValue") or targetSignalObj:IsA("NumberValue") or targetSignalObj:IsA("ValueBase") then
+            _cashTargetConnection = targetSignalObj.Changed:Connect(function()
+                updateMoneyFromCashObject(targetSignalObj)
             end)
         else
-            -- Event binding fallback for custom instances
-            local hasTextSignal, textSignal = pcall(function() return cashObj:GetPropertyChangedSignal("Text") end)
+            local hasTextSignal, textSignal = pcall(function() return targetSignalObj:GetPropertyChangedSignal("Text") end)
             if hasTextSignal and textSignal then
                 _cashTargetConnection = textSignal:Connect(function()
-                    updateMoneyFromCashObject(cashObj)
+                    updateMoneyFromCashObject(targetSignalObj)
                 end)
             else
-                _cashTargetConnection = cashObj.Changed:Connect(function()
-                    updateMoneyFromCashObject(cashObj)
+                _cashTargetConnection = targetSignalObj.Changed:Connect(function()
+                    updateMoneyFromCashObject(targetSignalObj)
                 end)
             end
         end
@@ -2663,24 +2670,6 @@ local scoutTower, scoutUID = nil, nil
 local shotgunnerModels, shotgunnerUIDs = {}, {}
 local minigunnerModels, minigunnerUIDs = {}, {}
 
-local function isKnownMinigunnerModel(child)
-    for i = 1, 28 do
-        if child == minigunnerModels[i] then
-            return true
-        end
-    end
-    return false
-end
-
-local function isKnownShotgunnerModel(child)
-    for i = 1, 9 do
-        if child == shotgunnerModels[i] then
-            return true
-        end
-    end
-    return false
-end
-
 local _autoPlaceTask = nil
 
 local function sendInGameNotification(titleText, descText)
@@ -2753,6 +2742,42 @@ local function findTowerByUID(targetUID)
         end
     end
     return nil
+end
+
+local function isKnownMinigunnerModel(child)
+    if not child then return false end
+    for i = 1, 28 do
+        if child == minigunnerModels[i] then
+            return true
+        end
+    end
+    local uid = getTowerUID(child)
+    if uid then
+        for i = 1, 28 do
+            if minigunnerUIDs[i] == uid then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function isKnownShotgunnerModel(child)
+    if not child then return false end
+    for i = 1, 9 do
+        if child == shotgunnerModels[i] then
+            return true
+        end
+    end
+    local uid = getTowerUID(child)
+    if uid then
+        for i = 1, 9 do
+            if shotgunnerUIDs[i] == uid then
+                return true
+            end
+        end
+    end
+    return false
 end
 
 local apcSwitchBtn, apcSwKnob
@@ -2903,15 +2928,11 @@ local function UpgradeTowerToLevel(uid, placedModel, requiredMoney, targetLevel,
         end
 
         if targetModel and getTowerReplicatorLevel(targetModel) >= targetLevel then
-            local doubleCheckLive = findTowerByUID(uid)
-            if not doubleCheckLive then
-                task.wait(0.05)
-            else
+            local doubleCheckLive = findTowerByUID(uid) or targetModel
+            if doubleCheckLive and getTowerReplicatorLevel(doubleCheckLive) >= targetLevel then
                 placedModel = doubleCheckLive
-                if getTowerReplicatorLevel(doubleCheckLive) >= targetLevel then
-                    levelConfirmed = true
-                    break
-                end
+                levelConfirmed = true
+                break
             end
         end
 
@@ -3041,9 +3062,15 @@ local function PlaceTower(towerType, positionVector, towerIndex)
                 if verified then
                     placedModel = verified
 
-                    if (verified.PrimaryPart and (verified.PrimaryPart.Position - positionVector).Magnitude > 0.5) then
-                        placedModel = nil
-                        uid = nil
+                    if verified.PrimaryPart then
+                        local vPos = verified.PrimaryPart.Position
+                        local xzDist = (Vector2.new(vPos.X, vPos.Z) - Vector2.new(positionVector.X, positionVector.Z)).Magnitude
+                        if xzDist > 1.5 then
+                            placedModel = nil
+                            uid = nil
+                        else
+                            break
+                        end
                     else
                         break
                     end
