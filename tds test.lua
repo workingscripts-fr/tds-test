@@ -388,191 +388,201 @@ do
     pcall(function() loadingGui.OnTopOfCoreBlur = true end)
     safeParentGui(loadingGui)
 
-    -- Fullscreen Backdrop
+    -- Fullscreen Cosmic Backdrop
     local loadingBg = Instance.new("Frame")
     loadingBg.Name = "CosmicBackdrop"
     loadingBg.Size = UDim2.new(1, 0, 1, 0)
     loadingBg.Position = UDim2.new(0, 0, 0, 0)
-    loadingBg.BackgroundColor3 = Color3.fromRGB(5, 7, 15)
+    loadingBg.BackgroundColor3 = Color3.fromRGB(4, 6, 14)
     loadingBg.BorderSizePixel = 0
     loadingBg.ZIndex = 1
     loadingBg.Parent = loadingGui
 
     local bgGrad = Instance.new("UIGradient")
     bgGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(3, 4, 10)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(10, 14, 28)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(3, 4, 10))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(2, 3, 8)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(8, 12, 26)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(2, 3, 8))
     })
     bgGrad.Rotation = 45
     bgGrad.Parent = loadingBg
 
-    -- Cosmic Nebula Glow 1 (Cyan/Blue)
+    -- Cosmic Nebula Glow 1 (Cyan Aura)
     local nebula1 = Instance.new("Frame")
     nebula1.AnchorPoint = Vector2.new(0.5, 0.5)
-    nebula1.Position = UDim2.new(0.3, 0, 0.35, 0)
-    nebula1.Size = UDim2.fromOffset(450, 450)
-    nebula1.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
-    nebula1.BackgroundTransparency = 0.88
+    nebula1.Position = UDim2.new(0.25, 0, 0.3, 0)
+    nebula1.Size = UDim2.fromOffset(550, 550)
+    nebula1.BackgroundColor3 = Color3.fromRGB(0, 210, 255)
+    nebula1.BackgroundTransparency = 0.90
     nebula1.BorderSizePixel = 0
     nebula1.ZIndex = 2
     nebula1.Parent = loadingBg
+    Instance.new("UICorner", nebula1).CornerRadius = UDim.new(1, 0)
 
-    local neb1Corner = Instance.new("UICorner")
-    neb1Corner.CornerRadius = UDim.new(1, 0)
-    neb1Corner.Parent = nebula1
-
-    -- Cosmic Nebula Glow 2 (Purple/Magenta)
+    -- Cosmic Nebula Glow 2 (Purple/Magenta Aura)
     local nebula2 = Instance.new("Frame")
     nebula2.AnchorPoint = Vector2.new(0.5, 0.5)
-    nebula2.Position = UDim2.new(0.7, 0, 0.65, 0)
-    nebula2.Size = UDim2.fromOffset(500, 500)
-    nebula2.BackgroundColor3 = Color3.fromRGB(180, 0, 255)
-    nebula2.BackgroundTransparency = 0.88
+    nebula2.Position = UDim2.new(0.75, 0, 0.7, 0)
+    nebula2.Size = UDim2.fromOffset(600, 600)
+    nebula2.BackgroundColor3 = Color3.fromRGB(200, 0, 255)
+    nebula2.BackgroundTransparency = 0.90
     nebula2.BorderSizePixel = 0
     nebula2.ZIndex = 2
     nebula2.Parent = loadingBg
+    Instance.new("UICorner", nebula2).CornerRadius = UDim.new(1, 0)
 
-    local neb2Corner = Instance.new("UICorner")
-    neb2Corner.CornerRadius = UDim.new(1, 0)
-    neb2Corner.Parent = nebula2
+    -- Expanding Shockwave Energy Ring
+    local shockwave = Instance.new("Frame")
+    shockwave.Name = "ShockwaveRing"
+    shockwave.AnchorPoint = Vector2.new(0.5, 0.5)
+    shockwave.Position = UDim2.new(0.5, 0, 0.5, 0)
+    shockwave.Size = UDim2.fromOffset(100, 100)
+    shockwave.BackgroundTransparency = 1
+    shockwave.ZIndex = 3
+    shockwave.Parent = loadingBg
+    Instance.new("UICorner", shockwave).CornerRadius = UDim.new(1, 0)
 
-    -- Floating Star Particles Container
+    local shockStroke = Instance.new("UIStroke")
+    shockStroke.Color = Color3.fromRGB(0, 255, 220)
+    shockStroke.Transparency = 1
+    shockStroke.Thickness = 2.5
+    shockStroke.Parent = shockwave
+
+    -- Floating Starfield Particle Container (60 Warp Particles)
     local starContainer = Instance.new("Frame")
     starContainer.Size = UDim2.new(1, 0, 1, 0)
     starContainer.BackgroundTransparency = 1
-    starContainer.ZIndex = 3
+    starContainer.ZIndex = 4
     starContainer.Parent = loadingBg
 
     local stars = {}
-    for i = 1, 35 do
+    for i = 1, 60 do
         local star = Instance.new("Frame")
-        star.Size = UDim2.fromOffset(math.random(2, 4), math.random(2, 4))
+        local sz = math.random(2, 4)
+        star.Size = UDim2.fromOffset(sz, sz)
         star.Position = UDim2.new(math.random(), 0, math.random(), 0)
         star.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        star.BackgroundTransparency = math.random(30, 80) / 100
+        star.BackgroundTransparency = math.random(20, 70) / 100
         star.BorderSizePixel = 0
-        star.ZIndex = 3
+        star.ZIndex = 4
         star.Parent = starContainer
+        Instance.new("UICorner", star).CornerRadius = UDim.new(1, 0)
         
-        local starCorner = Instance.new("UICorner")
-        starCorner.CornerRadius = UDim.new(1, 0)
-        starCorner.Parent = star
-        
-        table.insert(stars, { obj = star, speedX = (math.random() - 0.5) * 0.0003, speedY = (math.random() - 0.5) * 0.0003 })
+        local angle = math.random() * math.pi * 2
+        local speed = math.random(30, 120) / 100000
+        table.insert(stars, { obj = star, baseSize = sz, angle = angle, speed = speed })
     end
 
-    -- Central Glassmorphism Card
+    -- Central Glassmorphism Control Card
     local card = Instance.new("Frame")
     card.Name = "CosmicCard"
     card.AnchorPoint = Vector2.new(0.5, 0.5)
     card.Position = UDim2.new(0.5, 0, 0.5, 0)
-    card.Size = UDim2.fromOffset(460, 280)
-    card.BackgroundColor3 = Color3.fromRGB(12, 16, 26)
-    card.BackgroundTransparency = 0.15
+    card.Size = UDim2.fromOffset(520, 320)
+    card.BackgroundColor3 = Color3.fromRGB(10, 14, 24)
+    card.BackgroundTransparency = 0.12
     card.BorderSizePixel = 0
     card.ZIndex = 10
     card.Parent = loadingBg
 
     local cardCorner = Instance.new("UICorner")
-    cardCorner.CornerRadius = UDim.new(0, 20)
+    cardCorner.CornerRadius = UDim.new(0, 22)
     cardCorner.Parent = card
 
     local cardStroke = Instance.new("UIStroke")
     cardStroke.Color = Color3.fromRGB(255, 255, 255)
-    cardStroke.Thickness = 1.8
+    cardStroke.Thickness = 2.0
     cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     cardStroke.Parent = card
-    attachRotatingOutline(cardStroke, 25, 0)
+    attachRotatingOutline(cardStroke, 28, 0)
 
-    -- Central Orbital Reactor Core
+    -- Tri-Orbital Reactor Engine (3 Counter-Rotating Rings)
     local reactor = Instance.new("Frame")
     reactor.AnchorPoint = Vector2.new(0.5, 0)
-    reactor.Position = UDim2.new(0.5, 0, 0, 24)
-    reactor.Size = UDim2.fromOffset(70, 70)
+    reactor.Position = UDim2.new(0.5, 0, 0, 22)
+    reactor.Size = UDim2.fromOffset(80, 80)
     reactor.BackgroundTransparency = 1
     reactor.ZIndex = 11
     reactor.Parent = card
 
-    local ringOuter = Instance.new("Frame")
-    ringOuter.Size = UDim2.new(1, 0, 1, 0)
-    ringOuter.BackgroundTransparency = 1
-    ringOuter.Parent = reactor
+    -- Ring 1 (Outer Cyan)
+    local ring1 = Instance.new("Frame")
+    ring1.Size = UDim2.new(1, 0, 1, 0)
+    ring1.BackgroundTransparency = 1
+    ring1.Parent = reactor
+    Instance.new("UICorner", ring1).CornerRadius = UDim.new(1, 0)
+    local ring1Stroke = Instance.new("UIStroke")
+    ring1Stroke.Color = Color3.fromRGB(255, 255, 255)
+    ring1Stroke.Thickness = 3
+    ring1Stroke.Parent = ring1
+    local ring1Grad = Instance.new("UIGradient")
+    ring1Grad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 220)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(180, 0, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 220)) })
+    ring1Grad.Parent = ring1Stroke
 
-    local ringOuterCorner = Instance.new("UICorner")
-    ringOuterCorner.CornerRadius = UDim.new(1, 0)
-    ringOuterCorner.Parent = ringOuter
+    -- Ring 2 (Middle Magenta)
+    local ring2 = Instance.new("Frame")
+    ring2.AnchorPoint = Vector2.new(0.5, 0.5)
+    ring2.Position = UDim2.new(0.5, 0, 0.5, 0)
+    ring2.Size = UDim2.fromOffset(58, 58)
+    ring2.BackgroundTransparency = 1
+    ring2.Parent = reactor
+    Instance.new("UICorner", ring2).CornerRadius = UDim.new(1, 0)
+    local ring2Stroke = Instance.new("UIStroke")
+    ring2Stroke.Color = Color3.fromRGB(255, 255, 255)
+    ring2Stroke.Thickness = 2.5
+    ring2Stroke.Parent = ring2
+    local ring2Grad = Instance.new("UIGradient")
+    ring2Grad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 180)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 190, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 180)) })
+    ring2Grad.Parent = ring2Stroke
 
-    local ringOuterStroke = Instance.new("UIStroke")
-    ringOuterStroke.Color = Color3.fromRGB(255, 255, 255)
-    ringOuterStroke.Thickness = 3
-    ringOuterStroke.Parent = ringOuter
+    -- Ring 3 (Inner Gold/Cyan)
+    local ring3 = Instance.new("Frame")
+    ring3.AnchorPoint = Vector2.new(0.5, 0.5)
+    ring3.Position = UDim2.new(0.5, 0, 0.5, 0)
+    ring3.Size = UDim2.fromOffset(38, 38)
+    ring3.BackgroundTransparency = 1
+    ring3.Parent = reactor
+    Instance.new("UICorner", ring3).CornerRadius = UDim.new(1, 0)
+    local ring3Stroke = Instance.new("UIStroke")
+    ring3Stroke.Color = Color3.fromRGB(255, 255, 255)
+    ring3Stroke.Thickness = 2
+    ring3Stroke.Parent = ring3
+    local ring3Grad = Instance.new("UIGradient")
+    ring3Grad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 220, 0)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 120)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 220, 0)) })
+    ring3Grad.Parent = ring3Stroke
 
-    local ringOuterGrad = Instance.new("UIGradient")
-    ringOuterGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 200)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(180, 0, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 200))
-    })
-    ringOuterGrad.Parent = ringOuterStroke
-
-    local ringInner = Instance.new("Frame")
-    ringInner.AnchorPoint = Vector2.new(0.5, 0.5)
-    ringInner.Position = UDim2.new(0.5, 0, 0.5, 0)
-    ringInner.Size = UDim2.fromOffset(48, 48)
-    ringInner.BackgroundTransparency = 1
-    ringInner.Parent = reactor
-
-    local ringInnerCorner = Instance.new("UICorner")
-    ringInnerCorner.CornerRadius = UDim.new(1, 0)
-    ringInnerCorner.Parent = ringInner
-
-    local ringInnerStroke = Instance.new("UIStroke")
-    ringInnerStroke.Color = Color3.fromRGB(255, 255, 255)
-    ringInnerStroke.Thickness = 2.5
-    ringInnerStroke.Parent = ringInner
-
-    local ringInnerGrad = Instance.new("UIGradient")
-    ringInnerGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 150)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 200, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 150))
-    })
-    ringInnerGrad.Parent = ringInnerStroke
-
+    -- Core Energy Dot
     local coreDot = Instance.new("Frame")
     coreDot.AnchorPoint = Vector2.new(0.5, 0.5)
     coreDot.Position = UDim2.new(0.5, 0, 0.5, 0)
-    coreDot.Size = UDim2.fromOffset(20, 20)
-    coreDot.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
+    coreDot.Size = UDim2.fromOffset(18, 18)
+    coreDot.BackgroundColor3 = Color3.fromRGB(0, 255, 220)
     coreDot.BorderSizePixel = 0
     coreDot.ZIndex = 12
     coreDot.Parent = reactor
+    Instance.new("UICorner", coreDot).CornerRadius = UDim.new(1, 0)
 
-    local coreDotCorner = Instance.new("UICorner")
-    coreDotCorner.CornerRadius = UDim.new(1, 0)
-    coreDotCorner.Parent = coreDot
-
-    -- Title & Subtitle
+    -- Header Title
     local titleLabel = Instance.new("TextLabel")
     titleLabel.AnchorPoint = Vector2.new(0.5, 0)
-    titleLabel.Position = UDim2.new(0.5, 0, 0, 106)
+    titleLabel.Position = UDim2.new(0.5, 0, 0, 116)
     titleLabel.Size = UDim2.new(1, -30, 0, 24)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.Text = "ANTIGRAVITY // COSMIC SYSTEM"
+    titleLabel.Text = "ANTIGRAVITY // QUANTUM SYSTEM v5.0"
     titleLabel.TextSize = 16
     titleLabel.TextColor3 = Color3.fromRGB(245, 249, 255)
     titleLabel.ZIndex = 11
     titleLabel.Parent = card
 
+    -- Status Diagnostic Log
     local statusLabel = Instance.new("TextLabel")
     statusLabel.AnchorPoint = Vector2.new(0.5, 0)
-    statusLabel.Position = UDim2.new(0.5, 0, 0, 134)
-    statusLabel.Size = UDim2.new(1, -30, 0, 18)
+    statusLabel.Position = UDim2.new(0.5, 0, 0, 144)
+    statusLabel.Size = UDim2.new(1, -40, 0, 20)
     statusLabel.BackgroundTransparency = 1
     statusLabel.Font = Enum.Font.GothamMedium
-    statusLabel.Text = "INITIALIZING QUANTUM CORE..."
+    statusLabel.Text = "[01/06] INITIALIZING QUANTUM NEURAL KERNEL..."
     statusLabel.TextSize = 12
     statusLabel.TextColor3 = Color3.fromRGB(0, 220, 255)
     statusLabel.ZIndex = 11
@@ -581,16 +591,13 @@ do
     -- Progress Bar Track
     local progressTrack = Instance.new("Frame")
     progressTrack.AnchorPoint = Vector2.new(0.5, 0)
-    progressTrack.Position = UDim2.new(0.5, 0, 0, 172)
-    progressTrack.Size = UDim2.new(0.85, 0, 0, 10)
-    progressTrack.BackgroundColor3 = Color3.fromRGB(20, 26, 40)
+    progressTrack.Position = UDim2.new(0.5, 0, 0, 184)
+    progressTrack.Size = UDim2.new(0.88, 0, 0, 12)
+    progressTrack.BackgroundColor3 = Color3.fromRGB(16, 22, 34)
     progressTrack.BorderSizePixel = 0
     progressTrack.ZIndex = 11
     progressTrack.Parent = card
-
-    local trackCorner = Instance.new("UICorner")
-    trackCorner.CornerRadius = UDim.new(1, 0)
-    trackCorner.Parent = progressTrack
+    Instance.new("UICorner", progressTrack).CornerRadius = UDim.new(1, 0)
 
     local progressFill = Instance.new("Frame")
     progressFill.Size = UDim2.new(0, 0, 1, 0)
@@ -598,61 +605,83 @@ do
     progressFill.BorderSizePixel = 0
     progressFill.ZIndex = 12
     progressFill.Parent = progressTrack
-
-    local fillCorner = Instance.new("UICorner")
-    fillCorner.CornerRadius = UDim.new(1, 0)
-    fillCorner.Parent = progressFill
+    Instance.new("UICorner", progressFill).CornerRadius = UDim.new(1, 0)
 
     local fillGrad = Instance.new("UIGradient")
     fillGrad.Color = getThemeColorSequence(uiColorTheme)
     fillGrad.Parent = progressFill
-    attachRotatingOutline(fillGrad, 30, 0)
+    attachRotatingOutline(fillGrad, 35, 0)
 
-    -- Percentage & Details
+    -- Percentage Counter
     local percentLabel = Instance.new("TextLabel")
     percentLabel.AnchorPoint = Vector2.new(0.5, 0)
-    percentLabel.Position = UDim2.new(0.5, 0, 0, 192)
-    percentLabel.Size = UDim2.new(1, -30, 0, 22)
+    percentLabel.Position = UDim2.new(0.5, 0, 0, 206)
+    percentLabel.Size = UDim2.new(1, -30, 0, 24)
     percentLabel.BackgroundTransparency = 1
     percentLabel.Font = Enum.Font.GothamBold
     percentLabel.Text = "0%"
-    percentLabel.TextSize = 15
+    percentLabel.TextSize = 16
     percentLabel.TextColor3 = Color3.fromRGB(245, 249, 255)
     percentLabel.ZIndex = 11
     percentLabel.Parent = card
 
+    -- Feature Description
     local detailsLabel = Instance.new("TextLabel")
     detailsLabel.AnchorPoint = Vector2.new(0.5, 0)
-    detailsLabel.Position = UDim2.new(0.5, 0, 0, 222)
+    detailsLabel.Position = UDim2.new(0.5, 0, 0, 238)
     detailsLabel.Size = UDim2.new(1, -30, 0, 16)
     detailsLabel.BackgroundTransparency = 1
     detailsLabel.Font = Enum.Font.GothamMedium
-    detailsLabel.Text = "Auto Place Towers • Map Override (U-Turn) • Triumph Auto Rejoin"
+    detailsLabel.Text = "Auto Place Towers • Intermission U-Turn Override • Board Vote • Triumph Auto Rejoin"
     detailsLabel.TextSize = 10
     detailsLabel.TextColor3 = Color3.fromRGB(130, 145, 170)
     detailsLabel.ZIndex = 11
     detailsLabel.Parent = card
 
-    -- Animation Loop for Rotating Rings & Particles
+    -- Bottom Telemetry Stats Bar
+    local telemetryBar = Instance.new("Frame")
+    telemetryBar.AnchorPoint = Vector2.new(0.5, 0)
+    telemetryBar.Position = UDim2.new(0.5, 0, 0, 268)
+    telemetryBar.Size = UDim2.new(0.9, 0, 0, 32)
+    telemetryBar.BackgroundColor3 = Color3.fromRGB(14, 19, 30)
+    telemetryBar.BorderSizePixel = 0
+    telemetryBar.ZIndex = 11
+    telemetryBar.Parent = card
+    Instance.new("UICorner", telemetryBar).CornerRadius = UDim.new(0, 10)
+
+    local telemetryText = Instance.new("TextLabel")
+    telemetryText.Size = UDim2.new(1, 0, 1, 0)
+    telemetryText.BackgroundTransparency = 1
+    telemetryText.Font = Enum.Font.Code
+    telemetryText.Text = "CORE: 32°C  |  MEM: 4.096 GB/s  |  PING: 12ms  |  STATUS: ONLINE"
+    telemetryText.TextSize = 10
+    telemetryText.TextColor3 = Color3.fromRGB(0, 220, 180)
+    telemetryText.ZIndex = 12
+    telemetryText.Parent = telemetryBar
+
+    -- FX Animation Engine (Warp Stars & Tri-Rings)
     local animateLoading = true
     task.spawn(function()
         while animateLoading do
             local now = os.clock()
-            ringOuterGrad.Rotation = (ringOuterGrad.Rotation + 4) % 360
-            ringInnerGrad.Rotation = (ringInnerGrad.Rotation - 6) % 360
+            ring1Grad.Rotation = (ring1Grad.Rotation + 5) % 360
+            ring2Grad.Rotation = (ring2Grad.Rotation - 8) % 360
+            ring3Grad.Rotation = (ring3Grad.Rotation + 12) % 360
             
-            -- Pulse Core Dot
-            local pulse = (math.sin(now * 6) + 1) / 2
-            coreDot.Size = UDim2.fromOffset(18 + pulse * 6, 18 + pulse * 6)
-            coreDot.BackgroundTransparency = 0.1 * pulse
-            
-            -- Update Star positions
+            -- Core Pulse
+            local pulse = (math.sin(now * 7) + 1) / 2
+            coreDot.Size = UDim2.fromOffset(16 + pulse * 6, 16 + pulse * 6)
+            coreDot.BackgroundTransparency = 0.15 * pulse
+
+            -- Warp Star Trail Effect
             for _, s in ipairs(stars) do
                 if s.obj and s.obj.Parent then
-                    local currentPos = s.obj.Position
-                    local newX = (currentPos.X.Scale + s.speedX) % 1
-                    local newY = (currentPos.Y.Scale + s.speedY) % 1
-                    s.obj.Position = UDim2.new(newX, 0, newY, 0)
+                    local pos = s.obj.Position
+                    local dx = math.cos(s.angle) * s.speed
+                    local dy = math.sin(s.angle) * s.speed
+                    local nx = (pos.X.Scale + dx) % 1
+                    local ny = (pos.Y.Scale + dy) % 1
+                    s.obj.Position = UDim2.new(nx, 0, ny, 0)
                 end
             end
             
@@ -660,19 +689,24 @@ do
         end
     end)
 
-    -- 3.6 SECOND HIGH QUALITY ANIMATED PROGRESSION SEQUENCE
+    -- 6.5 SECOND HIGH QUALITY ANIMATED PROGRESSION SEQUENCE
     local statusSteps = {
-        { pct = 0.15, text = "INITIALIZING COSMIC ARCHITECTURE..." },
-        { pct = 0.35, text = "MAPPING AUTOMATED REJOIN & TRIUMPH HANDLER..." },
-        { pct = 0.60, text = "CONFIGURING MAP OVERRIDE (U-TURN) & BOARD VOTE..." },
-        { pct = 0.85, text = "LOADING DETERMINISTIC AUTO PLACE TOWERS PIPELINE..." },
-        { pct = 1.00, text = "SYSTEM ONLINE // ALL MODULES READY!" }
+        { pct = 0.10, text = "[01/06] INITIALIZING QUANTUM NEURAL KERNEL..." },
+        { pct = 0.25, text = "[02/06] CONNECTING REPLICATED STORAGE NETWORK HANDLERS..." },
+        { pct = 0.45, text = "[03/06] MAPPING INTERMISSION LOBBY MAP OVERRIDE (U-TURN)..." },
+        { pct = 0.65, text = "[04/06] CALIBRATING BOARD 1 PROXIMITY VOTE ENGINE..." },
+        { pct = 0.85, text = "[05/06] LOADING DETERMINISTIC AUTO PLACE TOWERS PIPELINE..." },
+        { pct = 1.00, text = "[06/06] SYSTEM ONLINE // ALL QUANTUM MODULES VERIFIED & OPERATIONAL!" }
     }
 
     local startTime = os.clock()
-    local targetDuration = 3.6 -- Guaranteed 3.6 second duration
+    local targetDuration = 6.5 -- Guaranteed 6.5 second duration
 
+    -- Progress & Shockwave Animator
     task.spawn(function()
+        local shockMilestones = { 0.25, 0.50, 0.75, 0.95 }
+        local triggeredShock = {}
+
         while true do
             local elapsed = os.clock() - startTime
             local alpha = math.clamp(elapsed / targetDuration, 0, 1)
@@ -682,6 +716,23 @@ do
             progressFill.Size = UDim2.new(easedAlpha, 0, 1, 0)
             percentLabel.Text = string.format("%d%%", math.floor(alpha * 100))
             
+            -- Trigger Shockwave Waves at Milestones
+            for _, m in ipairs(shockMilestones) do
+                if alpha >= m and not triggeredShock[m] then
+                    triggeredShock[m] = true
+                    task.spawn(function()
+                        pcall(function()
+                            shockwave.Size = UDim2.fromOffset(80, 80)
+                            shockStroke.Transparency = 0.1
+                            local ts = game:GetService("TweenService")
+                            local ti = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                            ts:Create(shockwave, ti, { Size = UDim2.fromOffset(600, 600) }):Play()
+                            ts:Create(shockStroke, ti, { Transparency = 1 }):Play()
+                        end)
+                    end)
+                end
+            end
+
             -- Update status text step
             for i = #statusSteps, 1, -1 do
                 if alpha >= statusSteps[i].pct then
@@ -695,7 +746,7 @@ do
         end
     end)
 
-    -- Run Full-Screen Cosmic Loading Screen Teardown & Menu Reveal Async
+    -- Async Teardown Transition (0.5s smooth fade out)
     task.spawn(function()
         waitForGameLoad()
         local currentElapsed = os.clock() - startTime
@@ -703,11 +754,10 @@ do
             task.wait(targetDuration - currentElapsed)
         end
 
-        -- Smooth Teardown Transition (0.4s fade out)
         animateLoading = false
         pcall(function()
             local ts = game:GetService("TweenService")
-            local ti = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local ti = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
             
             ts:Create(card, ti, { BackgroundTransparency = 1 }):Play()
             ts:Create(cardStroke, ti, { Transparency = 1 }):Play()
@@ -716,15 +766,17 @@ do
             ts:Create(statusLabel, ti, { TextTransparency = 1 }):Play()
             ts:Create(percentLabel, ti, { TextTransparency = 1 }):Play()
             ts:Create(detailsLabel, ti, { TextTransparency = 1 }):Play()
-            ts:Create(ringOuterStroke, ti, { Transparency = 1 }):Play()
-            ts:Create(ringInnerStroke, ti, { Transparency = 1 }):Play()
+            ts:Create(telemetryText, ti, { TextTransparency = 1 }):Play()
+            ts:Create(ring1Stroke, ti, { Transparency = 1 }):Play()
+            ts:Create(ring2Stroke, ti, { Transparency = 1 }):Play()
+            ts:Create(ring3Stroke, ti, { Transparency = 1 }):Play()
             ts:Create(coreDot, ti, { BackgroundTransparency = 1 }):Play()
             
             for _, s in ipairs(stars) do
                 if s.obj then ts:Create(s.obj, ti, { BackgroundTransparency = 1 }):Play() end
             end
             
-            task.wait(0.4)
+            task.wait(0.5)
             loadingGui:Destroy()
         end)
         
