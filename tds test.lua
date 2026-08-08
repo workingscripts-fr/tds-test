@@ -3650,17 +3650,33 @@ task.spawn(function()
                         _hasClickedInMatchReady = true
                         
                         task.spawn(function()
-                            for i = 1, 3 do
+                            while true do
+                                local inMatchNow = workspace:FindFirstChild("Towers") ~= nil and workspace:FindFirstChild("IntermissionLobby") == nil
+                                if not inMatchNow then break end
+                                
+                                local pg = getPlayerGui()
+                                local voteUI = pg and pg:FindFirstChild("ReactOverridesVote")
+                                local diffUI = pg and pg:FindFirstChild("ReactGameDifficulty")
+                                
+                                local isVoteVisible = voteUI and voteUI:FindFirstChild("Frame") and voteUI.Frame.Visible
+                                local isDiffVisible = diffUI and diffUI:FindFirstChild("Frame") and diffUI.Frame.Visible
+                                
+                                -- Stop clicking when game UI disappears (game start confirmed)
+                                if (not voteUI or not isVoteVisible) and (not diffUI or not isDiffVisible) then
+                                    break
+                                end
+                                
                                 pcall(function()
+                                    local re = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteEvent")
+                                    if re then
+                                        pcall(function() re:FireServer("Voting", "Ready") end)
+                                    end
                                     local rf = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteFunction")
                                     if rf then
                                         pcall(function() rf:InvokeServer("Voting", "Ready") end)
-                                        pcall(function() rf:InvokeServer("Voting", "Ready", true) end)
                                     end
                                     
-                                    local pg = getPlayerGui()
-                                    local voteUI = pg and pg:FindFirstChild("ReactOverridesVote")
-                                    if voteUI and voteUI:FindFirstChild("Frame") then
+                                    if voteUI and isVoteVisible then
                                         local btn = voteUI.Frame:FindFirstChild("votes", true) and voteUI.Frame.votes:FindFirstChild("button", true)
                                         if btn and btn:IsA("GuiObject") then
                                             pcall(function()
@@ -3676,9 +3692,7 @@ task.spawn(function()
                                         end
                                     end
                                     
-                                    -- Difficulty GUI fallback
-                                    local diffUI = pg and pg:FindFirstChild("ReactGameDifficulty")
-                                    if diffUI and diffUI:FindFirstChild("Frame") then
+                                    if diffUI and isDiffVisible then
                                         local moltenBtn = diffUI.Frame.buttons.moltenButton.button.content:FindFirstChild("detector")
                                         if moltenBtn then
                                             for _, conn in ipairs(getconnections(moltenBtn.Activated)) do conn:Fire() end
