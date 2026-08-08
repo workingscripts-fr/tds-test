@@ -4,7 +4,7 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "TDS Test 5 Sync Updatedsd",
+        Title = "TDS Test 5 Sync Update",
         Text = "Synchronized script with tds_test_5 contents",
         Duration = 5
     })
@@ -379,8 +379,20 @@ end)
 safeParentGui(screenGui)
 
 do
+    -- ============================================================
+    -- HYPERSPACE JUMP CINEMATIC SYSTEM (6-7 SECOND CINEMATIC MOVIE)
+    -- ============================================================
+    local HYPER_CONFIG = {
+        TOTAL_DURATION = 6.8,            -- Total cinematic loading duration in seconds
+        STAR_DENSITY = 75,               -- Number of particle stars
+        WARP_INTENSITY = 1.0,            -- Light trail streak multiplier
+        SOUND_VOLUME = 0.5,              -- Audio volume multiplier
+        ENABLE_EASTER_EGG = true,        -- Show mysterious signal Easter Egg
+        CAMERA_SHAKE_STRENGTH = 1.0      -- Engine shake multiplier
+    }
+
     local loadingGui = Instance.new("ScreenGui")
-    loadingGui.Name = "TDSTestCosmicLoadingUI"
+    loadingGui.Name = "TDSTestHyperspaceUI"
     loadingGui.ResetOnSpawn = false
     loadingGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     loadingGui.IgnoreGuiInset = true
@@ -388,389 +400,210 @@ do
     pcall(function() loadingGui.OnTopOfCoreBlur = true end)
     safeParentGui(loadingGui)
 
-    -- Intro Shutter Screens (Split Vertical Iris Transition)
-    local topShutter = Instance.new("Frame")
-    topShutter.Size = UDim2.new(1, 0, 0.5, 0)
-    topShutter.Position = UDim2.new(0, 0, 0, 0)
-    topShutter.BackgroundColor3 = Color3.fromRGB(3, 4, 10)
-    topShutter.BorderSizePixel = 0
-    topShutter.ZIndex = 100
-    topShutter.Parent = loadingGui
+    -- Fullscreen Black Backdrop
+    local backdrop = Instance.new("Frame")
+    backdrop.Name = "Backdrop"
+    backdrop.Size = UDim2.new(1, 0, 1, 0)
+    backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    backdrop.BorderSizePixel = 0
+    backdrop.ZIndex = 1
+    backdrop.Parent = loadingGui
 
-    local bottomShutter = Instance.new("Frame")
-    bottomShutter.Size = UDim2.new(1, 0, 0.5, 0)
-    bottomShutter.Position = UDim2.new(0, 0, 0.5, 0)
-    bottomShutter.BackgroundColor3 = Color3.fromRGB(3, 4, 10)
-    bottomShutter.BorderSizePixel = 0
-    bottomShutter.ZIndex = 100
-    bottomShutter.Parent = loadingGui
+    -- Deep Space Nebula Atmosphere (Gradient Glow)
+    local nebulaGlow = Instance.new("Frame")
+    nebulaGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+    nebulaGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    nebulaGlow.Size = UDim2.fromOffset(700, 700)
+    nebulaGlow.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    nebulaGlow.BackgroundTransparency = 1
+    nebulaGlow.BorderSizePixel = 0
+    nebulaGlow.ZIndex = 2
+    nebulaGlow.Parent = backdrop
+    Instance.new("UICorner", nebulaGlow).CornerRadius = UDim.new(1, 0)
 
-    local laserSeam = Instance.new("Frame")
-    laserSeam.Size = UDim2.new(1, 0, 0, 3)
-    laserSeam.Position = UDim2.new(0, 0, 0.5, -1)
-    laserSeam.BackgroundColor3 = Color3.fromRGB(0, 255, 220)
-    laserSeam.BorderSizePixel = 0
-    laserSeam.ZIndex = 101
-    laserSeam.Parent = loadingGui
-
-    -- Animate Intro Iris Shutter Opening (0.5s)
-    task.spawn(function()
-        local ts = game:GetService("TweenService")
-        local ti = TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        ts:Create(topShutter, ti, { Position = UDim2.new(0, 0, -0.5, 0) }):Play()
-        ts:Create(bottomShutter, ti, { Position = UDim2.new(0, 0, 1, 0) }):Play()
-        ts:Create(laserSeam, ti, { BackgroundTransparency = 1 }):Play()
-        task.wait(0.6)
-        pcall(function() topShutter:Destroy(); bottomShutter:Destroy(); laserSeam:Destroy() end)
-    end)
-
-    -- Fullscreen Cosmic Backdrop
-    local loadingBg = Instance.new("Frame")
-    loadingBg.Name = "CosmicBackdrop"
-    loadingBg.Size = UDim2.new(1, 0, 1, 0)
-    loadingBg.Position = UDim2.new(0, 0, 0, 0)
-    loadingBg.BackgroundColor3 = Color3.fromRGB(4, 6, 14)
-    loadingBg.BorderSizePixel = 0
-    loadingBg.ZIndex = 1
-    loadingBg.Parent = loadingGui
-
-    local bgGrad = Instance.new("UIGradient")
-    bgGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(2, 3, 8)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(8, 12, 26)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(2, 3, 8))
-    })
-    bgGrad.Rotation = 45
-    bgGrad.Parent = loadingBg
-
-    -- 4 Screen-Corner Cyber HUD Widgets
-    local hudConfigs = {
-        { pos = UDim2.new(0, 20, 0, 20), text = "[ SYS: ONLINE ]" },
-        { pos = UDim2.new(1, -150, 0, 20), text = "[ SEC: VERIFIED ]" },
-        { pos = UDim2.new(0, 20, 1, -36), text = "[ LATENCY: 12MS ]" },
-        { pos = UDim2.new(1, -170, 1, -36), text = "[ DISPATCH: ACTIVE ]" }
-    }
-    for _, h in ipairs(hudConfigs) do
-        local hudLabel = Instance.new("TextLabel")
-        hudLabel.Position = h.pos
-        hudLabel.Size = UDim2.fromOffset(140, 20)
-        hudLabel.BackgroundTransparency = 1
-        hudLabel.Font = Enum.Font.Code
-        hudLabel.Text = h.text
-        hudLabel.TextSize = 11
-        hudLabel.TextColor3 = Color3.fromRGB(0, 220, 180)
-        hudLabel.ZIndex = 5
-        hudLabel.Parent = loadingBg
-    end
-
-    -- Cosmic Nebula Glow 1 & 2
-    local nebula1 = Instance.new("Frame")
-    nebula1.AnchorPoint = Vector2.new(0.5, 0.5)
-    nebula1.Position = UDim2.new(0.25, 0, 0.3, 0)
-    nebula1.Size = UDim2.fromOffset(550, 550)
-    nebula1.BackgroundColor3 = Color3.fromRGB(0, 210, 255)
-    nebula1.BackgroundTransparency = 0.90
-    nebula1.BorderSizePixel = 0
-    nebula1.ZIndex = 2
-    nebula1.Parent = loadingBg
-    Instance.new("UICorner", nebula1).CornerRadius = UDim.new(1, 0)
-
-    local nebula2 = Instance.new("Frame")
-    nebula2.AnchorPoint = Vector2.new(0.5, 0.5)
-    nebula2.Position = UDim2.new(0.75, 0, 0.7, 0)
-    nebula2.Size = UDim2.fromOffset(600, 600)
-    nebula2.BackgroundColor3 = Color3.fromRGB(200, 0, 255)
-    nebula2.BackgroundTransparency = 0.90
-    nebula2.BorderSizePixel = 0
-    nebula2.ZIndex = 2
-    nebula2.Parent = loadingBg
-    Instance.new("UICorner", nebula2).CornerRadius = UDim.new(1, 0)
-
-    -- Expanding Shockwave Energy Ring
-    local shockwave = Instance.new("Frame")
-    shockwave.AnchorPoint = Vector2.new(0.5, 0.5)
-    shockwave.Position = UDim2.new(0.5, 0, 0.5, 0)
-    shockwave.Size = UDim2.fromOffset(100, 100)
-    shockwave.BackgroundTransparency = 1
-    shockwave.ZIndex = 3
-    shockwave.Parent = loadingBg
-    Instance.new("UICorner", shockwave).CornerRadius = UDim.new(1, 0)
-
-    local shockStroke = Instance.new("UIStroke")
-    shockStroke.Color = Color3.fromRGB(0, 255, 220)
-    shockStroke.Transparency = 1
-    shockStroke.Thickness = 2.5
-    shockStroke.Parent = shockwave
-
-    -- Outro Radial Flash Ring
-    local outroFlash = Instance.new("Frame")
-    outroFlash.AnchorPoint = Vector2.new(0.5, 0.5)
-    outroFlash.Position = UDim2.new(0.5, 0, 0.5, 0)
-    outroFlash.Size = UDim2.fromOffset(10, 10)
-    outroFlash.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    outroFlash.BackgroundTransparency = 1
-    outroFlash.BorderSizePixel = 0
-    outroFlash.ZIndex = 500
-    outroFlash.Parent = loadingBg
-    Instance.new("UICorner", outroFlash).CornerRadius = UDim.new(1, 0)
-
-    -- Floating Starfield Particle Container (60 Warp Particles)
+    -- Starfield Particle Container
     local starContainer = Instance.new("Frame")
     starContainer.Size = UDim2.new(1, 0, 1, 0)
     starContainer.BackgroundTransparency = 1
-    starContainer.ZIndex = 4
-    starContainer.Parent = loadingBg
+    starContainer.ZIndex = 3
+    starContainer.Parent = backdrop
 
     local stars = {}
-    for i = 1, 60 do
+    for i = 1, HYPER_CONFIG.STAR_DENSITY do
         local star = Instance.new("Frame")
         local sz = math.random(2, 4)
         star.Size = UDim2.fromOffset(sz, sz)
         star.Position = UDim2.new(math.random(), 0, math.random(), 0)
         star.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        star.BackgroundTransparency = math.random(20, 70) / 100
+        star.BackgroundTransparency = 1
         star.BorderSizePixel = 0
-        star.ZIndex = 4
+        star.ZIndex = 3
         star.Parent = starContainer
         Instance.new("UICorner", star).CornerRadius = UDim.new(1, 0)
         
-        local angle = math.random() * math.pi * 2
-        local speed = math.random(30, 120) / 100000
+        local angle = math.atan2(star.Position.Y.Scale - 0.5, star.Position.X.Scale - 0.5)
+        local speed = math.random(30, 90) / 100000
         table.insert(stars, { obj = star, baseSize = sz, angle = angle, speed = speed })
     end
 
-    -- Central Glassmorphism Control Card
-    local card = Instance.new("Frame")
-    card.Name = "CosmicCard"
-    card.AnchorPoint = Vector2.new(0.5, 0.5)
-    card.Position = UDim2.new(0.5, 0, 0.5, 0)
-    card.Size = UDim2.fromOffset(540, 335)
-    card.BackgroundColor3 = Color3.fromRGB(10, 14, 24)
-    card.BackgroundTransparency = 0.12
-    card.BorderSizePixel = 0
-    card.ZIndex = 10
-    card.Parent = loadingBg
+    -- Cockpit Glass HUD Overlay & Frame
+    local cockpitFrame = Instance.new("Frame")
+    cockpitFrame.Size = UDim2.new(1, 0, 1, 0)
+    cockpitFrame.BackgroundTransparency = 1
+    cockpitFrame.ZIndex = 10
+    cockpitFrame.Parent = backdrop
 
-    local cardCorner = Instance.new("UICorner")
-    cardCorner.CornerRadius = UDim.new(0, 22)
-    cardCorner.Parent = card
+    local cockpitOutline = Instance.new("UIStroke")
+    cockpitOutline.Color = Color3.fromRGB(0, 220, 255)
+    cockpitOutline.Transparency = 1
+    cockpitOutline.Thickness = 2.5
+    cockpitOutline.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    cockpitOutline.Parent = cockpitFrame
 
-    local cardStroke = Instance.new("UIStroke")
-    cardStroke.Color = Color3.fromRGB(255, 255, 255)
-    cardStroke.Thickness = 2.0
-    cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    cardStroke.Parent = card
-    attachRotatingOutline(cardStroke, 28, 0)
+    -- HUD Instrumentation Container Left
+    local hudLeftContainer = Instance.new("Frame")
+    hudLeftContainer.Position = UDim2.new(0, 40, 0.25, 0)
+    hudLeftContainer.Size = UDim2.fromOffset(340, 300)
+    hudLeftContainer.BackgroundTransparency = 1
+    hudLeftContainer.ZIndex = 12
+    hudLeftContainer.Parent = cockpitFrame
 
-    -- Dynamic 12-Bar Audio Visualizer Equalizer (Top of Card)
-    local eqContainer = Instance.new("Frame")
-    eqContainer.AnchorPoint = Vector2.new(0.5, 0)
-    eqContainer.Position = UDim2.new(0.5, 0, 0, 12)
-    eqContainer.Size = UDim2.fromOffset(180, 16)
-    eqContainer.BackgroundTransparency = 1
-    eqContainer.ZIndex = 11
-    eqContainer.Parent = card
+    local hudLogLabel = Instance.new("TextLabel")
+    hudLogLabel.Size = UDim2.new(1, 0, 0.7, 0)
+    hudLogLabel.BackgroundTransparency = 1
+    hudLogLabel.Font = Enum.Font.Code
+    hudLogLabel.Text = "INITIALIZING NAVIGATION SYSTEM...\n"
+    hudLogLabel.TextSize = 13
+    hudLogLabel.TextColor3 = Color3.fromRGB(0, 220, 255)
+    hudLogLabel.TextXAlignment = Enum.TextXAlignment.Left
+    hudLogLabel.TextYAlignment = Enum.TextYAlignment.Top
+    hudLogLabel.TextTransparency = 1
+    hudLogLabel.ZIndex = 12
+    hudLogLabel.Parent = hudLeftContainer
 
-    local eqBars = {}
-    for i = 1, 12 do
-        local bar = Instance.new("Frame")
-        bar.Position = UDim2.new((i - 1) / 12, 2, 0.5, 0)
-        bar.AnchorPoint = Vector2.new(0, 0.5)
-        bar.Size = UDim2.fromOffset(10, 6)
-        bar.BackgroundColor3 = Color3.fromRGB(0, 255, 220)
-        bar.BorderSizePixel = 0
-        bar.ZIndex = 12
-        bar.Parent = eqContainer
-        Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 3)
-        table.insert(eqBars, bar)
+    -- HUD Instrumentation Container Right
+    local hudRightContainer = Instance.new("Frame")
+    hudRightContainer.AnchorPoint = Vector2.new(1, 0)
+    hudRightContainer.Position = UDim2.new(1, -40, 0.25, 0)
+    hudRightContainer.Size = UDim2.fromOffset(340, 300)
+    hudRightContainer.BackgroundTransparency = 1
+    hudRightContainer.ZIndex = 12
+    hudRightContainer.Parent = cockpitFrame
+
+    local navDataLabel = Instance.new("TextLabel")
+    navDataLabel.Size = UDim2.new(1, 0, 0.7, 0)
+    navDataLabel.BackgroundTransparency = 1
+    navDataLabel.Font = Enum.Font.Code
+    navDataLabel.Text = "DESTINATION: UNKNOWN\nDISTANCE: 4.72 LIGHT YEARS\nTRAJECTORY: LOCKED"
+    navDataLabel.TextSize = 13
+    navDataLabel.TextColor3 = Color3.fromRGB(0, 220, 255)
+    navDataLabel.TextXAlignment = Enum.TextXAlignment.Right
+    navDataLabel.TextYAlignment = Enum.TextYAlignment.Top
+    navDataLabel.TextTransparency = 1
+    navDataLabel.ZIndex = 12
+    navDataLabel.Parent = hudRightContainer
+
+    -- Holographic 3D Rotating Planet Radar Canvas inside Cockpit
+    local holoRadar = Instance.new("Frame")
+    holoRadar.AnchorPoint = Vector2.new(0.5, 1)
+    holoRadar.Position = UDim2.new(0.5, 0, 1, -30)
+    holoRadar.Size = UDim2.fromOffset(130, 130)
+    holoRadar.BackgroundTransparency = 1
+    holoRadar.ZIndex = 12
+    holoRadar.Parent = cockpitFrame
+
+    local radarRing = Instance.new("Frame")
+    radarRing.Size = UDim2.new(1, 0, 1, 0)
+    radarRing.BackgroundTransparency = 1
+    radarRing.Parent = holoRadar
+    Instance.new("UICorner", radarRing).CornerRadius = UDim.new(1, 0)
+    local radarStroke = Instance.new("UIStroke")
+    radarStroke.Color = Color3.fromRGB(0, 255, 220)
+    radarStroke.Transparency = 1
+    radarStroke.Thickness = 2
+    radarStroke.Parent = radarRing
+
+    local radarSweep = Instance.new("Frame")
+    radarSweep.AnchorPoint = Vector2.new(0.5, 0.5)
+    radarSweep.Position = UDim2.new(0.5, 0, 0.5, 0)
+    radarSweep.Size = UDim2.new(1, 0, 1, 0)
+    radarSweep.BackgroundTransparency = 1
+    radarSweep.Parent = holoRadar
+    Instance.new("UICorner", radarSweep).CornerRadius = UDim.new(1, 0)
+    local sweepGrad = Instance.new("UIGradient")
+    sweepGrad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 220)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 20, 40)) })
+    sweepGrad.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+    sweepGrad.Parent = radarSweep
+
+    -- Central Hyperspace Flash Surface
+    local hyperspaceFlash = Instance.new("Frame")
+    hyperspaceFlash.Size = UDim2.new(1, 0, 1, 0)
+    hyperspaceFlash.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    hyperspaceFlash.BackgroundTransparency = 1
+    hyperspaceFlash.ZIndex = 500
+    hyperspaceFlash.Parent = backdrop
+
+    -- Arrival Center Announcement Text
+    local arrivalLabel = Instance.new("TextLabel")
+    arrivalLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+    arrivalLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
+    arrivalLabel.Size = UDim2.new(1, -40, 0, 40)
+    arrivalLabel.BackgroundTransparency = 1
+    arrivalLabel.Font = Enum.Font.GothamBold
+    arrivalLabel.Text = ""
+    arrivalLabel.TextSize = 24
+    arrivalLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    arrivalLabel.ZIndex = 501
+    arrivalLabel.Parent = backdrop
+
+    -- Sound Effects Controller (Safe Fallbacks)
+    local function playSound(assetId, vol)
+        pcall(function()
+            local snd = Instance.new("Sound")
+            snd.SoundId = "rbxassetid://" .. tostring(assetId)
+            snd.Volume = (vol or 0.5) * HYPER_CONFIG.SOUND_VOLUME
+            snd.Parent = backdrop
+            snd:Play()
+            game:GetService("Debris"):AddItem(snd, 5)
+        end)
     end
 
-    -- Tri-Orbital Reactor Engine (3 Counter-Rotating Rings)
-    local reactor = Instance.new("Frame")
-    reactor.AnchorPoint = Vector2.new(0.5, 0)
-    reactor.Position = UDim2.new(0.5, 0, 0, 34)
-    reactor.Size = UDim2.fromOffset(80, 80)
-    reactor.BackgroundTransparency = 1
-    reactor.ZIndex = 11
-    reactor.Parent = card
+    -- Cinematic Camera Manipulation Setup
+    local origCamType = workspace.CurrentCamera and workspace.CurrentCamera.CameraType
+    local origCamCFrame = workspace.CurrentCamera and workspace.CurrentCamera.CFrame or CFrame.new()
+    pcall(function() if workspace.CurrentCamera then workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable end end)
 
-    -- Ring 1 (Outer Cyan)
-    local ring1 = Instance.new("Frame")
-    ring1.Size = UDim2.new(1, 0, 1, 0)
-    ring1.BackgroundTransparency = 1
-    ring1.Parent = reactor
-    Instance.new("UICorner", ring1).CornerRadius = UDim.new(1, 0)
-    local ring1Stroke = Instance.new("UIStroke")
-    ring1Stroke.Color = Color3.fromRGB(255, 255, 255)
-    ring1Stroke.Thickness = 3
-    ring1Stroke.Parent = ring1
-    local ring1Grad = Instance.new("UIGradient")
-    ring1Grad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 220)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(180, 0, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 220)) })
-    ring1Grad.Parent = ring1Stroke
+    local isCinematicRunning = true
+    local startTime = os.clock()
+    local cameraShake = 0
 
-    -- Ring 2 (Middle Magenta)
-    local ring2 = Instance.new("Frame")
-    ring2.AnchorPoint = Vector2.new(0.5, 0.5)
-    ring2.Position = UDim2.new(0.5, 0, 0.5, 0)
-    ring2.Size = UDim2.fromOffset(58, 58)
-    ring2.BackgroundTransparency = 1
-    ring2.Parent = reactor
-    Instance.new("UICorner", ring2).CornerRadius = UDim.new(1, 0)
-    local ring2Stroke = Instance.new("UIStroke")
-    ring2Stroke.Color = Color3.fromRGB(255, 255, 255)
-    ring2Stroke.Thickness = 2.5
-    ring2Stroke.Parent = ring2
-    local ring2Grad = Instance.new("UIGradient")
-    ring2Grad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 180)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 190, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 180)) })
-    ring2Grad.Parent = ring2Stroke
-
-    -- Ring 3 (Inner Gold/Cyan)
-    local ring3 = Instance.new("Frame")
-    ring3.AnchorPoint = Vector2.new(0.5, 0.5)
-    ring3.Position = UDim2.new(0.5, 0, 0.5, 0)
-    ring3.Size = UDim2.fromOffset(38, 38)
-    ring3.BackgroundTransparency = 1
-    ring3.Parent = reactor
-    Instance.new("UICorner", ring3).CornerRadius = UDim.new(1, 0)
-    local ring3Stroke = Instance.new("UIStroke")
-    ring3Stroke.Color = Color3.fromRGB(255, 255, 255)
-    ring3Stroke.Thickness = 2
-    ring3Stroke.Parent = ring3
-    local ring3Grad = Instance.new("UIGradient")
-    ring3Grad.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 220, 0)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 120)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 220, 0)) })
-    ring3Grad.Parent = ring3Stroke
-
-    -- Core Energy Dot
-    local coreDot = Instance.new("Frame")
-    coreDot.AnchorPoint = Vector2.new(0.5, 0.5)
-    coreDot.Position = UDim2.new(0.5, 0, 0.5, 0)
-    coreDot.Size = UDim2.fromOffset(18, 18)
-    coreDot.BackgroundColor3 = Color3.fromRGB(0, 255, 220)
-    coreDot.BorderSizePixel = 0
-    coreDot.ZIndex = 12
-    coreDot.Parent = reactor
-    Instance.new("UICorner", coreDot).CornerRadius = UDim.new(1, 0)
-
-    -- Header Title
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.AnchorPoint = Vector2.new(0.5, 0)
-    titleLabel.Position = UDim2.new(0.5, 0, 0, 126)
-    titleLabel.Size = UDim2.new(1, -30, 0, 24)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.Text = "ANTIGRAVITY // QUANTUM SYSTEM v5.0"
-    titleLabel.TextSize = 16
-    titleLabel.TextColor3 = Color3.fromRGB(245, 249, 255)
-    titleLabel.ZIndex = 11
-    titleLabel.Parent = card
-
-    -- Status Diagnostic Log
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.AnchorPoint = Vector2.new(0.5, 0)
-    statusLabel.Position = UDim2.new(0.5, 0, 0, 154)
-    statusLabel.Size = UDim2.new(1, -40, 0, 20)
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.Font = Enum.Font.GothamMedium
-    statusLabel.Text = "[01/06] INITIALIZING QUANTUM NEURAL KERNEL..."
-    statusLabel.TextSize = 12
-    statusLabel.TextColor3 = Color3.fromRGB(0, 220, 255)
-    statusLabel.ZIndex = 11
-    statusLabel.Parent = card
-
-    -- Progress Bar Track
-    local progressTrack = Instance.new("Frame")
-    progressTrack.AnchorPoint = Vector2.new(0.5, 0)
-    progressTrack.Position = UDim2.new(0.5, 0, 0, 194)
-    progressTrack.Size = UDim2.new(0.88, 0, 0, 12)
-    progressTrack.BackgroundColor3 = Color3.fromRGB(16, 22, 34)
-    progressTrack.BorderSizePixel = 0
-    progressTrack.ZIndex = 11
-    progressTrack.Parent = card
-    Instance.new("UICorner", progressTrack).CornerRadius = UDim.new(1, 0)
-
-    local progressFill = Instance.new("Frame")
-    progressFill.Size = UDim2.new(0, 0, 1, 0)
-    progressFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    progressFill.BorderSizePixel = 0
-    progressFill.ZIndex = 12
-    progressFill.Parent = progressTrack
-    Instance.new("UICorner", progressFill).CornerRadius = UDim.new(1, 0)
-
-    local fillGrad = Instance.new("UIGradient")
-    fillGrad.Color = getThemeColorSequence(uiColorTheme)
-    fillGrad.Parent = progressFill
-    attachRotatingOutline(fillGrad, 35, 0)
-
-    -- Percentage Counter
-    local percentLabel = Instance.new("TextLabel")
-    percentLabel.AnchorPoint = Vector2.new(0.5, 0)
-    percentLabel.Position = UDim2.new(0.5, 0, 0, 216)
-    percentLabel.Size = UDim2.new(1, -30, 0, 24)
-    percentLabel.BackgroundTransparency = 1
-    percentLabel.Font = Enum.Font.GothamBold
-    percentLabel.Text = "0%"
-    percentLabel.TextSize = 16
-    percentLabel.TextColor3 = Color3.fromRGB(245, 249, 255)
-    percentLabel.ZIndex = 11
-    percentLabel.Parent = card
-
-    -- Feature Description
-    local detailsLabel = Instance.new("TextLabel")
-    detailsLabel.AnchorPoint = Vector2.new(0.5, 0)
-    detailsLabel.Position = UDim2.new(0.5, 0, 0, 248)
-    detailsLabel.Size = UDim2.new(1, -30, 0, 16)
-    detailsLabel.BackgroundTransparency = 1
-    detailsLabel.Font = Enum.Font.GothamMedium
-    detailsLabel.Text = "Auto Place Towers • Intermission U-Turn Override • Board Vote • Triumph Auto Rejoin"
-    detailsLabel.TextSize = 10
-    detailsLabel.TextColor3 = Color3.fromRGB(130, 145, 170)
-    detailsLabel.ZIndex = 11
-    detailsLabel.Parent = card
-
-    -- Bottom Telemetry Stats Bar
-    local telemetryBar = Instance.new("Frame")
-    telemetryBar.AnchorPoint = Vector2.new(0.5, 0)
-    telemetryBar.Position = UDim2.new(0.5, 0, 0, 278)
-    telemetryBar.Size = UDim2.new(0.9, 0, 0, 32)
-    telemetryBar.BackgroundColor3 = Color3.fromRGB(14, 19, 30)
-    telemetryBar.BorderSizePixel = 0
-    telemetryBar.ZIndex = 11
-    telemetryBar.Parent = card
-    Instance.new("UICorner", telemetryBar).CornerRadius = UDim.new(0, 10)
-
-    local telemetryText = Instance.new("TextLabel")
-    telemetryText.Size = UDim2.new(1, 0, 1, 0)
-    telemetryText.BackgroundTransparency = 1
-    telemetryText.Font = Enum.Font.Code
-    telemetryText.Text = "CORE: 32°C  |  MEM: 4.096 GB/s  |  PING: 12ms  |  STATUS: ONLINE"
-    telemetryText.TextSize = 10
-    telemetryText.TextColor3 = Color3.fromRGB(0, 220, 180)
-    telemetryText.ZIndex = 12
-    telemetryText.Parent = telemetryBar
-
-    -- FX Animation Engine (Warp Stars, Tri-Rings, Equalizer Bars)
-    local animateLoading = true
+    -- Camera Sway & Shake Loop
     task.spawn(function()
-        while animateLoading do
+        while isCinematicRunning do
+            local elapsed = os.clock() - startTime
             local now = os.clock()
-            ring1Grad.Rotation = (ring1Grad.Rotation + 5) % 360
-            ring2Grad.Rotation = (ring2Grad.Rotation - 8) % 360
-            ring3Grad.Rotation = (ring3Grad.Rotation + 12) % 360
             
-            -- Core Pulse
-            local pulse = (math.sin(now * 7) + 1) / 2
-            coreDot.Size = UDim2.fromOffset(16 + pulse * 6, 16 + pulse * 6)
-            coreDot.BackgroundTransparency = 0.15 * pulse
+            sweepGrad.Rotation = (sweepGrad.Rotation + 6) % 360
 
-            -- Audio Equalizer Bouncing Bars
-            for idx, bar in ipairs(eqBars) do
-                local h = 4 + (math.sin(now * 10 + idx * 0.8) + 1) * 6
-                bar.Size = UDim2.fromOffset(10, h)
+            if workspace.CurrentCamera then
+                local swayX = math.sin(now * 1.2) * 0.15
+                local swayY = math.cos(now * 1.5) * 0.15
+                local shakeX = (math.random() - 0.5) * cameraShake * 0.2
+                local shakeY = (math.random() - 0.5) * cameraShake * 0.2
+                
+                workspace.CurrentCamera.CFrame = origCamCFrame * CFrame.new(swayX + shakeX, swayY + shakeY, -elapsed * 0.2)
             end
 
-            -- Warp Star Trail Effect
+            local isHyperspaceJump = elapsed >= 4.0 and elapsed < 5.0
             for _, s in ipairs(stars) do
                 if s.obj and s.obj.Parent then
+                    if isHyperspaceJump then
+                        s.speed = s.speed + 0.002 * HYPER_CONFIG.WARP_INTENSITY
+                        local streakLen = math.clamp(s.speed * 2500, 4, 180)
+                        s.obj.Size = UDim2.fromOffset(s.baseSize, streakLen)
+                        s.obj.Rotation = math.deg(s.angle) + 90
+                    end
+                    
                     local pos = s.obj.Position
                     local dx = math.cos(s.angle) * s.speed
                     local dy = math.sin(s.angle) * s.speed
@@ -779,120 +612,132 @@ do
                     s.obj.Position = UDim2.new(nx, 0, ny, 0)
                 end
             end
-            
+
             task.wait(0.03)
         end
     end)
 
-    -- 6.5 SECOND HIGH QUALITY ANIMATED PROGRESSION SEQUENCE WITH SCRAMBLE MATRIX DECODER
-    local statusSteps = {
-        { pct = 0.10, text = "[01/06] INITIALIZING QUANTUM NEURAL KERNEL..." },
-        { pct = 0.25, text = "[02/06] CONNECTING REPLICATED STORAGE NETWORK HANDLERS..." },
-        { pct = 0.45, text = "[03/06] MAPPING INTERMISSION LOBBY MAP OVERRIDE (U-TURN)..." },
-        { pct = 0.65, text = "[04/06] CALIBRATING BOARD 1 PROXIMITY VOTE ENGINE..." },
-        { pct = 0.85, text = "[05/06] LOADING DETERMINISTIC AUTO PLACE TOWERS PIPELINE..." },
-        { pct = 1.00, text = "[06/06] SYSTEM ONLINE // ALL QUANTUM MODULES VERIFIED & OPERATIONAL!" }
-    }
-
-    local startTime = os.clock()
-    local targetDuration = 6.5
-    local currentStepIndex = 1
-
-    local function setScrambledText(targetText)
-        task.spawn(function()
-            local glyphs = { "⚡", "█", "░", "▒", "▨", "0", "1", "X", "#" }
-            for i = 1, 4 do
-                local scrambled = ""
-                for j = 1, #targetText do
-                    if math.random() > 0.6 then
-                        scrambled = scrambled .. glyphs[math.random(#glyphs)]
-                    else
-                        scrambled = scrambled .. string.sub(targetText, j, j)
-                    end
-                end
-                statusLabel.Text = scrambled
-                task.wait(0.03)
-            end
-            statusLabel.Text = targetText
-        end)
-    end
-
-    -- Progress & Shockwave Animator
+    -- 6-Stage Cinematic Timeline Execution
     task.spawn(function()
-        local shockMilestones = { 0.25, 0.50, 0.75, 0.95 }
-        local triggeredShock = {}
+        local ts = game:GetService("TweenService")
 
-        while true do
-            local elapsed = os.clock() - startTime
-            local alpha = math.clamp(elapsed / targetDuration, 0, 1)
-            
-            -- Smooth Easing
-            local easedAlpha = TweenService:GetValue(alpha, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            progressFill.Size = UDim2.new(easedAlpha, 0, 1, 0)
-            percentLabel.Text = string.format("%d%%", math.floor(alpha * 100))
-            
-            -- Trigger Shockwave Waves at Milestones
-            for _, m in ipairs(shockMilestones) do
-                if alpha >= m and not triggeredShock[m] then
-                    triggeredShock[m] = true
-                    task.spawn(function()
-                        pcall(function()
-                            shockwave.Size = UDim2.fromOffset(80, 80)
-                            shockStroke.Transparency = 0.1
-                            local ts = game:GetService("TweenService")
-                            local ti = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-                            ts:Create(shockwave, ti, { Size = UDim2.fromOffset(650, 650) }):Play()
-                            ts:Create(shockStroke, ti, { Transparency = 1 }):Play()
-                        end)
-                    end)
-                end
-            end
-
-            -- Update status text step with cyber scramble matrix
-            for i = #statusSteps, 1, -1 do
-                if alpha >= statusSteps[i].pct then
-                    if currentStepIndex ~= i then
-                        currentStepIndex = i
-                        setScrambledText(statusSteps[i].text)
-                    end
-                    break
-                end
-            end
-            
-            if alpha >= 1 then break end
-            task.wait(0.03)
-        end
-    end)
-
-    -- Outro Hyperdrive Zoom & Screen Flash Transition
-    task.spawn(function()
-        waitForGameLoad()
-        local currentElapsed = os.clock() - startTime
-        if currentElapsed < targetDuration then
-            task.wait(targetDuration - currentElapsed)
+        -- PHASE 0: 0.0s - 1.0s (SYSTEM BOOT)
+        for _, s in ipairs(stars) do
+            if s.obj then ts:Create(s.obj, TweenInfo.new(0.8), { BackgroundTransparency = 0.3 }):Play() end
         end
 
+        ts:Create(cockpitOutline, TweenInfo.new(0.6), { Transparency = 0.3 }):Play()
+        ts:Create(hudLogLabel, TweenInfo.new(0.6), { TextTransparency = 0 }):Play()
+        ts:Create(radarStroke, TweenInfo.new(0.6), { Transparency = 0.2 }):Play()
+        playSound(2865825316, 0.4)
+
+        cameraShake = 0.2
+        hudLogLabel.Text = "INITIALIZING NAVIGATION SYSTEM...\nLIFE SUPPORT ........ ONLINE\nPOWER CORE .......... ONLINE\nNAVIGATION .......... ONLINE"
+
+        task.wait(1.0)
+
+        -- PHASE 1: 1.0s - 2.5s (COCKPIT ACTIVATION)
+        ts:Create(nebulaGlow, TweenInfo.new(1.2), { BackgroundTransparency = 0.88 }):Play()
+        ts:Create(navDataLabel, TweenInfo.new(0.8), { TextTransparency = 0 }):Play()
+        playSound(138089316, 0.3)
+
+        cameraShake = 0.4
+        task.wait(1.5)
+
+        -- PHASE 2: 2.5s - 4.0s (HYPERSPACE CHARGE)
+        cameraShake = 1.2
+        playSound(138082002, 0.6)
+
+        hudLogLabel.Text = hudLogLabel.Text .. "\n\nCALCULATING TRAJECTORY...\nGRAVITY WELL: CLEAR\nWORMHOLE STABILITY: 87%\nHYPERDRIVE: CHARGING"
+
+        task.wait(0.7)
+
+        -- Easter Egg: Mysterious Signal Detection
+        if HYPER_CONFIG.ENABLE_EASTER_EGG then
+            navDataLabel.Text = "DESTINATION: UNKNOWN\n[!] UNKNOWN SIGNAL DETECTED"
+            navDataLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+            task.wait(0.4)
+            navDataLabel.Text = "DESTINATION: UNKNOWN\n[!] SIGNAL LOST"
+            navDataLabel.TextColor3 = Color3.fromRGB(0, 220, 255)
+        end
+
+        task.wait(0.4)
+        hudLogLabel.Text = hudLogLabel.Text .. "\nHYPERDRIVE: 100%"
+        playSound(2865825316, 0.8)
+
+        -- PHASE 3: 4.0s - 5.0s (THE WOW MOMENT - HYPERSPACE JUMP)
+        cameraShake = 3.5
+        playSound(138089316, 0.9)
+
+        ts:Create(cockpitFrame, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = UDim2.new(0.9, 0, 0.9, 0), Position = UDim2.new(0.05, 0, 0.05, 0) }):Play()
+
+        task.wait(0.7)
+
+        arrivalLabel.Text = "JUMP"
+        arrivalLabel.TextSize = 36
+        arrivalLabel.TextColor3 = Color3.fromRGB(0, 255, 220)
+        arrivalLabel.TextTransparency = 0
+
+        task.wait(0.15)
+
+        -- BLINDING HYPERSPACE FLASH
+        playSound(138089316, 1.0)
+        arrivalLabel.Text = ""
+        ts:Create(hyperspaceFlash, TweenInfo.new(0.08), { BackgroundTransparency = 0 }):Play()
+
+        task.wait(0.12)
+
+        -- PHASE 4: 5.0s - 6.5s (ARRIVAL - MASSIVE SPACE REVEAL)
+        ts:Create(hyperspaceFlash, TweenInfo.new(1.0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
+
+        cameraShake = 0.1
+        for _, s in ipairs(stars) do
+            if s.obj then
+                s.speed = math.random(30, 90) / 100000
+                s.obj.Size = UDim2.fromOffset(s.baseSize, s.baseSize)
+                s.obj.Rotation = 0
+            end
+        end
+
+        cockpitFrame.Size = UDim2.new(1, 0, 1, 0)
+        cockpitFrame.Position = UDim2.new(0, 0, 0, 0)
+
+        arrivalLabel.Text = "HYPERSPACE JUMP COMPLETE"
+        arrivalLabel.TextSize = 22
+        arrivalLabel.TextColor3 = Color3.fromRGB(0, 255, 200)
+        arrivalLabel.TextTransparency = 0
+
+        task.wait(1.0)
+
+        arrivalLabel.Text = "WELCOME, EXPLORER"
+        ts:Create(arrivalLabel, TweenInfo.new(0.8), { TextTransparency = 0 }):Play()
+
+        task.wait(0.5)
+
+        -- PHASE 5: 6.5s - 7.0s (SEAMLESS TRANSITION INTO GAME)
+        local tiFade = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        ts:Create(backdrop, tiFade, { BackgroundTransparency = 1 }):Play()
+        ts:Create(nebulaGlow, tiFade, { BackgroundTransparency = 1 }):Play()
+        ts:Create(arrivalLabel, tiFade, { TextTransparency = 1 }):Play()
+        ts:Create(hudLogLabel, tiFade, { TextTransparency = 1 }):Play()
+        ts:Create(navDataLabel, tiFade, { TextTransparency = 1 }):Play()
+        ts:Create(cockpitOutline, tiFade, { Transparency = 1 }):Play()
+        ts:Create(radarStroke, tiFade, { Transparency = 1 }):Play()
+
+        for _, s in ipairs(stars) do
+            if s.obj then ts:Create(s.obj, tiFade, { BackgroundTransparency = 1 }):Play() end
+        end
+
+        task.wait(0.5)
+
+        isCinematicRunning = false
         pcall(function()
-            -- Outro Screen Flash
-            local ts = game:GetService("TweenService")
-            local tiFlash = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-            ts:Create(outroFlash, tiFlash, { Size = UDim2.fromOffset(1800, 1800), BackgroundTransparency = 0.6 }):Play()
-            
-            -- Zoom Card Outward
-            local tiZoom = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-            ts:Create(card, tiZoom, { Size = UDim2.fromOffset(640, 400), BackgroundTransparency = 1 }):Play()
-            ts:Create(cardStroke, tiZoom, { Transparency = 1 }):Play()
-            ts:Create(loadingBg, tiZoom, { BackgroundTransparency = 1 }):Play()
-            
-            task.wait(0.3)
-            ts:Create(outroFlash, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
-            
-            animateLoading = false
-            task.wait(0.2)
+            if workspace.CurrentCamera then
+                workspace.CurrentCamera.CameraType = origCamType or Enum.CameraType.Custom
+            end
             loadingGui:Destroy()
         end)
-        
-        -- Smoothly reveal main menu UI
+
         screenGui.Enabled = true
     end)
 end
