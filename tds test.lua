@@ -4,7 +4,7 @@
 
 pcall(function()
     game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "TDS Test 5 Sync Update",
+        Title = "TDS Test 5 Sync Updatedsd",
         Text = "Synchronized script with tds_test_5 contents",
         Duration = 5
     })
