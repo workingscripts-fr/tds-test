@@ -388,6 +388,42 @@ do
     pcall(function() loadingGui.OnTopOfCoreBlur = true end)
     safeParentGui(loadingGui)
 
+    -- Intro Shutter Screens (Split Vertical Iris Transition)
+    local topShutter = Instance.new("Frame")
+    topShutter.Size = UDim2.new(1, 0, 0.5, 0)
+    topShutter.Position = UDim2.new(0, 0, 0, 0)
+    topShutter.BackgroundColor3 = Color3.fromRGB(3, 4, 10)
+    topShutter.BorderSizePixel = 0
+    topShutter.ZIndex = 100
+    topShutter.Parent = loadingGui
+
+    local bottomShutter = Instance.new("Frame")
+    bottomShutter.Size = UDim2.new(1, 0, 0.5, 0)
+    bottomShutter.Position = UDim2.new(0, 0, 0.5, 0)
+    bottomShutter.BackgroundColor3 = Color3.fromRGB(3, 4, 10)
+    bottomShutter.BorderSizePixel = 0
+    bottomShutter.ZIndex = 100
+    bottomShutter.Parent = loadingGui
+
+    local laserSeam = Instance.new("Frame")
+    laserSeam.Size = UDim2.new(1, 0, 0, 3)
+    laserSeam.Position = UDim2.new(0, 0, 0.5, -1)
+    laserSeam.BackgroundColor3 = Color3.fromRGB(0, 255, 220)
+    laserSeam.BorderSizePixel = 0
+    laserSeam.ZIndex = 101
+    laserSeam.Parent = loadingGui
+
+    -- Animate Intro Iris Shutter Opening (0.5s)
+    task.spawn(function()
+        local ts = game:GetService("TweenService")
+        local ti = TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        ts:Create(topShutter, ti, { Position = UDim2.new(0, 0, -0.5, 0) }):Play()
+        ts:Create(bottomShutter, ti, { Position = UDim2.new(0, 0, 1, 0) }):Play()
+        ts:Create(laserSeam, ti, { BackgroundTransparency = 1 }):Play()
+        task.wait(0.6)
+        pcall(function() topShutter:Destroy(); bottomShutter:Destroy(); laserSeam:Destroy() end)
+    end)
+
     -- Fullscreen Cosmic Backdrop
     local loadingBg = Instance.new("Frame")
     loadingBg.Name = "CosmicBackdrop"
@@ -407,7 +443,27 @@ do
     bgGrad.Rotation = 45
     bgGrad.Parent = loadingBg
 
-    -- Cosmic Nebula Glow 1 (Cyan Aura)
+    -- 4 Screen-Corner Cyber HUD Widgets
+    local hudConfigs = {
+        { pos = UDim2.new(0, 20, 0, 20), text = "[ SYS: ONLINE ]" },
+        { pos = UDim2.new(1, -150, 0, 20), text = "[ SEC: VERIFIED ]" },
+        { pos = UDim2.new(0, 20, 1, -36), text = "[ LATENCY: 12MS ]" },
+        { pos = UDim2.new(1, -170, 1, -36), text = "[ DISPATCH: ACTIVE ]" }
+    }
+    for _, h in ipairs(hudConfigs) do
+        local hudLabel = Instance.new("TextLabel")
+        hudLabel.Position = h.pos
+        hudLabel.Size = UDim2.fromOffset(140, 20)
+        hudLabel.BackgroundTransparency = 1
+        hudLabel.Font = Enum.Font.Code
+        hudLabel.Text = h.text
+        hudLabel.TextSize = 11
+        hudLabel.TextColor3 = Color3.fromRGB(0, 220, 180)
+        hudLabel.ZIndex = 5
+        hudLabel.Parent = loadingBg
+    end
+
+    -- Cosmic Nebula Glow 1 & 2
     local nebula1 = Instance.new("Frame")
     nebula1.AnchorPoint = Vector2.new(0.5, 0.5)
     nebula1.Position = UDim2.new(0.25, 0, 0.3, 0)
@@ -419,7 +475,6 @@ do
     nebula1.Parent = loadingBg
     Instance.new("UICorner", nebula1).CornerRadius = UDim.new(1, 0)
 
-    -- Cosmic Nebula Glow 2 (Purple/Magenta Aura)
     local nebula2 = Instance.new("Frame")
     nebula2.AnchorPoint = Vector2.new(0.5, 0.5)
     nebula2.Position = UDim2.new(0.75, 0, 0.7, 0)
@@ -433,7 +488,6 @@ do
 
     -- Expanding Shockwave Energy Ring
     local shockwave = Instance.new("Frame")
-    shockwave.Name = "ShockwaveRing"
     shockwave.AnchorPoint = Vector2.new(0.5, 0.5)
     shockwave.Position = UDim2.new(0.5, 0, 0.5, 0)
     shockwave.Size = UDim2.fromOffset(100, 100)
@@ -447,6 +501,18 @@ do
     shockStroke.Transparency = 1
     shockStroke.Thickness = 2.5
     shockStroke.Parent = shockwave
+
+    -- Outro Radial Flash Ring
+    local outroFlash = Instance.new("Frame")
+    outroFlash.AnchorPoint = Vector2.new(0.5, 0.5)
+    outroFlash.Position = UDim2.new(0.5, 0, 0.5, 0)
+    outroFlash.Size = UDim2.fromOffset(10, 10)
+    outroFlash.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    outroFlash.BackgroundTransparency = 1
+    outroFlash.BorderSizePixel = 0
+    outroFlash.ZIndex = 500
+    outroFlash.Parent = loadingBg
+    Instance.new("UICorner", outroFlash).CornerRadius = UDim.new(1, 0)
 
     -- Floating Starfield Particle Container (60 Warp Particles)
     local starContainer = Instance.new("Frame")
@@ -478,7 +544,7 @@ do
     card.Name = "CosmicCard"
     card.AnchorPoint = Vector2.new(0.5, 0.5)
     card.Position = UDim2.new(0.5, 0, 0.5, 0)
-    card.Size = UDim2.fromOffset(520, 320)
+    card.Size = UDim2.fromOffset(540, 335)
     card.BackgroundColor3 = Color3.fromRGB(10, 14, 24)
     card.BackgroundTransparency = 0.12
     card.BorderSizePixel = 0
@@ -496,10 +562,33 @@ do
     cardStroke.Parent = card
     attachRotatingOutline(cardStroke, 28, 0)
 
+    -- Dynamic 12-Bar Audio Visualizer Equalizer (Top of Card)
+    local eqContainer = Instance.new("Frame")
+    eqContainer.AnchorPoint = Vector2.new(0.5, 0)
+    eqContainer.Position = UDim2.new(0.5, 0, 0, 12)
+    eqContainer.Size = UDim2.fromOffset(180, 16)
+    eqContainer.BackgroundTransparency = 1
+    eqContainer.ZIndex = 11
+    eqContainer.Parent = card
+
+    local eqBars = {}
+    for i = 1, 12 do
+        local bar = Instance.new("Frame")
+        bar.Position = UDim2.new((i - 1) / 12, 2, 0.5, 0)
+        bar.AnchorPoint = Vector2.new(0, 0.5)
+        bar.Size = UDim2.fromOffset(10, 6)
+        bar.BackgroundColor3 = Color3.fromRGB(0, 255, 220)
+        bar.BorderSizePixel = 0
+        bar.ZIndex = 12
+        bar.Parent = eqContainer
+        Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 3)
+        table.insert(eqBars, bar)
+    end
+
     -- Tri-Orbital Reactor Engine (3 Counter-Rotating Rings)
     local reactor = Instance.new("Frame")
     reactor.AnchorPoint = Vector2.new(0.5, 0)
-    reactor.Position = UDim2.new(0.5, 0, 0, 22)
+    reactor.Position = UDim2.new(0.5, 0, 0, 34)
     reactor.Size = UDim2.fromOffset(80, 80)
     reactor.BackgroundTransparency = 1
     reactor.ZIndex = 11
@@ -565,7 +654,7 @@ do
     -- Header Title
     local titleLabel = Instance.new("TextLabel")
     titleLabel.AnchorPoint = Vector2.new(0.5, 0)
-    titleLabel.Position = UDim2.new(0.5, 0, 0, 116)
+    titleLabel.Position = UDim2.new(0.5, 0, 0, 126)
     titleLabel.Size = UDim2.new(1, -30, 0, 24)
     titleLabel.BackgroundTransparency = 1
     titleLabel.Font = Enum.Font.GothamBold
@@ -578,7 +667,7 @@ do
     -- Status Diagnostic Log
     local statusLabel = Instance.new("TextLabel")
     statusLabel.AnchorPoint = Vector2.new(0.5, 0)
-    statusLabel.Position = UDim2.new(0.5, 0, 0, 144)
+    statusLabel.Position = UDim2.new(0.5, 0, 0, 154)
     statusLabel.Size = UDim2.new(1, -40, 0, 20)
     statusLabel.BackgroundTransparency = 1
     statusLabel.Font = Enum.Font.GothamMedium
@@ -591,7 +680,7 @@ do
     -- Progress Bar Track
     local progressTrack = Instance.new("Frame")
     progressTrack.AnchorPoint = Vector2.new(0.5, 0)
-    progressTrack.Position = UDim2.new(0.5, 0, 0, 184)
+    progressTrack.Position = UDim2.new(0.5, 0, 0, 194)
     progressTrack.Size = UDim2.new(0.88, 0, 0, 12)
     progressTrack.BackgroundColor3 = Color3.fromRGB(16, 22, 34)
     progressTrack.BorderSizePixel = 0
@@ -615,7 +704,7 @@ do
     -- Percentage Counter
     local percentLabel = Instance.new("TextLabel")
     percentLabel.AnchorPoint = Vector2.new(0.5, 0)
-    percentLabel.Position = UDim2.new(0.5, 0, 0, 206)
+    percentLabel.Position = UDim2.new(0.5, 0, 0, 216)
     percentLabel.Size = UDim2.new(1, -30, 0, 24)
     percentLabel.BackgroundTransparency = 1
     percentLabel.Font = Enum.Font.GothamBold
@@ -628,7 +717,7 @@ do
     -- Feature Description
     local detailsLabel = Instance.new("TextLabel")
     detailsLabel.AnchorPoint = Vector2.new(0.5, 0)
-    detailsLabel.Position = UDim2.new(0.5, 0, 0, 238)
+    detailsLabel.Position = UDim2.new(0.5, 0, 0, 248)
     detailsLabel.Size = UDim2.new(1, -30, 0, 16)
     detailsLabel.BackgroundTransparency = 1
     detailsLabel.Font = Enum.Font.GothamMedium
@@ -641,7 +730,7 @@ do
     -- Bottom Telemetry Stats Bar
     local telemetryBar = Instance.new("Frame")
     telemetryBar.AnchorPoint = Vector2.new(0.5, 0)
-    telemetryBar.Position = UDim2.new(0.5, 0, 0, 268)
+    telemetryBar.Position = UDim2.new(0.5, 0, 0, 278)
     telemetryBar.Size = UDim2.new(0.9, 0, 0, 32)
     telemetryBar.BackgroundColor3 = Color3.fromRGB(14, 19, 30)
     telemetryBar.BorderSizePixel = 0
@@ -659,7 +748,7 @@ do
     telemetryText.ZIndex = 12
     telemetryText.Parent = telemetryBar
 
-    -- FX Animation Engine (Warp Stars & Tri-Rings)
+    -- FX Animation Engine (Warp Stars, Tri-Rings, Equalizer Bars)
     local animateLoading = true
     task.spawn(function()
         while animateLoading do
@@ -672,6 +761,12 @@ do
             local pulse = (math.sin(now * 7) + 1) / 2
             coreDot.Size = UDim2.fromOffset(16 + pulse * 6, 16 + pulse * 6)
             coreDot.BackgroundTransparency = 0.15 * pulse
+
+            -- Audio Equalizer Bouncing Bars
+            for idx, bar in ipairs(eqBars) do
+                local h = 4 + (math.sin(now * 10 + idx * 0.8) + 1) * 6
+                bar.Size = UDim2.fromOffset(10, h)
+            end
 
             -- Warp Star Trail Effect
             for _, s in ipairs(stars) do
@@ -689,7 +784,7 @@ do
         end
     end)
 
-    -- 6.5 SECOND HIGH QUALITY ANIMATED PROGRESSION SEQUENCE
+    -- 6.5 SECOND HIGH QUALITY ANIMATED PROGRESSION SEQUENCE WITH SCRAMBLE MATRIX DECODER
     local statusSteps = {
         { pct = 0.10, text = "[01/06] INITIALIZING QUANTUM NEURAL KERNEL..." },
         { pct = 0.25, text = "[02/06] CONNECTING REPLICATED STORAGE NETWORK HANDLERS..." },
@@ -700,7 +795,27 @@ do
     }
 
     local startTime = os.clock()
-    local targetDuration = 6.5 -- Guaranteed 6.5 second duration
+    local targetDuration = 6.5
+    local currentStepIndex = 1
+
+    local function setScrambledText(targetText)
+        task.spawn(function()
+            local glyphs = { "⚡", "█", "░", "▒", "▨", "0", "1", "X", "#" }
+            for i = 1, 4 do
+                local scrambled = ""
+                for j = 1, #targetText do
+                    if math.random() > 0.6 then
+                        scrambled = scrambled .. glyphs[math.random(#glyphs)]
+                    else
+                        scrambled = scrambled .. string.sub(targetText, j, j)
+                    end
+                end
+                statusLabel.Text = scrambled
+                task.wait(0.03)
+            end
+            statusLabel.Text = targetText
+        end)
+    end
 
     -- Progress & Shockwave Animator
     task.spawn(function()
@@ -726,17 +841,20 @@ do
                             shockStroke.Transparency = 0.1
                             local ts = game:GetService("TweenService")
                             local ti = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-                            ts:Create(shockwave, ti, { Size = UDim2.fromOffset(600, 600) }):Play()
+                            ts:Create(shockwave, ti, { Size = UDim2.fromOffset(650, 650) }):Play()
                             ts:Create(shockStroke, ti, { Transparency = 1 }):Play()
                         end)
                     end)
                 end
             end
 
-            -- Update status text step
+            -- Update status text step with cyber scramble matrix
             for i = #statusSteps, 1, -1 do
                 if alpha >= statusSteps[i].pct then
-                    statusLabel.Text = statusSteps[i].text
+                    if currentStepIndex ~= i then
+                        currentStepIndex = i
+                        setScrambledText(statusSteps[i].text)
+                    end
                     break
                 end
             end
@@ -746,7 +864,7 @@ do
         end
     end)
 
-    -- Async Teardown Transition (0.5s smooth fade out)
+    -- Outro Hyperdrive Zoom & Screen Flash Transition
     task.spawn(function()
         waitForGameLoad()
         local currentElapsed = os.clock() - startTime
@@ -754,29 +872,23 @@ do
             task.wait(targetDuration - currentElapsed)
         end
 
-        animateLoading = false
         pcall(function()
+            -- Outro Screen Flash
             local ts = game:GetService("TweenService")
-            local ti = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            local tiFlash = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            ts:Create(outroFlash, tiFlash, { Size = UDim2.fromOffset(1800, 1800), BackgroundTransparency = 0.6 }):Play()
             
-            ts:Create(card, ti, { BackgroundTransparency = 1 }):Play()
-            ts:Create(cardStroke, ti, { Transparency = 1 }):Play()
-            ts:Create(loadingBg, ti, { BackgroundTransparency = 1 }):Play()
-            ts:Create(titleLabel, ti, { TextTransparency = 1 }):Play()
-            ts:Create(statusLabel, ti, { TextTransparency = 1 }):Play()
-            ts:Create(percentLabel, ti, { TextTransparency = 1 }):Play()
-            ts:Create(detailsLabel, ti, { TextTransparency = 1 }):Play()
-            ts:Create(telemetryText, ti, { TextTransparency = 1 }):Play()
-            ts:Create(ring1Stroke, ti, { Transparency = 1 }):Play()
-            ts:Create(ring2Stroke, ti, { Transparency = 1 }):Play()
-            ts:Create(ring3Stroke, ti, { Transparency = 1 }):Play()
-            ts:Create(coreDot, ti, { BackgroundTransparency = 1 }):Play()
+            -- Zoom Card Outward
+            local tiZoom = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+            ts:Create(card, tiZoom, { Size = UDim2.fromOffset(640, 400), BackgroundTransparency = 1 }):Play()
+            ts:Create(cardStroke, tiZoom, { Transparency = 1 }):Play()
+            ts:Create(loadingBg, tiZoom, { BackgroundTransparency = 1 }):Play()
             
-            for _, s in ipairs(stars) do
-                if s.obj then ts:Create(s.obj, ti, { BackgroundTransparency = 1 }):Play() end
-            end
+            task.wait(0.3)
+            ts:Create(outroFlash, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
             
-            task.wait(0.5)
+            animateLoading = false
+            task.wait(0.2)
             loadingGui:Destroy()
         end)
         
