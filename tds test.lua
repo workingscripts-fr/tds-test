@@ -2967,8 +2967,10 @@ end
 
 local function turnOffAutoPlaceToggle()
     autoPlaceEnabled = false
-    apcSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
-    apcSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+    pcall(function()
+        apcSwKnob:TweenPosition(UDim2.fromOffset(3, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.18, true)
+        apcSwKnob.BackgroundColor3 = Color3.fromRGB(140, 150, 165)
+    end)
     stopAutoPlaceTask()
 end
 
@@ -3477,6 +3479,8 @@ end)
 -- FEATURE 1B: AUTOMATED REJOIN, MAP OVERRIDE (U-TURN), AND READY-UP LOOP
 -- ============================================================
 local _lastMatchAutoTriggered = false
+local _hasClickedInMatchReady = false
+local _hasDoneIntermissionLobbySetup = false
 
 task.spawn(function()
     while true do
@@ -3518,61 +3522,68 @@ task.spawn(function()
                 local interLobby = workspace:FindFirstChild("IntermissionLobby")
                 if interLobby then
                     _lastMatchAutoTriggered = false
+                    _hasClickedInMatchReady = false
                     
-                    local lp = Players.LocalPlayer or game:GetService("Players").LocalPlayer
-                    local char = lp and lp.Character
-                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                    local hum = char and char:FindFirstChildOfClass("Humanoid")
-                    
-                    -- Move character towards MapVote terminal
-                    local terminal = interLobby:FindFirstChild("MapVote")
-                    if terminal and hum and hrp then
-                        if (hrp.Position - terminal.Position).Magnitude > 8 then
-                            hum:MoveTo(terminal.Position)
-                            task.wait(1)
-                        end
-                    end
-
-                    -- Trigger MapVote ProximityPrompt
-                    local prompt = terminal and terminal:FindFirstChildOfClass("ProximityPrompt")
-                    if prompt and fireproximityprompt then
-                        pcall(function() fireproximityprompt(prompt) end)
-                    end
-
-                    -- Remote Map Override (U-Turn)
-                    local rf = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteFunction")
-                    if rf then
-                        pcall(function() rf:InvokeServer("Voting", "Override", "U-Turn") end)
-                        pcall(function() rf:InvokeServer("Voting", "Select", "U-Turn") end)
-                        pcall(function() rf:InvokeServer("Voting", "Vote", "U-Turn") end)
-                    end
-
-                    -- Click U-Turn in Map Override UI
-                    if pg then
-                        local intermission = pg:FindFirstChild("ReactGameIntermission")
-                        if intermission and intermission:FindFirstChild("Frame") then
-                            local mapOverride = intermission.Frame:FindFirstChild("mapOverride")
-                            if mapOverride and mapOverride.list and mapOverride.list.content then
-                                local uTurnBtn = mapOverride.list.content:FindFirstChild("1U-Turn") or mapOverride.list.content:FindFirstChild("0U-Turn")
-                                if not uTurnBtn then
-                                    for _, c in ipairs(mapOverride.list.content:GetChildren()) do
-                                        if c.Name:lower():find("u-turn") or c.Name:lower():find("uturn") then
-                                            uTurnBtn = c
-                                            break
-                                        end
-                                    end
-                                end
-                                if uTurnBtn then
-                                    local inputSink = uTurnBtn:FindFirstChild("inputSink") or uTurnBtn
-                                    pcall(function()
-                                        for _, conn in ipairs(getconnections(inputSink.MouseButton1Click or inputSink.Activated)) do
-                                            conn:Fire()
-                                        end
-                                    end)
+                    if not _hasDoneIntermissionLobbySetup then
+                        _hasDoneIntermissionLobbySetup = true
+                        task.spawn(function()
+                            local lp = Players.LocalPlayer or game:GetService("PlayersLoaded", 1) or game:GetService("Players").LocalPlayer
+                            local char = lp and lp.Character
+                            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                            local hum = char and char:FindFirstChildOfClass("Humanoid")
+                            
+                            -- Step A: Move character towards MapVote terminal & trigger prompt
+                            local terminal = interLobby:FindFirstChild("MapVote")
+                            if terminal and hum and hrp then
+                                if (hrp.Position - terminal.Position).Magnitude > 8 then
+                                    hum:MoveTo(terminal.Position)
+                                    task.wait(0.8)
                                 end
                             end
 
-                            -- Walk over to U-Turn Board VotePlatform, fire ProximityPrompt & Click Ready
+                            local prompt = terminal and terminal:FindFirstChildOfClass("ProximityPrompt")
+                            if prompt and fireproximityprompt then
+                                pcall(function() fireproximityprompt(prompt) end)
+                            end
+
+                            -- Remote Map Override (U-Turn)
+                            local rf = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteFunction")
+                            if rf then
+                                pcall(function() rf:InvokeServer("Voting", "Override", "U-Turn") end)
+                                pcall(function() rf:InvokeServer("Voting", "Select", "U-Turn") end)
+                                pcall(function() rf:InvokeServer("Voting", "Vote", "U-Turn") end)
+                            end
+
+                            -- Click U-Turn in Map Override UI
+                            task.wait(0.3)
+                            local pg = getPlayerGui()
+                            if pg then
+                                local intermission = pg:FindFirstChild("ReactGameIntermission")
+                                if intermission and intermission:FindFirstChild("Frame") then
+                                    local mapOverride = intermission.Frame:FindFirstChild("mapOverride")
+                                    if mapOverride and mapOverride.list and mapOverride.list.content then
+                                        local uTurnBtn = mapOverride.list.content:FindFirstChild("1U-Turn") or mapOverride.list.content:FindFirstChild("0U-Turn")
+                                        if not uTurnBtn then
+                                            for _, c in ipairs(mapOverride.list.content:GetChildren()) do
+                                                if c.Name:lower():find("u-turn") or c.Name:lower():find("uturn") then
+                                                    uTurnBtn = c
+                                                    break
+                                                end
+                                            end
+                                        end
+                                        if uTurnBtn then
+                                            local inputSink = uTurnBtn:FindFirstChild("inputSink") or uTurnBtn
+                                            pcall(function()
+                                                for _, conn in ipairs(getconnections(inputSink.Activated)) do conn:Fire() end
+                                                for _, conn in ipairs(getconnections(inputSink.MouseButton1Click)) do conn:Fire() end
+                                            end)
+                                        end
+                                    end
+                                end
+                            end
+
+                            -- Step B: Move to U-Turn Board VotePlatform & Fire Vote Prompt
+                            task.wait(0.5)
                             local uTurnBoard = nil
                             if interLobby:FindFirstChild("Boards") then
                                 for _, b in ipairs(interLobby.Boards:GetChildren()) do
@@ -3606,54 +3617,88 @@ task.spawn(function()
                                 end
                             end
 
-                            local readyBtn = intermission.Frame.buttons and intermission.Frame.buttons:FindFirstChild("ready")
-                            if readyBtn then
-                                pcall(function()
-                                    local inputSink = readyBtn:FindFirstChild("inputSink") or readyBtn
-                                    for _, conn in ipairs(getconnections(inputSink.MouseButton1Click or inputSink.Activated)) do
-                                        conn:Fire()
+                            -- Step C: Click Intermission Ready Button ONE TIME after voting for U-Turn
+                            task.wait(0.5)
+                            local pg = getPlayerGui()
+                            if pg then
+                                local intermission = pg:FindFirstChild("ReactGameIntermission")
+                                if intermission and intermission:FindFirstChild("Frame") then
+                                    local readyBtn = intermission.Frame.buttons and intermission.Frame.buttons:FindFirstChild("ready")
+                                    if readyBtn then
+                                        pcall(function()
+                                            local inputSink = readyBtn:FindFirstChild("inputSink") or readyBtn
+                                            for _, conn in ipairs(getconnections(inputSink.Activated)) do conn:Fire() end
+                                            for _, conn in ipairs(getconnections(inputSink.MouseButton1Click)) do conn:Fire() end
+                                        end)
                                     end
-                                end)
+                                end
                             end
-                        end
-                    end
 
-                    if rf then
-                        pcall(function() rf:InvokeServer("Voting", "Ready") end)
-                        pcall(function() rf:InvokeServer("Voting", "ToggleReady") end)
+                            if rf then
+                                pcall(function() rf:InvokeServer("Voting", "Ready") end)
+                            end
+                        end)
                     end
+                else
+                    _hasDoneIntermissionLobbySetup = false
                 end
 
                 -- 3. MATCH AUTO-START TRIGGER FOR AUTO PLACE TOWERS & PRE-MATCH ONE-TIME READY
                 local inMatch = workspace:FindFirstChild("Towers") ~= nil and workspace:FindFirstChild("IntermissionLobby") == nil
                 if inMatch then
-                    if not _lastMatchAutoTriggered then
+                    if not _hasClickedInMatchReady then
+                        _hasClickedInMatchReady = true
+                        
+                        task.spawn(function()
+                            for i = 1, 3 do
+                                pcall(function()
+                                    local rf = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteFunction")
+                                    if rf then
+                                        pcall(function() rf:InvokeServer("Voting", "Ready") end)
+                                        pcall(function() rf:InvokeServer("Voting", "Ready", true) end)
+                                    end
+                                    
+                                    local pg = getPlayerGui()
+                                    local voteUI = pg and pg:FindFirstChild("ReactOverridesVote")
+                                    if voteUI and voteUI:FindFirstChild("Frame") then
+                                        local btn = voteUI.Frame:FindFirstChild("votes", true) and voteUI.Frame.votes:FindFirstChild("button", true)
+                                        if btn and btn:IsA("GuiObject") then
+                                            pcall(function()
+                                                local vim = game:GetService("VirtualInputManager")
+                                                local pos = btn.AbsolutePosition
+                                                local size = btn.AbsoluteSize
+                                                local x = pos.X + size.X / 2
+                                                local y = pos.Y + size.Y / 2 + 36
+                                                vim:SendMouseButtonEvent(x, y, 0, true, game, 0)
+                                                task.wait(0.05)
+                                                vim:SendMouseButtonEvent(x, y, 0, false, game, 0)
+                                            end)
+                                        end
+                                    end
+                                    
+                                    -- Difficulty GUI fallback
+                                    local diffUI = pg and pg:FindFirstChild("ReactGameDifficulty")
+                                    if diffUI and diffUI:FindFirstChild("Frame") then
+                                        local moltenBtn = diffUI.Frame.buttons.moltenButton.button.content:FindFirstChild("detector")
+                                        if moltenBtn then
+                                            for _, conn in ipairs(getconnections(moltenBtn.Activated)) do conn:Fire() end
+                                        end
+                                        local readyBtn = diffUI.Frame.ready:FindFirstChild("readyButton")
+                                        if readyBtn then
+                                            for _, conn in ipairs(getconnections(readyBtn.Activated)) do conn:Fire() end
+                                        end
+                                    end
+                                end)
+                                task.wait(0.5)
+                            end
+                        end)
+                    end
+
+                    if not autoPlaceEnabled and not _lastMatchAutoTriggered then
                         _lastMatchAutoTriggered = true
                         
-                        -- Click pre-match Ready button ONE TIME upon loading into match
-                        if pg then
-                            local readyInMatch = pg:FindFirstChild("ReactOverridesVote") or pg:FindFirstChild("ReactGameDifficulty")
-                            if readyInMatch then
-                                for _, desc in ipairs(readyInMatch:GetDescendants()) do
-                                    if desc:IsA("GuiObject") and (desc.Name == "button" or desc.Name == "readyButton" or desc.Name == "ready") then
-                                        pcall(function()
-                                            local clickObj = desc:FindFirstChild("inputSink") or desc
-                                            for _, conn in ipairs(getconnections(clickObj.MouseButton1Click or clickObj.Activated)) do
-                                                conn:Fire()
-                                            end
-                                        end)
-                                    end
-                                end
-                            end
-                        end
-                        
-                        local rf = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteFunction")
-                        if rf then
-                            pcall(function() rf:InvokeServer("Voting", "Ready") end)
-                        end
-
                         -- Trigger Auto Place Switch
-                        if not autoPlaceEnabled and apcSwitchBtn then
+                        if apcSwitchBtn then
                             pcall(function()
                                 for _, conn in ipairs(getconnections(apcSwitchBtn.MouseButton1Click)) do
                                     conn:Fire()
@@ -3661,10 +3706,13 @@ task.spawn(function()
                             end)
                         end
                     end
+                else
+                    _hasClickedInMatchReady = false
+                    _lastMatchAutoTriggered = false
                 end
             end
         end)
-        task.wait(1.5)
+        task.wait(1.0)
     end
 end)
 
