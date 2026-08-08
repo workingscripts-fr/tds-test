@@ -380,15 +380,34 @@ safeParentGui(screenGui)
 
 do
     -- ================================================================
-    -- 8-STEP CINEMATIC WORMHOLE & PLANET LOADING INTRO (6-7 SECONDS)
-    -- Matching exact visual guide: Void -> Gravity -> Energy -> Wormhole -> Warp -> Exit -> Planet -> Fade
+    -- AAA CINEMATIC WORMHOLE & PLANET INTRO (6.8 SECONDS)
+    -- Sleek, finished visual quality with full UI isolation & SunRays
     -- ================================================================
     local ts = game:GetService("TweenService")
     local rs = game:GetService("RunService")
     local lighting = game:GetService("Lighting")
+    local players = game:GetService("Players")
     local cam = workspace.CurrentCamera
 
-    -- Save original state for clean restore
+    -- ── 1. HIDE ALL EXISTING LOBBY GUIS DURING INTRO ──
+    local hiddenGuis = {}
+    local localPlayer = players.LocalPlayer
+    if localPlayer then
+        local playerGui = localPlayer:FindFirstChildOfClass("PlayerGui")
+        if playerGui then
+            for _, gui in ipairs(playerGui:GetChildren()) do
+                if gui:IsA("ScreenGui") and gui.Name ~= "TDSTestUI" and gui.Name ~= "HyperspaceAAA" and gui.Enabled then
+                    table.insert(hiddenGuis, gui)
+                    gui.Enabled = false
+                end
+            end
+        end
+    end
+
+    -- Keep main TDS menu disabled during loading sequence
+    screenGui.Enabled = false
+
+    -- ── 2. SAVE ORIGINAL LIGHTING & CAMERA ──
     local origCamType = cam.CameraType
     local origCamSubject = cam.CameraSubject
     local origFOV = cam.FieldOfView
@@ -402,7 +421,6 @@ do
     local origFogColor = lighting.FogColor
     local origClockTime = lighting.ClockTime
 
-    -- Save existing post-processing
     local origBloom, origBlur, origCC, origDOF, origSunRays
     for _, c in ipairs(lighting:GetChildren()) do
         if c:IsA("BloomEffect") then origBloom = { Intensity = c.Intensity, Size = c.Size, Threshold = c.Threshold } end
@@ -412,61 +430,116 @@ do
         if c:IsA("SunRaysEffect") then origSunRays = { Intensity = c.Intensity, Spread = c.Spread } end
     end
 
-    -- ─── SCENE ANCHOR ───
-    local SCENE_ORIGIN = CFrame.new(0, 8000, 0)
-
-    -- ─── BLACKOUT & FLASH GUI ───
+    -- ── 3. HIGHEST PRIORITY CINEMATIC OVERLAY GUI ──
     local cinematicGui = Instance.new("ScreenGui")
-    cinematicGui.Name = "HyperspaceV4"
+    cinematicGui.Name = "HyperspaceAAA"
     cinematicGui.ResetOnSpawn = false
     cinematicGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     cinematicGui.IgnoreGuiInset = true
-    cinematicGui.DisplayOrder = 999999
+    cinematicGui.DisplayOrder = 2147483647 -- Maximum possible depth order to cover everything
     pcall(function() cinematicGui.OnTopOfCoreBlur = true end)
     safeParentGui(cinematicGui)
 
-    -- Fullscreen black overlay
+    -- Fullscreen Black Fade Frame
     local blackOverlay = Instance.new("Frame")
     blackOverlay.Name = "BlackOverlay"
     blackOverlay.Size = UDim2.new(1, 0, 1, 0)
-    blackOverlay.BackgroundColor3 = Color3.fromRGB(2, 2, 6)
+    blackOverlay.BackgroundColor3 = Color3.fromRGB(2, 3, 8)
     blackOverlay.BackgroundTransparency = 0
     blackOverlay.BorderSizePixel = 0
-    blackOverlay.ZIndex = 100
+    blackOverlay.ZIndex = 1000
     blackOverlay.Parent = cinematicGui
 
-    -- Flash overlay for wormhole open / warp exit
+    -- Flash Overlay (Wormhole transitions)
     local flashOverlay = Instance.new("Frame")
     flashOverlay.Name = "FlashOverlay"
     flashOverlay.Size = UDim2.new(1, 0, 1, 0)
     flashOverlay.BackgroundColor3 = Color3.fromRGB(220, 200, 255)
     flashOverlay.BackgroundTransparency = 1
     flashOverlay.BorderSizePixel = 0
-    flashOverlay.ZIndex = 200
+    flashOverlay.ZIndex = 2000
     flashOverlay.Parent = cinematicGui
 
-    -- Subtle cinematic HUD overlay (minimal & sleek)
+    -- Sleek Minimalist Cinematic HUD
     local hudFrame = Instance.new("Frame")
     hudFrame.Size = UDim2.new(1, 0, 1, 0)
     hudFrame.BackgroundTransparency = 1
-    hudFrame.ZIndex = 50
+    hudFrame.ZIndex = 1500
     hudFrame.Parent = cinematicGui
 
-    local phaseLabel = Instance.new("TextLabel")
-    phaseLabel.Position = UDim2.new(0, 30, 1, -50)
-    phaseLabel.Size = UDim2.fromOffset(400, 30)
-    phaseLabel.BackgroundTransparency = 1
-    phaseLabel.Font = Enum.Font.Code
-    phaseLabel.TextSize = 12
-    phaseLabel.TextColor3 = Color3.fromRGB(180, 140, 255)
-    phaseLabel.TextXAlignment = Enum.TextXAlignment.Left
-    phaseLabel.TextTransparency = 1
-    phaseLabel.Text = "SYS // ANOMALY DETECTED"
-    phaseLabel.Parent = hudFrame
+    -- Top-Left Sci-Fi Readout
+    local sysReadout = Instance.new("TextLabel")
+    sysReadout.Position = UDim2.new(0, 32, 0, 28)
+    sysReadout.Size = UDim2.fromOffset(360, 40)
+    sysReadout.BackgroundTransparency = 1
+    sysReadout.Font = Enum.Font.Code
+    sysReadout.TextSize = 12
+    sysReadout.TextColor3 = Color3.fromRGB(180, 150, 255)
+    sysReadout.TextXAlignment = Enum.TextXAlignment.Left
+    sysReadout.TextYAlignment = Enum.TextYAlignment.Top
+    sysReadout.TextTransparency = 0.3
+    sysReadout.Text = "SECTOR 07-B // QUANTUM WARP INITIATED"
+    sysReadout.Parent = hudFrame
 
-    -- ─── 3D SCENE CONTAINER ───
+    -- Top-Right Navigation Radar
+    local navReadout = Instance.new("TextLabel")
+    navReadout.AnchorPoint = Vector2.new(1, 0)
+    navReadout.Position = UDim2.new(1, -32, 0, 28)
+    navReadout.Size = UDim2.fromOffset(300, 40)
+    navReadout.BackgroundTransparency = 1
+    navReadout.Font = Enum.Font.Code
+    navReadout.TextSize = 12
+    navReadout.TextColor3 = Color3.fromRGB(0, 220, 255)
+    navReadout.TextXAlignment = Enum.TextXAlignment.Right
+    navReadout.TextYAlignment = Enum.TextYAlignment.Top
+    navReadout.TextTransparency = 0.3
+    navReadout.Text = "SYS // 100% NOMINAL"
+    navReadout.Parent = hudFrame
+
+    -- Bottom Center Loading Progress Bar Container
+    local progressContainer = Instance.new("Frame")
+    progressContainer.AnchorPoint = Vector2.new(0.5, 1)
+    progressContainer.Position = UDim2.new(0.5, 0, 1, -35)
+    progressContainer.Size = UDim2.fromOffset(360, 24)
+    progressContainer.BackgroundTransparency = 1
+    progressContainer.ZIndex = 1501
+    progressContainer.Parent = hudFrame
+
+    local progressText = Instance.new("TextLabel")
+    progressText.Size = UDim2.new(1, 0, 0, 14)
+    progressText.BackgroundTransparency = 1
+    progressText.Font = Enum.Font.GothamMedium
+    progressText.TextSize = 11
+    progressText.TextColor3 = Color3.fromRGB(200, 220, 255)
+    progressText.TextXAlignment = Enum.TextXAlignment.Center
+    progressText.Text = "INITIALIZING QUANTUM SINGULARITY... 0%"
+    progressText.Parent = progressContainer
+
+    local progressTrack = Instance.new("Frame")
+    progressTrack.Position = UDim2.new(0, 0, 1, -4)
+    progressTrack.Size = UDim2.new(1, 0, 0, 3)
+    progressTrack.BackgroundColor3 = Color3.fromRGB(20, 25, 45)
+    progressTrack.BorderSizePixel = 0
+    progressTrack.Parent = progressContainer
+    Instance.new("UICorner", progressTrack).CornerRadius = UDim.new(1, 0)
+
+    local progressBar = Instance.new("Frame")
+    progressBar.Size = UDim2.new(0, 0, 1, 0)
+    progressBar.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
+    progressBar.BorderSizePixel = 0
+    progressBar.Parent = progressTrack
+    Instance.new("UICorner", progressBar).CornerRadius = UDim.new(1, 0)
+
+    local progressGlow = Instance.new("UIStroke")
+    progressGlow.Color = Color3.fromRGB(160, 80, 255)
+    progressGlow.Thickness = 1
+    progressGlow.Transparency = 0.3
+    progressGlow.Parent = progressBar
+
+    -- ── 4. 3D HIGH-ALTITUDE SCENE CONTAINER ──
+    local SCENE_ORIGIN = CFrame.new(0, 8000, 0)
     local sceneFolder = Instance.new("Folder")
-    sceneFolder.Name = "_WormholeScene"
+    sceneFolder.Name = "_WormholeSceneAAA"
     sceneFolder.Parent = workspace
 
     local function mkPart(props)
@@ -479,217 +552,178 @@ do
         return p
     end
 
-    -- ── 1. PURPLE NEBULA BACKGROUND ──
+    -- Deep Space Nebula Orbs (Soft Volumetric Light)
     local neb1 = mkPart({
-        Size = Vector3.new(600, 400, 300),
-        CFrame = SCENE_ORIGIN * CFrame.new(-100, 50, -400),
-        Color = Color3.fromRGB(110, 20, 180), Material = Enum.Material.Neon, Transparency = 0.94,
+        Size = Vector3.new(500, 350, 250),
+        CFrame = SCENE_ORIGIN * CFrame.new(-90, 40, -350),
+        Color = Color3.fromRGB(120, 30, 210), Material = Enum.Material.Neon, Transparency = 0.93,
     })
     Instance.new("SpecialMesh", neb1).MeshType = Enum.MeshType.Sphere
 
     local neb2 = mkPart({
-        Size = Vector3.new(500, 350, 250),
-        CFrame = SCENE_ORIGIN * CFrame.new(120, -40, -450),
-        Color = Color3.fromRGB(50, 15, 120), Material = Enum.Material.Neon, Transparency = 0.95,
+        Size = Vector3.new(450, 300, 220),
+        CFrame = SCENE_ORIGIN * CFrame.new(100, -30, -400),
+        Color = Color3.fromRGB(20, 100, 220), Material = Enum.Material.Neon, Transparency = 0.94,
     })
     Instance.new("SpecialMesh", neb2).MeshType = Enum.MeshType.Sphere
 
-    -- ── 2. BLACK HOLE & ACCRETION DISK (Center at SCENE_ORIGIN + Z:-120) ──
-    local bhCenterPos = SCENE_ORIGIN * CFrame.new(0, 0, -120)
+    -- ── 5. BLACK HOLE & ACCRETION DISK (SCENE_ORIGIN + Z:-120) ──
+    local bhPos = SCENE_ORIGIN * CFrame.new(0, 0, -120)
 
-    -- Event Horizon (Pitch Black Center Core)
+    -- Event Horizon Core
     local blackHoleCore = mkPart({
         Name = "BlackHoleCore",
         Size = Vector3.new(1, 1, 1),
-        CFrame = bhCenterPos,
+        CFrame = bhPos,
         Color = Color3.fromRGB(0, 0, 0), Material = Enum.Material.SmoothPlastic,
     })
     Instance.new("SpecialMesh", blackHoleCore).MeshType = Enum.MeshType.Sphere
 
-    -- Accretion Disk Outer Ring (Purple Neon Disk)
+    -- Outer Purple Accretion Ring
     local accretionOuter = mkPart({
-        Size = Vector3.new(2, 0.05, 2),
-        CFrame = bhCenterPos * CFrame.Angles(math.rad(20), 0, math.rad(10)),
-        Color = Color3.fromRGB(160, 40, 255), Material = Enum.Material.Neon, Transparency = 0.4,
+        Size = Vector3.new(2, 0.06, 2),
+        CFrame = bhPos * CFrame.Angles(math.rad(22), 0, math.rad(12)),
+        Color = Color3.fromRGB(170, 40, 255), Material = Enum.Material.Neon, Transparency = 0.35,
     })
-    local accMeshOuter = Instance.new("SpecialMesh", accretionOuter)
-    accMeshOuter.MeshType = Enum.MeshType.Cylinder
+    local accMesh1 = Instance.new("SpecialMesh", accretionOuter)
+    accMesh1.MeshType = Enum.MeshType.Cylinder
 
-    -- Accretion Disk Inner Ring (Bright Blue/White Energy Core)
+    -- Inner Cyan Energy Ring
     local accretionInner = mkPart({
         Size = Vector3.new(1.2, 0.08, 1.2),
-        CFrame = bhCenterPos * CFrame.Angles(math.rad(20), 0, math.rad(10)),
-        Color = Color3.fromRGB(220, 180, 255), Material = Enum.Material.Neon, Transparency = 0.2,
+        CFrame = bhPos * CFrame.Angles(math.rad(22), 0, math.rad(12)),
+        Color = Color3.fromRGB(0, 230, 255), Material = Enum.Material.Neon, Transparency = 0.2,
     })
-    local accMeshInner = Instance.new("SpecialMesh", accretionInner)
-    accMeshInner.MeshType = Enum.MeshType.Cylinder
+    local accMesh2 = Instance.new("SpecialMesh", accretionInner)
+    accMesh2.MeshType = Enum.MeshType.Cylinder
 
-    -- Gravitational Lensing Halo Ring around Event Horizon
+    -- Lensing Halo Shell
     local lensHalo = mkPart({
         Size = Vector3.new(2.5, 2.5, 0.1),
-        CFrame = bhCenterPos,
-        Color = Color3.fromRGB(200, 100, 255), Material = Enum.Material.Neon, Transparency = 0.5,
+        CFrame = bhPos,
+        Color = Color3.fromRGB(220, 120, 255), Material = Enum.Material.Neon, Transparency = 0.45,
     })
     Instance.new("SpecialMesh", lensHalo).MeshType = Enum.MeshType.Sphere
 
-    -- Particle Emitter Attachment on Black Hole Core
+    -- Particle Attachments & Emitters
     local bhAttach = Instance.new("Attachment")
     bhAttach.Parent = blackHoleCore
 
-    -- Inward Gravity Dust Particles
-    local gravityDust = Instance.new("ParticleEmitter")
-    gravityDust.Rate = 60
-    gravityDust.Lifetime = NumberRange.new(0.8, 1.4)
-    gravityDust.Speed = NumberRange.new(-25, -15) -- Inward pull!
-    gravityDust.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1.5), NumberSequenceKeypoint.new(1, 0.1)})
-    gravityDust.Color = ColorSequence.new(Color3.fromRGB(200, 120, 255), Color3.fromRGB(80, 20, 180))
-    gravityDust.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1)})
-    gravityDust.Enabled = false
-    gravityDust.Parent = bhAttach
+    local gravityParticles = Instance.new("ParticleEmitter")
+    gravityParticles.Rate = 50
+    gravityParticles.Lifetime = NumberRange.new(0.8, 1.3)
+    gravityParticles.Speed = NumberRange.new(-22, -12) -- Inward pull
+    gravityParticles.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 0.05)})
+    gravityParticles.Color = ColorSequence.new(Color3.fromRGB(180, 100, 255), Color3.fromRGB(0, 200, 255))
+    gravityParticles.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.2), NumberSequenceKeypoint.new(1, 1)})
+    gravityParticles.Enabled = false
+    gravityParticles.Parent = bhAttach
 
-    -- Energy Sparks Emitter
-    local energySparks = Instance.new("ParticleEmitter")
-    energySparks.Rate = 40
-    energySparks.Lifetime = NumberRange.new(0.4, 0.8)
-    energySparks.Speed = NumberRange.new(5, 20)
-    energySparks.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(1, 0)})
-    energySparks.Color = ColorSequence.new(Color3.fromRGB(255, 200, 255), Color3.fromRGB(160, 40, 255))
-    energySparks.Enabled = false
-    energySparks.Parent = bhAttach
-
-    -- ── 3. ASTEROIDS BEING PULLED IN (Step 2) ──
+    -- Asteroid Debris Inward Pull (Step 2)
     local asteroids = {}
-    for i = 1, 16 do
-        local sz = math.random(15, 35) / 10
-        local dist = math.random(25, 60)
+    for i = 1, 14 do
+        local sz = math.random(15, 30) / 10
+        local dist = math.random(25, 55)
         local angle = math.random() * math.pi * 2
-        local height = (math.random() - 0.5) * 30
-        local startPos = bhCenterPos * CFrame.new(math.cos(angle) * dist, height, math.sin(angle) * dist - 20)
+        local height = (math.random() - 0.5) * 25
+        local startCF = bhPos * CFrame.new(math.cos(angle) * dist, height, math.sin(angle) * dist - 15)
         
-        local a = mkPart({
+        local ast = mkPart({
             Size = Vector3.new(sz, sz, sz),
-            CFrame = startPos * CFrame.Angles(math.random(), math.random(), math.random()),
-            Color = Color3.fromRGB(70, 65, 80), Material = Enum.Material.Slate,
-            Transparency = 0,
+            CFrame = startCF * CFrame.Angles(math.random(), math.random(), math.random()),
+            Color = Color3.fromRGB(65, 60, 75), Material = Enum.Material.Slate,
         })
-        table.insert(asteroids, {
-            part = a,
-            startCF = a.CFrame,
-            rotSpeed = Vector3.new((math.random()-0.5)*0.05, (math.random()-0.5)*0.05, (math.random()-0.5)*0.05),
-            dist = dist,
-            angle = angle,
-            height = height,
-        })
+        table.insert(asteroids, { part = ast, startCF = startCF })
     end
 
-    -- ── 4. WORMHOLE WARP TUNNEL & SPEED STREAKS (Step 5) ──
-    local warpTunnelFolder = Instance.new("Folder")
-    warpTunnelFolder.Name = "WarpTunnel"
-    warpTunnelFolder.Parent = sceneFolder
-
-    -- Tunnel rings along the flight path
+    -- ── 6. WORMHOLE WARP SPEED TUNNEL & STREAKS (Step 4 & 5) ──
     local tunnelRings = {}
-    for i = 1, 20 do
-        local r = Instance.new("Part")
-        r.Size = Vector3.new(40, 40, 0.5)
-        r.CFrame = SCENE_ORIGIN * CFrame.new(0, 0, -i * 20)
-        r.Color = Color3.fromRGB(140, 40, 255)
-        r.Material = Enum.Material.Neon
-        r.Transparency = 1 -- Revealed during warp
-        r.Anchored = true
-        r.CanCollide = false
-        r.Parent = warpTunnelFolder
+    for i = 1, 18 do
+        local r = mkPart({
+            Size = Vector3.new(38, 38, 0.4),
+            CFrame = SCENE_ORIGIN * CFrame.new(0, 0, -i * 22),
+            Color = Color3.fromRGB(150, 50, 255), Material = Enum.Material.Neon, Transparency = 1,
+        })
         Instance.new("SpecialMesh", r).MeshType = Enum.MeshType.Cylinder
         table.insert(tunnelRings, r)
     end
 
-    -- Streaking speed stars
-    local warpStars = {}
-    for i = 1, 80 do
+    local warpStreaks = {}
+    for i = 1, 70 do
         local sz = math.random(15, 35) / 100
         local s = mkPart({
             Size = Vector3.new(sz, sz, sz),
-            CFrame = SCENE_ORIGIN * CFrame.new((math.random()-0.5)*160, (math.random()-0.5)*100, -math.random(10, 300)),
-            Color = Color3.fromRGB(200 + math.random(0,55), 210 + math.random(0,45), 255),
+            CFrame = SCENE_ORIGIN * CFrame.new((math.random()-0.5)*140, (math.random()-0.5)*90, -math.random(10, 280)),
+            Color = Color3.fromRGB(190 + math.random(0,65), 210 + math.random(0,45), 255),
             Material = Enum.Material.Neon, Transparency = 0.2,
         })
-        table.insert(warpStars, { part = s, origCF = s.CFrame, speed = math.random(15, 50) })
+        table.insert(warpStreaks, { part = s, origCF = s.CFrame, speed = math.random(18, 55) })
     end
 
-    -- ── 5. PLANET & SUN HORIZON (Step 6-8 Exit Warp & Approach) ──
-    local planetPos = SCENE_ORIGIN * CFrame.new(0, -8, -180)
+    -- ── 7. HERO PLANET & SUNRISE HORIZON (Step 6 & 7 Exit Warp) ──
+    local planetPos = SCENE_ORIGIN * CFrame.new(0, -8, -170)
 
-    -- Hero Planet Body (Ocean world with detailed atmosphere)
+    -- Ocean World Planet Core
     local planet = mkPart({
-        Name = "HeroPlanet",
-        Size = Vector3.new(110, 110, 110),
+        Name = "OceanPlanet",
+        Size = Vector3.new(115, 115, 115),
         CFrame = planetPos,
-        Color = Color3.fromRGB(15, 55, 125), Material = Enum.Material.SmoothPlastic,
-        Transparency = 1, -- Hidden until exit warp
+        Color = Color3.fromRGB(14, 58, 130), Material = Enum.Material.SmoothPlastic,
+        Transparency = 1,
     })
     Instance.new("SpecialMesh", planet).MeshType = Enum.MeshType.Sphere
 
-    -- Landmass layer
+    -- Landmass continent layer
     local landLayer = mkPart({
-        Size = Vector3.new(111, 111, 111), CFrame = planetPos,
-        Color = Color3.fromRGB(25, 80, 50), Material = Enum.Material.Foil,
+        Size = Vector3.new(116, 116, 116), CFrame = planetPos,
+        Color = Color3.fromRGB(28, 85, 52), Material = Enum.Material.Foil,
         Transparency = 1,
     })
     Instance.new("SpecialMesh", landLayer).MeshType = Enum.MeshType.Sphere
 
-    -- Cloud layer
+    -- Swirling Cloud Atmosphere
     local cloudLayer = mkPart({
-        Size = Vector3.new(114, 114, 114), CFrame = planetPos,
-        Color = Color3.fromRGB(235, 242, 255), Material = Enum.Material.SmoothPlastic,
+        Size = Vector3.new(119, 119, 119), CFrame = planetPos,
+        Color = Color3.fromRGB(240, 246, 255), Material = Enum.Material.SmoothPlastic,
         Transparency = 1,
     })
     Instance.new("SpecialMesh", cloudLayer).MeshType = Enum.MeshType.Sphere
 
     -- Atmosphere neon halo edge
     local atmoRim = mkPart({
-        Size = Vector3.new(120, 120, 120), CFrame = planetPos,
-        Color = Color3.fromRGB(0, 180, 255), Material = Enum.Material.Neon,
+        Size = Vector3.new(125, 125, 125), CFrame = planetPos,
+        Color = Color3.fromRGB(0, 190, 255), Material = Enum.Material.Neon,
         Transparency = 1,
     })
     Instance.new("SpecialMesh", atmoRim).MeshType = Enum.MeshType.Sphere
 
-    -- Outer atmosphere soft glow
+    -- Outer soft blue atmosphere haze
     local atmoHaze = mkPart({
-        Size = Vector3.new(128, 128, 128), CFrame = planetPos,
-        Color = Color3.fromRGB(80, 160, 255), Material = Enum.Material.Neon,
+        Size = Vector3.new(133, 133, 133), CFrame = planetPos,
+        Color = Color3.fromRGB(70, 160, 255), Material = Enum.Material.Neon,
         Transparency = 1,
     })
     Instance.new("SpecialMesh", atmoHaze).MeshType = Enum.MeshType.Sphere
 
-    -- Brilliant Sun on Planet Horizon (Matching Reference Image Frame 6 & 8!)
-    local sunHorizonPos = planetPos * CFrame.new(45, 40, -30)
+    -- Sun on Planet Horizon (Golden Sunrise Glare)
+    local sunPos = planetPos * CFrame.new(42, 38, -25)
     local sunPart = mkPart({
-        Size = Vector3.new(35, 35, 35),
-        CFrame = sunHorizonPos,
-        Color = Color3.fromRGB(255, 240, 200), Material = Enum.Material.Neon,
+        Size = Vector3.new(38, 38, 38),
+        CFrame = sunPos,
+        Color = Color3.fromRGB(255, 245, 210), Material = Enum.Material.Neon,
         Transparency = 1,
     })
     Instance.new("SpecialMesh", sunPart).MeshType = Enum.MeshType.Sphere
 
-    -- Sun flare halo
     local sunFlare = mkPart({
-        Size = Vector3.new(65, 65, 65),
-        CFrame = sunHorizonPos,
-        Color = Color3.fromRGB(255, 200, 120), Material = Enum.Material.Neon,
+        Size = Vector3.new(70, 70, 70),
+        CFrame = sunPos,
+        Color = Color3.fromRGB(255, 195, 110), Material = Enum.Material.Neon,
         Transparency = 1,
     })
     Instance.new("SpecialMesh", sunFlare).MeshType = Enum.MeshType.Sphere
 
-    -- Distant moon beside planet
-    local moonPart = mkPart({
-        Size = Vector3.new(14, 14, 14),
-        CFrame = planetPos * CFrame.new(-85, 30, -40),
-        Color = Color3.fromRGB(150, 145, 140), Material = Enum.Material.Slate,
-        Transparency = 1,
-    })
-    Instance.new("SpecialMesh", moonPart).MeshType = Enum.MeshType.Sphere
-
-    -- ── SOUND EFFECTS HELPER ──
+    -- ── 8. SOUND CONTROLLER ──
     local function playSound(id, vol, pitch)
         pcall(function()
             local snd = Instance.new("Sound")
@@ -702,25 +736,23 @@ do
         end)
     end
 
-    -- ── TAKE OVER CAMERA & LIGHTING ──
+    -- ── 9. CAMERA & LIGHTING CONTROL ──
     cam.CameraType = Enum.CameraType.Scriptable
     cam.FieldOfView = 70
     cam.CFrame = SCENE_ORIGIN * CFrame.new(0, 0, 0)
 
     lighting.ClockTime = 0
     lighting.Brightness = 0.2
-    lighting.Ambient = Color3.fromRGB(10, 5, 20)
-    lighting.OutdoorAmbient = Color3.fromRGB(10, 5, 20)
+    lighting.Ambient = Color3.fromRGB(8, 4, 16)
+    lighting.OutdoorAmbient = Color3.fromRGB(8, 4, 16)
     lighting.ExposureCompensation = -0.2
     lighting.FogEnd = 2000
     lighting.FogStart = 500
-    lighting.FogColor = Color3.fromRGB(5, 2, 12)
+    lighting.FogColor = Color3.fromRGB(4, 2, 10)
 
-    -- Post-processing instances
     local bloomFX = lighting:FindFirstChildOfClass("BloomEffect") or Instance.new("BloomEffect", lighting)
     local blurFX = lighting:FindFirstChildOfClass("BlurEffect") or Instance.new("BlurEffect", lighting)
     local ccFX = lighting:FindFirstChildOfClass("ColorCorrectionEffect") or Instance.new("ColorCorrectionEffect", lighting)
-    local dofFX = lighting:FindFirstChildOfClass("DepthOfFieldEffect") or Instance.new("DepthOfFieldEffect", lighting)
     local sunRaysFX = lighting:FindFirstChildOfClass("SunRaysEffect") or Instance.new("SunRaysEffect", lighting)
 
     bloomFX.Intensity = 0.5
@@ -730,139 +762,128 @@ do
     ccFX.Brightness = 0
     ccFX.Contrast = 0.35
     ccFX.Saturation = 0.2
-    ccFX.TintColor = Color3.fromRGB(235, 220, 255) -- Deep space purple tint
+    ccFX.TintColor = Color3.fromRGB(235, 220, 255)
 
-    -- ── STATE VARIABLES ──
+    -- ── 10. RENDER LOOP (60 FPS Motion) ──
     local isRunning = true
     local startTime = os.clock()
     local shakeIntensity = 0
     local fovTarget = 70
-    local currentPhase = 1
 
-    -- ── RENDER LOOP (Animation & Camera Math) ──
     local renderConn
     renderConn = rs.RenderStepped:Connect(function(dt)
         if not isRunning then return end
         local t = os.clock() - startTime
         local now = os.clock()
 
-        -- Subtle camera float & shake
-        local swayX = math.sin(now * 1.0) * 0.12
-        local swayY = math.cos(now * 1.3) * 0.08
+        -- Smooth progress bar update (0% to 100% over 6.5s)
+        local progressPct = math.clamp(t / 6.5, 0, 1)
+        progressBar.Size = UDim2.new(progressPct, 0, 1, 0)
+        progressText.Text = string.format("SYNCHRONIZING QUANTUM CORE... %d%%", math.floor(progressPct * 100))
+
+        -- Organic floating camera motion & shake
+        local swayX = math.sin(now * 1.1) * 0.12
+        local swayY = math.cos(now * 1.4) * 0.08
         local shakeX = (math.random() - 0.5) * shakeIntensity * 0.35
         local shakeY = (math.random() - 0.5) * shakeIntensity * 0.35
 
-        -- Camera motion along 8-step journey
+        -- Cinematic Camera Path Across 8 Steps
         local camCF
         if t < 1.0 then
-            -- Phase 1 (0.0 - 1.0s): VOID - Looking down Z at black hole forming
+            -- Step 1 (0.0 - 1.0s): VOID
             camCF = SCENE_ORIGIN * CFrame.new(0, 0, 0)
         elseif t < 2.0 then
-            -- Phase 2 (1.0 - 2.0s): GRAVITY PULL - Slow push forward into black hole
+            -- Step 2 (1.0 - 2.0s): GRAVITY PULL
             local p = (t - 1.0) / 1.0
             camCF = SCENE_ORIGIN * CFrame.new(0, 0, -p * 15) * CFrame.Angles(0, 0, math.rad(p * 2))
-        elseif t < 3.0 then
-            -- Phase 3 (2.0 - 3.0s): ENERGY BUILDUP - Tense camera zoom toward event horizon
-            local p = (t - 2.0) / 1.0
+        elseif t < 3.2 then
+            -- Step 3 (2.0 - 3.2s): ENERGY BUILDUP
+            local p = (t - 2.0) / 1.2
             camCF = SCENE_ORIGIN * CFrame.new(0, 0, -15 - p * 25) * CFrame.Angles(0, 0, math.rad(2 + p * 5))
         elseif t < 4.0 then
-            -- Phase 4 (3.0 - 4.0s): WORMHOLE OPEN - Rapid approach to portal center
-            local p = (t - 3.0) / 1.0
+            -- Step 4 (3.2 - 4.0s): WORMHOLE OPEN
+            local p = (t - 3.2) / 0.8
             camCF = SCENE_ORIGIN * CFrame.new(0, 0, -40 - p * 40)
         elseif t < 5.0 then
-            -- Phase 5 (4.0 - 5.0s): WARP TRAVEL - Flying down high speed tunnel
+            -- Step 5 (4.0 - 5.0s): WARP TRAVEL
             local p = (t - 4.0) / 1.0
             camCF = SCENE_ORIGIN * CFrame.new(0, 0, -80 - p * 90) * CFrame.Angles(0, 0, math.rad(p * 15))
         elseif t < 6.0 then
-            -- Phase 6 (5.0 - 6.0s): EXIT WARP - Reveal planet & horizon sun!
+            -- Step 6 (5.0 - 6.0s): EXIT WARP (Planet & Sun Horizon)
             local p = (t - 5.0) / 1.0
             local exitPos = SCENE_ORIGIN * CFrame.new(-8 + p * 8, 4 - p * 2, -100 + p * 20)
             camCF = CFrame.lookAt(exitPos.Position, planetPos.Position)
         elseif t < 6.5 then
-            -- Phase 7 (6.0 - 6.5s): APPROACH - Glide toward planet surface
+            -- Step 7 (6.0 - 6.5s): APPROACH PLANET
             local p = (t - 6.0) / 0.5
             local approachPos = SCENE_ORIGIN * CFrame.new(0, 2 - p * 2, -80 + p * 25)
             camCF = CFrame.lookAt(approachPos.Position, planetPos.Position)
         else
-            -- Phase 8 (6.5 - 7.0s): FADE TO GAME - Lerp smoothly from planet atmosphere into lobby camera!
-            local p = math.clamp((t - 6.5) / 0.5, 0, 1)
-            local finalSpacePos = SCENE_ORIGIN * CFrame.new(0, 0, -55)
-            camCF = finalSpacePos:Lerp(origCamCF, p * p)
+            -- Step 8 (6.5 - 6.8s): FADE TO GAME LOBBY
+            local p = math.clamp((t - 6.5) / 0.3, 0, 1)
+            local finalPos = SCENE_ORIGIN * CFrame.new(0, 0, -55)
+            camCF = finalPos:Lerp(origCamCF, p * p)
         end
 
-        -- Apply sway & camera shake
         cam.CFrame = camCF * CFrame.new(swayX + shakeX, swayY + shakeY, 0)
         cam.FieldOfView = cam.FieldOfView + (fovTarget - cam.FieldOfView) * math.min(dt * 5, 1)
 
-        -- Accretion disk rotation
+        -- Accretion Ring Spin
         if accretionOuter.Parent then
-            accretionOuter.CFrame = blackHoleCore.CFrame * CFrame.Angles(math.rad(20), now * 3, math.rad(10))
-            accretionInner.CFrame = blackHoleCore.CFrame * CFrame.Angles(math.rad(20), -now * 4.5, math.rad(10))
+            accretionOuter.CFrame = blackHoleCore.CFrame * CFrame.Angles(math.rad(22), now * 3.2, math.rad(12))
+            accretionInner.CFrame = blackHoleCore.CFrame * CFrame.Angles(math.rad(22), -now * 4.8, math.rad(12))
             lensHalo.CFrame = CFrame.lookAt(blackHoleCore.Position, cam.CFrame.Position)
         end
 
-        -- Planet rotation
+        -- Planet & Cloud Spin
         if planet.Parent and planet.Transparency < 1 then
             planet.CFrame = planet.CFrame * CFrame.Angles(0, 0.001, 0)
             landLayer.CFrame = planet.CFrame
-            cloudLayer.CFrame = planet.CFrame * CFrame.Angles(0, -0.0015, 0)
+            cloudLayer.CFrame = planet.CFrame * CFrame.Angles(0, -0.0016, 0)
             atmoRim.CFrame = planet.CFrame
             atmoHaze.CFrame = planet.CFrame
         end
 
-        -- Warp speed streaks stretching (Phase 5)
+        -- Speed Warp Streak Stretching (Step 5)
         if t >= 4.0 and t < 5.0 then
             local hp = (t - 4.0) / 1.0
-            for _, s in ipairs(warpStars) do
+            for _, s in ipairs(warpStreaks) do
                 if s.part and s.part.Parent then
-                    local streakLen = math.clamp(hp * s.speed * 1.5, 0.4, 35)
-                    s.part.Size = Vector3.new(0.12, 0.12, streakLen)
+                    local len = math.clamp(hp * s.speed * 1.5, 0.4, 36)
+                    s.part.Size = Vector3.new(0.12, 0.12, len)
                     s.part.CFrame = s.origCF * CFrame.new(0, 0, hp * s.speed * 2)
                 end
             end
         end
     end)
 
-    -- ── 8-STEP TIMELINE EXECUTION ──
+    -- ── 11. TIMELINE EXECUTION ──
     task.spawn(function()
-        -- ============================================================
-        -- STEP 1: 0.0s - 1.0s (THE VOID)
-        -- ============================================================
-        phaseLabel.Text = "STEP 1 // VOID DETECTED"
-        ts:Create(phaseLabel, TweenInfo.new(0.5), {TextTransparency = 0.2}):Play()
+        -- STEP 1 (0.0s - 1.0s): VOID
         playSound(2865825316, 0.4, 0.8)
-
-        -- Fade black overlay to reveal deep space void
         ts:Create(blackOverlay, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
 
-        -- Small black hole appears & grows slightly
         ts:Create(blackHoleCore, TweenInfo.new(1.0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = Vector3.new(4, 4, 4)}):Play()
-        ts:Create(accretionOuter, TweenInfo.new(1.0), {Size = Vector3.new(12, 0.1, 12)}):Play()
-        ts:Create(accretionInner, TweenInfo.new(1.0), {Size = Vector3.new(8, 0.15, 8)}):Play()
-        ts:Create(lensHalo, TweenInfo.new(1.0), {Size = Vector3.new(14, 14, 0.1)}):Play()
+        ts:Create(accretionOuter, TweenInfo.new(1.0), {Size = Vector3.new(14, 0.1, 14)}):Play()
+        ts:Create(accretionInner, TweenInfo.new(1.0), {Size = Vector3.new(9, 0.15, 9)}):Play()
+        ts:Create(lensHalo, TweenInfo.new(1.0), {Size = Vector3.new(16, 16, 0.1)}):Play()
 
         task.wait(1.0)
 
-        -- ============================================================
-        -- STEP 2: 1.0s - 2.0s (GRAVITY PULL)
-        -- ============================================================
-        phaseLabel.Text = "STEP 2 // GRAVITATIONAL SINGULARITY"
+        -- STEP 2 (1.0s - 2.0s): GRAVITY PULL
         playSound(138089316, 0.3, 0.7)
-
-        gravityDust.Enabled = true
+        gravityParticles.Enabled = true
         shakeIntensity = 0.2
 
-        -- Black hole grows significantly
         ts:Create(blackHoleCore, TweenInfo.new(1.0, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = Vector3.new(12, 12, 12)}):Play()
-        ts:Create(accretionOuter, TweenInfo.new(1.0), {Size = Vector3.new(35, 0.15, 35)}):Play()
-        ts:Create(accretionInner, TweenInfo.new(1.0), {Size = Vector3.new(22, 0.2, 22)}):Play()
-        ts:Create(lensHalo, TweenInfo.new(1.0), {Size = Vector3.new(38, 38, 0.1)}):Play()
+        ts:Create(accretionOuter, TweenInfo.new(1.0), {Size = Vector3.new(38, 0.15, 38)}):Play()
+        ts:Create(accretionInner, TweenInfo.new(1.0), {Size = Vector3.new(24, 0.2, 24)}):Play()
+        ts:Create(lensHalo, TweenInfo.new(1.0), {Size = Vector3.new(40, 40, 0.1)}):Play()
 
-        -- Pull asteroids inward toward black hole center!
         for _, ast in ipairs(asteroids) do
             if ast.part then
                 ts:Create(ast.part, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-                    CFrame = bhCenterPos * CFrame.new((math.random()-0.5)*5, (math.random()-0.5)*5, 0),
+                    CFrame = bhPos * CFrame.new((math.random()-0.5)*4, (math.random()-0.5)*4, 0),
                     Size = Vector3.new(0.1, 0.1, 0.1),
                     Transparency = 1,
                 }):Play()
@@ -871,88 +892,59 @@ do
 
         task.wait(1.0)
 
-        -- ============================================================
-        -- STEP 3: 2.0s - 3.0s (ENERGY BUILDUP)
-        -- ============================================================
-        phaseLabel.Text = "STEP 3 // ENERGY CRITICAL"
+        -- STEP 3 (2.0s - 3.2s): ENERGY BUILDUP
         playSound(138082002, 0.6, 1.1)
-
-        energySparks.Enabled = true
         shakeIntensity = 1.2
-
-        -- Accretion disk glows fiercely purple/cyan
         accretionOuter.Color = Color3.fromRGB(220, 80, 255)
         accretionInner.Color = Color3.fromRGB(0, 240, 255)
         
-        ts:Create(bloomFX, TweenInfo.new(0.8), {Intensity = 1.4, Size = 45, Threshold = 0.2}):Play()
-        ts:Create(ccFX, TweenInfo.new(0.8), {Brightness = 0.1, Saturation = 0.5}):Play()
+        ts:Create(bloomFX, TweenInfo.new(1.0), {Intensity = 1.5, Size = 45, Threshold = 0.2}):Play()
+        ts:Create(ccFX, TweenInfo.new(1.0), {Brightness = 0.1, Saturation = 0.5}):Play()
 
-        task.wait(1.0)
+        task.wait(1.2)
 
-        -- ============================================================
-        -- STEP 4: 3.0s - 4.0s (WORMHOLE OPEN)
-        -- ============================================================
-        phaseLabel.Text = "STEP 4 // WORMHOLE STABILIZED"
+        -- STEP 4 (3.2s - 4.0s): WORMHOLE OPEN
         playSound(138089316, 0.9, 1.3)
-
         shakeIntensity = 2.8
         fovTarget = 90
 
-        -- Black hole explodes into open wormhole portal!
         ts:Create(blackHoleCore, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Size = Vector3.new(50, 50, 50),
+            Size = Vector3.new(55, 55, 55),
             Transparency = 0.8
         }):Play()
 
-        -- Bright flash opens wormhole
         ts:Create(flashOverlay, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
 
         task.wait(0.2)
 
-        -- Hide black hole, enable wormhole tunnel rings
         blackHoleCore.Transparency = 1
         accretionOuter.Transparency = 1
         accretionInner.Transparency = 1
         lensHalo.Transparency = 1
-        gravityDust.Enabled = false
-        energySparks.Enabled = false
+        gravityParticles.Enabled = false
 
-        for _, r in ipairs(tunnelRings) do
-            r.Transparency = 0.3
-        end
-
+        for _, r in ipairs(tunnelRings) do r.Transparency = 0.3 end
         ts:Create(flashOverlay, TweenInfo.new(0.6), {BackgroundTransparency = 1}):Play()
 
-        task.wait(0.8)
+        task.wait(0.6)
 
-        -- ============================================================
-        -- STEP 5: 4.0s - 5.0s (WARP TRAVEL)
-        -- ============================================================
-        phaseLabel.Text = "STEP 5 // WARP SPEED ENGAGED"
+        -- STEP 5 (4.0s - 5.0s): WARP TRAVEL
         playSound(138089316, 1.0, 1.5)
-
         shakeIntensity = 1.8
-        fovTarget = 105 -- High speed FOV stretch
+        fovTarget = 105
 
         ts:Create(ccFX, TweenInfo.new(0.5), {Brightness = 0.15, Saturation = -0.2}):Play()
         if blurFX then ts:Create(blurFX, TweenInfo.new(0.5), {Size = 12}):Play() end
 
         task.wait(1.0)
 
-        -- ============================================================
-        -- STEP 6: 5.0s - 6.0s (EXIT WARP - REVEAL PLANET & SUN HORIZON)
-        -- ============================================================
-        phaseLabel.Text = "STEP 6 // EXIT WARP -- DESTINATION REACHED"
+        -- STEP 6 (5.0s - 6.0s): EXIT WARP (Planet & Sun Horizon Reveal)
         playSound(138089316, 0.7, 0.9)
-
-        -- Flash upon exit warp
         ts:Create(flashOverlay, TweenInfo.new(0.1), {BackgroundTransparency = 0}):Play()
-        
-        -- Hide warp tunnel & stars
-        for _, r in ipairs(tunnelRings) do r.Transparency = 1 end
-        for _, s in ipairs(warpStars) do if s.part then s.part.Transparency = 1 end end
 
-        -- Reveal Hero Planet, Atmosphere & Sun Horizon!
+        for _, r in ipairs(tunnelRings) do r.Transparency = 1 end
+        for _, s in ipairs(warpStreaks) do if s.part then s.part.Transparency = 1 end end
+
         planet.Transparency = 0
         landLayer.Transparency = 0.45
         cloudLayer.Transparency = 0.65
@@ -960,10 +952,8 @@ do
         atmoHaze.Transparency = 0.88
         sunPart.Transparency = 0
         sunFlare.Transparency = 0.5
-        moonPart.Transparency = 0
 
-        -- Enable SunRays effect for dramatic horizon glare!
-        sunRaysFX.Intensity = 0.25
+        sunRaysFX.Intensity = 0.28
         sunRaysFX.Spread = 0.8
 
         shakeIntensity = 0.1
@@ -971,7 +961,6 @@ do
 
         task.wait(0.15)
 
-        -- Reset blur & set rich sunlit contrast
         if blurFX then ts:Create(blurFX, TweenInfo.new(0.8), {Size = 0}):Play() end
         ts:Create(flashOverlay, TweenInfo.new(1.0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1}):Play()
         ts:Create(bloomFX, TweenInfo.new(1.0), {Intensity = 0.6, Size = 28, Threshold = 0.5}):Play()
@@ -979,18 +968,13 @@ do
             Brightness = 0.05,
             Contrast = 0.40,
             Saturation = 0.30,
-            TintColor = Color3.fromRGB(255, 245, 230) -- Warm sunlit glow
+            TintColor = Color3.fromRGB(255, 245, 230)
         }):Play()
 
         task.wait(0.85)
 
-        -- ============================================================
-        -- STEP 7: 6.0s - 6.5s (APPROACH PLANET)
-        -- ============================================================
-        phaseLabel.Text = "STEP 7 // ENTERING PLANET ATMOSPHERE"
+        -- STEP 7 (6.0s - 6.5s): APPROACH PLANET
         playSound(2865825316, 0.5, 1.0)
-
-        -- Slowly scale & bring planet closer
         ts:Create(planet, TweenInfo.new(0.5), {Size = Vector3.new(125, 125, 125)}):Play()
         ts:Create(landLayer, TweenInfo.new(0.5), {Size = Vector3.new(126, 126, 126)}):Play()
         ts:Create(cloudLayer, TweenInfo.new(0.5), {Size = Vector3.new(130, 130, 130)}):Play()
@@ -998,14 +982,13 @@ do
 
         task.wait(0.5)
 
-        -- ============================================================
-        -- STEP 8: 6.5s - 7.0s (FADE TO GAME LOBBY)
-        -- ============================================================
-        phaseLabel.Text = "STEP 8 // WELCOME TO THE GAME"
-        ts:Create(phaseLabel, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
+        -- STEP 8 (6.5s - 6.8s): FADE TO GAME LOBBY
+        progressText.Text = "SYSTEMS ONLINE. WELCOME!"
+        ts:Create(sysReadout, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+        ts:Create(navReadout, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+        ts:Create(progressContainer, TweenInfo.new(0.3), {GroupTransparency = 1}):Play()
 
-        -- Fade atmosphere & space scene
-        local tiFade = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tiFade = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         ts:Create(planet, tiFade, {Transparency = 1}):Play()
         ts:Create(landLayer, tiFade, {Transparency = 1}):Play()
         ts:Create(cloudLayer, tiFade, {Transparency = 1}):Play()
@@ -1013,11 +996,9 @@ do
         ts:Create(atmoHaze, tiFade, {Transparency = 1}):Play()
         ts:Create(sunPart, tiFade, {Transparency = 1}):Play()
         ts:Create(sunFlare, tiFade, {Transparency = 1}):Play()
-        ts:Create(moonPart, tiFade, {Transparency = 1}):Play()
         ts:Create(neb1, tiFade, {Transparency = 1}):Play()
         ts:Create(neb2, tiFade, {Transparency = 1}):Play()
 
-        -- Restore original lighting
         if bloomFX and origBloom then ts:Create(bloomFX, tiFade, origBloom):Play() end
         if blurFX and origBlur then ts:Create(blurFX, tiFade, origBlur):Play() end
         if ccFX and origCC then ts:Create(ccFX, tiFade, origCC):Play() end
@@ -1035,23 +1016,28 @@ do
         }):Play()
         lighting.ClockTime = origClockTime
 
-        task.wait(0.5)
+        task.wait(0.3)
 
-        -- CLEANUP
+        -- ── CLEANUP & RESTORE LOBBY UI ──
         isRunning = false
         if renderConn then renderConn:Disconnect() end
 
-        -- Restore camera to exact game camera
         cam.CameraType = origCamType
         cam.CameraSubject = origCamSubject
         cam.FieldOfView = origFOV
         cam.CFrame = origCamCF
 
-        -- Clean up temporary objects & UI
         pcall(function() sceneFolder:Destroy() end)
         pcall(function() cinematicGui:Destroy() end)
 
-        -- Re-enable game lobby GUI
+        -- Restore all previously hidden lobby ScreenGuis
+        for _, gui in ipairs(hiddenGuis) do
+            if gui and gui.Parent then
+                gui.Enabled = true
+            end
+        end
+
+        -- NOW AND ONLY NOW: Enable the main TDS menu!
         screenGui.Enabled = true
     end)
 end
