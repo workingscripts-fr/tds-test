@@ -362,126 +362,14 @@ end
 -- ============================================================
 -- CUSTOM LOADING SCREEN (shown only while waiting for the game to load)
 -- This is intentionally separate from, and lightweight compared to, the
--- main menu below. No tabs/toggles/dragging/page contents live here.
 -- ============================================================
-local loadingGui = Instance.new("ScreenGui")
-loadingGui.Name = "TDSTestLoadingUI"
-loadingGui.ResetOnSpawn = false
-loadingGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-loadingGui.IgnoreGuiInset = false
-loadingGui.DisplayOrder = 9999
-pcall(function() loadingGui.OnTopOfCoreBlur = true end)
-safeParentGui(loadingGui)
-
-local loadingRoot = Instance.new("Frame")
-loadingRoot.Name = "LoadingRoot"
-loadingRoot.AnchorPoint = Vector2.new(0.5, 0.5)
-loadingRoot.Position = UDim2.new(0.5, 0, 0.5, 0)
-loadingRoot.Size = UDim2.fromOffset(220, 120)
-loadingRoot.BackgroundColor3 = Color3.fromRGB(7, 9, 13)
-loadingRoot.BackgroundTransparency = 0.12
-loadingRoot.BorderSizePixel = 0
-loadingRoot.Parent = loadingGui
-
-local loadingCorner = Instance.new("UICorner")
-loadingCorner.CornerRadius = UDim.new(0, 16)
-loadingCorner.Parent = loadingRoot
-
-local loadingStroke = Instance.new("UIStroke")
-loadingStroke.Color = Color3.fromRGB(255, 255, 255)
-loadingStroke.Thickness = 1.6
-loadingStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-loadingStroke.Parent = loadingRoot
-
-local loadingStrokeGrad = Instance.new("UIGradient")
-loadingStrokeGrad.Color = getThemeColorSequence(uiColorTheme)
-loadingStrokeGrad.Parent = loadingStroke
-
-local spinnerRing = Instance.new("Frame")
-spinnerRing.Name = "SpinnerRing"
-spinnerRing.AnchorPoint = Vector2.new(0.5, 0)
-spinnerRing.Position = UDim2.new(0.5, 0, 0, 18)
-spinnerRing.Size = UDim2.fromOffset(34, 34)
-spinnerRing.BackgroundTransparency = 1
-spinnerRing.Parent = loadingRoot
-
-local spinnerCorner = Instance.new("UICorner")
-spinnerCorner.CornerRadius = UDim.new(1, 0)
-spinnerCorner.Parent = spinnerRing
-
-local spinnerStroke = Instance.new("UIStroke")
-spinnerStroke.Color = Color3.fromRGB(255, 255, 255)
-spinnerStroke.Thickness = 3
-spinnerStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-spinnerStroke.Parent = spinnerRing
-
-local spinnerGrad = Instance.new("UIGradient")
-spinnerGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-    ColorSequenceKeypoint.new(0.5, getThemeColorAt(uiColorTheme, 0.5)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
-})
-spinnerGrad.Transparency = NumberSequence.new({
-    NumberSequenceKeypoint.new(0, 0),
-    NumberSequenceKeypoint.new(0.85, 0.4),
-    NumberSequenceKeypoint.new(1, 1)
-})
-spinnerGrad.Parent = spinnerStroke
-
-local loadingLabel = Instance.new("TextLabel")
-loadingLabel.Name = "LoadingLabel"
-loadingLabel.AnchorPoint = Vector2.new(0.5, 0)
-loadingLabel.Position = UDim2.new(0.5, 0, 0, 62)
-loadingLabel.Size = UDim2.new(1, -24, 0, 20)
-loadingLabel.BackgroundTransparency = 1
-loadingLabel.Font = Enum.Font.GothamBold
-loadingLabel.Text = "Loading..."
-loadingLabel.TextSize = 14
-loadingLabel.TextColor3 = Color3.fromRGB(245, 249, 255)
-loadingLabel.Parent = loadingRoot
-
-local loadingSub = Instance.new("TextLabel")
-loadingSub.Name = "LoadingSub"
-loadingSub.AnchorPoint = Vector2.new(0.5, 0)
-loadingSub.Position = UDim2.new(0.5, 0, 0, 86)
-loadingSub.Size = UDim2.new(1, -24, 0, 16)
-loadingSub.BackgroundTransparency = 1
-loadingSub.Font = Enum.Font.GothamMedium
-loadingSub.Text = "Waiting for game to finish loading..."
-loadingSub.TextSize = 11
-loadingSub.TextColor3 = Color3.fromRGB(174, 204, 236)
-loadingSub.TextWrapped = true
-loadingSub.Parent = loadingRoot
-
-local loadingSpinning = true
-task.spawn(function()
-    while loadingSpinning do
-        spinnerGrad.Rotation = (spinnerGrad.Rotation + 6) % 360
-        task.wait(0.03)
-    end
-end)
-
--- Wait until loading screen is completely finished before creating or showing any GUI
-waitForGameLoad()
-
--- Loading finished: smooth 0.25s tween teardown of custom loading screen before main menu
-loadingSpinning = false
-pcall(function()
-    local ts = game:GetService("TweenService")
-    local ti = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    ts:Create(loadingRoot, ti, { BackgroundTransparency = 1 }):Play()
-    ts:Create(loadingLabel, ti, { TextTransparency = 1 }):Play()
-    ts:Create(loadingSub, ti, { TextTransparency = 1 }):Play()
-    ts:Create(loadingStroke, ti, { Transparency = 1 }):Play()
-    ts:Create(spinnerStroke, ti, { Transparency = 1 }):Play()
-    task.wait(0.25)
-    loadingGui:Destroy()
-end)
-
+-- TOP TIER A++ FULL-SCREEN COSMIC LOADING SCREEN (3.5s - 4.0s)
+-- ============================================================
 pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "Creating GUI...", Duration = 3 }) end)
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "TDSTestUI"
 screenGui.ResetOnSpawn = false
+screenGui.Enabled = false -- Hidden during Cosmic Loading Screen
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.IgnoreGuiInset = false
 screenGui.DisplayOrder = 9999
@@ -489,6 +377,362 @@ pcall(function()
     screenGui.OnTopOfCoreBlur = true
 end)
 safeParentGui(screenGui)
+
+do
+    local loadingGui = Instance.new("ScreenGui")
+    loadingGui.Name = "TDSTestCosmicLoadingUI"
+    loadingGui.ResetOnSpawn = false
+    loadingGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    loadingGui.IgnoreGuiInset = true
+    loadingGui.DisplayOrder = 999999
+    pcall(function() loadingGui.OnTopOfCoreBlur = true end)
+    safeParentGui(loadingGui)
+
+    -- Fullscreen Backdrop
+    local loadingBg = Instance.new("Frame")
+    loadingBg.Name = "CosmicBackdrop"
+    loadingBg.Size = UDim2.new(1, 0, 1, 0)
+    loadingBg.Position = UDim2.new(0, 0, 0, 0)
+    loadingBg.BackgroundColor3 = Color3.fromRGB(5, 7, 15)
+    loadingBg.BorderSizePixel = 0
+    loadingBg.ZIndex = 1
+    loadingBg.Parent = loadingGui
+
+    local bgGrad = Instance.new("UIGradient")
+    bgGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(3, 4, 10)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(10, 14, 28)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(3, 4, 10))
+    })
+    bgGrad.Rotation = 45
+    bgGrad.Parent = loadingBg
+
+    -- Cosmic Nebula Glow 1 (Cyan/Blue)
+    local nebula1 = Instance.new("Frame")
+    nebula1.AnchorPoint = Vector2.new(0.5, 0.5)
+    nebula1.Position = UDim2.new(0.3, 0, 0.35, 0)
+    nebula1.Size = UDim2.fromOffset(450, 450)
+    nebula1.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
+    nebula1.BackgroundTransparency = 0.88
+    nebula1.BorderSizePixel = 0
+    nebula1.ZIndex = 2
+    nebula1.Parent = loadingBg
+
+    local neb1Corner = Instance.new("UICorner")
+    neb1Corner.CornerRadius = UDim.new(1, 0)
+    neb1Corner.Parent = nebula1
+
+    -- Cosmic Nebula Glow 2 (Purple/Magenta)
+    local nebula2 = Instance.new("Frame")
+    nebula2.AnchorPoint = Vector2.new(0.5, 0.5)
+    nebula2.Position = UDim2.new(0.7, 0, 0.65, 0)
+    nebula2.Size = UDim2.fromOffset(500, 500)
+    nebula2.BackgroundColor3 = Color3.fromRGB(180, 0, 255)
+    nebula2.BackgroundTransparency = 0.88
+    nebula2.BorderSizePixel = 0
+    nebula2.ZIndex = 2
+    nebula2.Parent = loadingBg
+
+    local neb2Corner = Instance.new("UICorner")
+    neb2Corner.CornerRadius = UDim.new(1, 0)
+    neb2Corner.Parent = nebula2
+
+    -- Floating Star Particles Container
+    local starContainer = Instance.new("Frame")
+    starContainer.Size = UDim2.new(1, 0, 1, 0)
+    starContainer.BackgroundTransparency = 1
+    starContainer.ZIndex = 3
+    starContainer.Parent = loadingBg
+
+    local stars = {}
+    for i = 1, 35 do
+        local star = Instance.new("Frame")
+        star.Size = UDim2.fromOffset(math.random(2, 4), math.random(2, 4))
+        star.Position = UDim2.new(math.random(), 0, math.random(), 0)
+        star.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        star.BackgroundTransparency = math.random(30, 80) / 100
+        star.BorderSizePixel = 0
+        star.ZIndex = 3
+        star.Parent = starContainer
+        
+        local starCorner = Instance.new("UICorner")
+        starCorner.CornerRadius = UDim.new(1, 0)
+        starCorner.Parent = star
+        
+        table.insert(stars, { obj = star, speedX = (math.random() - 0.5) * 0.0003, speedY = (math.random() - 0.5) * 0.0003 })
+    end
+
+    -- Central Glassmorphism Card
+    local card = Instance.new("Frame")
+    card.Name = "CosmicCard"
+    card.AnchorPoint = Vector2.new(0.5, 0.5)
+    card.Position = UDim2.new(0.5, 0, 0.5, 0)
+    card.Size = UDim2.fromOffset(460, 280)
+    card.BackgroundColor3 = Color3.fromRGB(12, 16, 26)
+    card.BackgroundTransparency = 0.15
+    card.BorderSizePixel = 0
+    card.ZIndex = 10
+    card.Parent = loadingBg
+
+    local cardCorner = Instance.new("UICorner")
+    cardCorner.CornerRadius = UDim.new(0, 20)
+    cardCorner.Parent = card
+
+    local cardStroke = Instance.new("UIStroke")
+    cardStroke.Color = Color3.fromRGB(255, 255, 255)
+    cardStroke.Thickness = 1.8
+    cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    cardStroke.Parent = card
+    attachRotatingOutline(cardStroke, 25, 0)
+
+    -- Central Orbital Reactor Core
+    local reactor = Instance.new("Frame")
+    reactor.AnchorPoint = Vector2.new(0.5, 0)
+    reactor.Position = UDim2.new(0.5, 0, 0, 24)
+    reactor.Size = UDim2.fromOffset(70, 70)
+    reactor.BackgroundTransparency = 1
+    reactor.ZIndex = 11
+    reactor.Parent = card
+
+    local ringOuter = Instance.new("Frame")
+    ringOuter.Size = UDim2.new(1, 0, 1, 0)
+    ringOuter.BackgroundTransparency = 1
+    ringOuter.Parent = reactor
+
+    local ringOuterCorner = Instance.new("UICorner")
+    ringOuterCorner.CornerRadius = UDim.new(1, 0)
+    ringOuterCorner.Parent = ringOuter
+
+    local ringOuterStroke = Instance.new("UIStroke")
+    ringOuterStroke.Color = Color3.fromRGB(255, 255, 255)
+    ringOuterStroke.Thickness = 3
+    ringOuterStroke.Parent = ringOuter
+
+    local ringOuterGrad = Instance.new("UIGradient")
+    ringOuterGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 200)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(180, 0, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 200))
+    })
+    ringOuterGrad.Parent = ringOuterStroke
+
+    local ringInner = Instance.new("Frame")
+    ringInner.AnchorPoint = Vector2.new(0.5, 0.5)
+    ringInner.Position = UDim2.new(0.5, 0, 0.5, 0)
+    ringInner.Size = UDim2.fromOffset(48, 48)
+    ringInner.BackgroundTransparency = 1
+    ringInner.Parent = reactor
+
+    local ringInnerCorner = Instance.new("UICorner")
+    ringInnerCorner.CornerRadius = UDim.new(1, 0)
+    ringInnerCorner.Parent = ringInner
+
+    local ringInnerStroke = Instance.new("UIStroke")
+    ringInnerStroke.Color = Color3.fromRGB(255, 255, 255)
+    ringInnerStroke.Thickness = 2.5
+    ringInnerStroke.Parent = ringInner
+
+    local ringInnerGrad = Instance.new("UIGradient")
+    ringInnerGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 150)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 200, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 150))
+    })
+    ringInnerGrad.Parent = ringInnerStroke
+
+    local coreDot = Instance.new("Frame")
+    coreDot.AnchorPoint = Vector2.new(0.5, 0.5)
+    coreDot.Position = UDim2.new(0.5, 0, 0.5, 0)
+    coreDot.Size = UDim2.fromOffset(20, 20)
+    coreDot.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
+    coreDot.BorderSizePixel = 0
+    coreDot.ZIndex = 12
+    coreDot.Parent = reactor
+
+    local coreDotCorner = Instance.new("UICorner")
+    coreDotCorner.CornerRadius = UDim.new(1, 0)
+    coreDotCorner.Parent = coreDot
+
+    -- Title & Subtitle
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.AnchorPoint = Vector2.new(0.5, 0)
+    titleLabel.Position = UDim2.new(0.5, 0, 0, 106)
+    titleLabel.Size = UDim2.new(1, -30, 0, 24)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.Text = "ANTIGRAVITY // COSMIC SYSTEM"
+    titleLabel.TextSize = 16
+    titleLabel.TextColor3 = Color3.fromRGB(245, 249, 255)
+    titleLabel.ZIndex = 11
+    titleLabel.Parent = card
+
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.AnchorPoint = Vector2.new(0.5, 0)
+    statusLabel.Position = UDim2.new(0.5, 0, 0, 134)
+    statusLabel.Size = UDim2.new(1, -30, 0, 18)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Font = Enum.Font.GothamMedium
+    statusLabel.Text = "INITIALIZING QUANTUM CORE..."
+    statusLabel.TextSize = 12
+    statusLabel.TextColor3 = Color3.fromRGB(0, 220, 255)
+    statusLabel.ZIndex = 11
+    statusLabel.Parent = card
+
+    -- Progress Bar Track
+    local progressTrack = Instance.new("Frame")
+    progressTrack.AnchorPoint = Vector2.new(0.5, 0)
+    progressTrack.Position = UDim2.new(0.5, 0, 0, 172)
+    progressTrack.Size = UDim2.new(0.85, 0, 0, 10)
+    progressTrack.BackgroundColor3 = Color3.fromRGB(20, 26, 40)
+    progressTrack.BorderSizePixel = 0
+    progressTrack.ZIndex = 11
+    progressTrack.Parent = card
+
+    local trackCorner = Instance.new("UICorner")
+    trackCorner.CornerRadius = UDim.new(1, 0)
+    trackCorner.Parent = progressTrack
+
+    local progressFill = Instance.new("Frame")
+    progressFill.Size = UDim2.new(0, 0, 1, 0)
+    progressFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    progressFill.BorderSizePixel = 0
+    progressFill.ZIndex = 12
+    progressFill.Parent = progressTrack
+
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(1, 0)
+    fillCorner.Parent = progressFill
+
+    local fillGrad = Instance.new("UIGradient")
+    fillGrad.Color = getThemeColorSequence(uiColorTheme)
+    fillGrad.Parent = progressFill
+    attachRotatingOutline(fillGrad, 30, 0)
+
+    -- Percentage & Details
+    local percentLabel = Instance.new("TextLabel")
+    percentLabel.AnchorPoint = Vector2.new(0.5, 0)
+    percentLabel.Position = UDim2.new(0.5, 0, 0, 192)
+    percentLabel.Size = UDim2.new(1, -30, 0, 22)
+    percentLabel.BackgroundTransparency = 1
+    percentLabel.Font = Enum.Font.GothamBold
+    percentLabel.Text = "0%"
+    percentLabel.TextSize = 15
+    percentLabel.TextColor3 = Color3.fromRGB(245, 249, 255)
+    percentLabel.ZIndex = 11
+    percentLabel.Parent = card
+
+    local detailsLabel = Instance.new("TextLabel")
+    detailsLabel.AnchorPoint = Vector2.new(0.5, 0)
+    detailsLabel.Position = UDim2.new(0.5, 0, 0, 222)
+    detailsLabel.Size = UDim2.new(1, -30, 0, 16)
+    detailsLabel.BackgroundTransparency = 1
+    detailsLabel.Font = Enum.Font.GothamMedium
+    detailsLabel.Text = "Auto Place Towers • Map Override (U-Turn) • Triumph Auto Rejoin"
+    detailsLabel.TextSize = 10
+    detailsLabel.TextColor3 = Color3.fromRGB(130, 145, 170)
+    detailsLabel.ZIndex = 11
+    detailsLabel.Parent = card
+
+    -- Animation Loop for Rotating Rings & Particles
+    local animateLoading = true
+    task.spawn(function()
+        while animateLoading do
+            local now = os.clock()
+            ringOuterGrad.Rotation = (ringOuterGrad.Rotation + 4) % 360
+            ringInnerGrad.Rotation = (ringInnerGrad.Rotation - 6) % 360
+            
+            -- Pulse Core Dot
+            local pulse = (math.sin(now * 6) + 1) / 2
+            coreDot.Size = UDim2.fromOffset(18 + pulse * 6, 18 + pulse * 6)
+            coreDot.BackgroundTransparency = 0.1 * pulse
+            
+            -- Update Star positions
+            for _, s in ipairs(stars) do
+                if s.obj and s.obj.Parent then
+                    local currentPos = s.obj.Position
+                    local newX = (currentPos.X.Scale + s.speedX) % 1
+                    local newY = (currentPos.Y.Scale + s.speedY) % 1
+                    s.obj.Position = UDim2.new(newX, 0, newY, 0)
+                end
+            end
+            
+            task.wait(0.03)
+        end
+    end)
+
+    -- 3.6 SECOND HIGH QUALITY ANIMATED PROGRESSION SEQUENCE
+    local statusSteps = {
+        { pct = 0.15, text = "INITIALIZING COSMIC ARCHITECTURE..." },
+        { pct = 0.35, text = "MAPPING AUTOMATED REJOIN & TRIUMPH HANDLER..." },
+        { pct = 0.60, text = "CONFIGURING MAP OVERRIDE (U-TURN) & BOARD VOTE..." },
+        { pct = 0.85, text = "LOADING DETERMINISTIC AUTO PLACE TOWERS PIPELINE..." },
+        { pct = 1.00, text = "SYSTEM ONLINE // ALL MODULES READY!" }
+    }
+
+    local startTime = os.clock()
+    local targetDuration = 3.6 -- Guaranteed 3.6 second duration
+
+    task.spawn(function()
+        while true do
+            local elapsed = os.clock() - startTime
+            local alpha = math.clamp(elapsed / targetDuration, 0, 1)
+            
+            -- Smooth Easing
+            local easedAlpha = TweenService:GetValue(alpha, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            progressFill.Size = UDim2.new(easedAlpha, 0, 1, 0)
+            percentLabel.Text = string.format("%d%%", math.floor(alpha * 100))
+            
+            -- Update status text step
+            for i = #statusSteps, 1, -1 do
+                if alpha >= statusSteps[i].pct then
+                    statusLabel.Text = statusSteps[i].text
+                    break
+                end
+            end
+            
+            if alpha >= 1 then break end
+            task.wait(0.03)
+        end
+    end)
+
+    -- Run Full-Screen Cosmic Loading Screen Teardown & Menu Reveal Async
+    task.spawn(function()
+        waitForGameLoad()
+        local currentElapsed = os.clock() - startTime
+        if currentElapsed < targetDuration then
+            task.wait(targetDuration - currentElapsed)
+        end
+
+        -- Smooth Teardown Transition (0.4s fade out)
+        animateLoading = false
+        pcall(function()
+            local ts = game:GetService("TweenService")
+            local ti = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+            
+            ts:Create(card, ti, { BackgroundTransparency = 1 }):Play()
+            ts:Create(cardStroke, ti, { Transparency = 1 }):Play()
+            ts:Create(loadingBg, ti, { BackgroundTransparency = 1 }):Play()
+            ts:Create(titleLabel, ti, { TextTransparency = 1 }):Play()
+            ts:Create(statusLabel, ti, { TextTransparency = 1 }):Play()
+            ts:Create(percentLabel, ti, { TextTransparency = 1 }):Play()
+            ts:Create(detailsLabel, ti, { TextTransparency = 1 }):Play()
+            ts:Create(ringOuterStroke, ti, { Transparency = 1 }):Play()
+            ts:Create(ringInnerStroke, ti, { Transparency = 1 }):Play()
+            ts:Create(coreDot, ti, { BackgroundTransparency = 1 }):Play()
+            
+            for _, s in ipairs(stars) do
+                if s.obj then ts:Create(s.obj, ti, { BackgroundTransparency = 1 }):Play() end
+            end
+            
+            task.wait(0.4)
+            loadingGui:Destroy()
+        end)
+        
+        -- Smoothly reveal main menu UI
+        screenGui.Enabled = true
+    end)
+end
+
 pcall(function() game:GetService("StarterGui"):SetCore("SendNotification", { Title = "TDS Test Startup", Text = "GUI Created & Parented Successfully.", Duration = 3 }) end)
 
 local root = Instance.new("Frame")
@@ -3643,71 +3887,9 @@ task.spawn(function()
                     _hasDoneIntermissionLobbySetup = false
                 end
 
-                -- 3. MATCH AUTO-START TRIGGER FOR AUTO PLACE TOWERS & PRE-MATCH ONE-TIME READY
+                -- 3. MATCH AUTO-START TRIGGER FOR AUTO PLACE TOWERS
                 local inMatch = workspace:FindFirstChild("Towers") ~= nil and workspace:FindFirstChild("IntermissionLobby") == nil
                 if inMatch then
-                    if not _hasClickedInMatchReady then
-                        _hasClickedInMatchReady = true
-                        
-                        task.spawn(function()
-                            while true do
-                                local inMatchNow = workspace:FindFirstChild("Towers") ~= nil and workspace:FindFirstChild("IntermissionLobby") == nil
-                                if not inMatchNow then break end
-                                
-                                local pg = getPlayerGui()
-                                local voteUI = pg and pg:FindFirstChild("ReactOverridesVote")
-                                local diffUI = pg and pg:FindFirstChild("ReactGameDifficulty")
-                                
-                                local isVoteVisible = voteUI and voteUI:FindFirstChild("Frame") and voteUI.Frame.Visible
-                                local isDiffVisible = diffUI and diffUI:FindFirstChild("Frame") and diffUI.Frame.Visible
-                                
-                                -- Stop clicking when game UI disappears (game start confirmed)
-                                if (not voteUI or not isVoteVisible) and (not diffUI or not isDiffVisible) then
-                                    break
-                                end
-                                
-                                pcall(function()
-                                    local re = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteEvent")
-                                    if re then
-                                        pcall(function() re:FireServer("Voting", "Ready") end)
-                                    end
-                                    local rf = game:GetService("ReplicatedStorage"):FindFirstChild("RemoteFunction")
-                                    if rf then
-                                        pcall(function() rf:InvokeServer("Voting", "Ready") end)
-                                    end
-                                    
-                                    if voteUI and isVoteVisible then
-                                        local btn = voteUI.Frame:FindFirstChild("votes", true) and voteUI.Frame.votes:FindFirstChild("button", true)
-                                        if btn and btn:IsA("GuiObject") then
-                                            pcall(function()
-                                                local vim = game:GetService("VirtualInputManager")
-                                                local pos = btn.AbsolutePosition
-                                                local size = btn.AbsoluteSize
-                                                local x = pos.X + size.X / 2
-                                                local y = pos.Y + size.Y / 2 + 36
-                                                vim:SendMouseButtonEvent(x, y, 0, true, game, 0)
-                                                task.wait(0.05)
-                                                vim:SendMouseButtonEvent(x, y, 0, false, game, 0)
-                                            end)
-                                        end
-                                    end
-                                    
-                                    if diffUI and isDiffVisible then
-                                        local moltenBtn = diffUI.Frame.buttons.moltenButton.button.content:FindFirstChild("detector")
-                                        if moltenBtn then
-                                            for _, conn in ipairs(getconnections(moltenBtn.Activated)) do conn:Fire() end
-                                        end
-                                        local readyBtn = diffUI.Frame.ready:FindFirstChild("readyButton")
-                                        if readyBtn then
-                                            for _, conn in ipairs(getconnections(readyBtn.Activated)) do conn:Fire() end
-                                        end
-                                    end
-                                end)
-                                task.wait(0.5)
-                            end
-                        end)
-                    end
-
                     if not autoPlaceEnabled and not _lastMatchAutoTriggered then
                         _lastMatchAutoTriggered = true
                         
@@ -3721,7 +3903,7 @@ task.spawn(function()
                         end
                     end
                 else
-                    _hasClickedInMatchReady = false
+                    _hasDoneIntermissionLobbySetup = false
                     _lastMatchAutoTriggered = false
                 end
             end
